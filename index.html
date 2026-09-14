@@ -4,13 +4,33 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=11" />
+  <link rel="stylesheet" href="css/style.css?v=12" />
   <script src="config.js"></script>
 </head>
-<body>
+<body class="page-entry">
+
+  <!-- ============ 平台选择（默认界面） ============ -->
+  <div class="wrap-narrow card tight" id="homeBox">
+    <div class="entry-head" style="margin-bottom:22px">
+      <div class="logo">业</div>
+      <h1>业务网</h1>
+      <p>请选择要进入的平台</p>
+    </div>
+    <div class="choices">
+      <button type="button" class="choice choice-new" id="goNew">
+        <div class="ribbon">推荐</div>
+        <div class="c-title">新平台</div>
+        <div class="c-desc">业务网工作台 · 下单 / 充值 / 审核</div>
+      </button>
+      <button type="button" class="choice choice-old" id="goOld">
+        <div class="c-title">旧平台</div>
+        <div class="c-desc">mirabloom.chuangzaoba.top</div>
+      </button>
+    </div>
+  </div>
 
   <!-- ============ 登录 ============ -->
-  <div class="wrap-narrow card tight" id="loginBox">
+  <div class="wrap-narrow card tight" id="loginBox" style="display:none">
     <div class="entry-head" style="margin-bottom:18px">
       <div class="logo">业</div>
       <h1>业务网</h1>
@@ -54,6 +74,26 @@
       <button class="btn btn-primary btn-block" id="loginAdminBtn">登录</button>
       <div class="msg err" id="loginAdminMsg"></div>
     </div>
+
+    <div class="back-home"><a href="javascript:void(0)" id="backHome">← 返回平台选择</a></div>
+  </div>
+
+  <!-- ============ 旧平台（内嵌） ============ -->
+  <div class="wrap card" id="oldBox" style="display:none">
+    <div class="topbar">
+      <div class="brandmark">
+        <div class="logo">旧</div>
+        <div>
+          <h1 class="title">旧平台</h1>
+          <div class="subtitle">mirabloom.chuangzaoba.top</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost btn-sm" id="oldBack">← 返回平台选择</button>
+        <a class="btn btn-primary btn-sm" href="https://mirabloom.chuangzaoba.top/" target="_blank" rel="noopener">在新标签打开</a>
+      </div>
+    </div>
+    <iframe id="oldFrame" title="旧平台" style="width:100%;height:76vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
   </div>
 
   <!-- ============ 主界面 ============ -->
@@ -480,10 +520,43 @@
       localStorage.removeItem('biz_phone');
       localStorage.removeItem('biz_admin_token');
       PHONE = ''; token = ''; isAdmin = false;
-      $('appBox').style.display = 'none';
-      $('loginBox').style.display = '';
       $('loginPhone').value = ''; $('password').value = '';
+      goHome();
     });
+
+    // ==================== 平台选择（新平台 / 旧平台） ====================
+    const OLD_PLATFORM_URL = 'https://mirabloom.chuangzaoba.top/';
+    function goHome() {
+      $('homeBox').style.display = '';
+      $('loginBox').style.display = 'none';
+      $('appBox').style.display = 'none';
+      $('oldBox').style.display = 'none';
+      $('oldFrame').src = '';
+      document.body.classList.add('page-entry');
+      document.body.classList.remove('page-viewer');
+    }
+    function goLogin() {
+      $('homeBox').style.display = 'none';
+      $('appBox').style.display = 'none';
+      $('oldBox').style.display = 'none';
+      $('oldFrame').src = '';
+      $('loginBox').style.display = '';
+      document.body.classList.remove('page-entry');
+      document.body.classList.remove('page-viewer');
+    }
+    function goOld() {
+      $('homeBox').style.display = 'none';
+      $('loginBox').style.display = 'none';
+      $('appBox').style.display = 'none';
+      $('oldBox').style.display = '';
+      $('oldFrame').src = OLD_PLATFORM_URL;
+      document.body.classList.remove('page-entry');
+      document.body.classList.add('page-viewer');
+    }
+    $('goNew').addEventListener('click', goLogin);
+    $('goOld').addEventListener('click', goOld);
+    $('oldBack').addEventListener('click', goHome);
+    $('backHome').addEventListener('click', goHome);
 
     // ==================== 应用框架 ====================
     const NAV = [
@@ -524,6 +597,11 @@
 
     function showApp() {
       $('loginBox').style.display = 'none';
+      $('homeBox').style.display = 'none';
+      $('oldBox').style.display = 'none';
+      $('oldFrame').src = '';
+      document.body.classList.remove('page-entry');
+      document.body.classList.remove('page-viewer');
       $('appBox').style.display = 'block';
       $('whoami').textContent = isAdmin ? ('管理员：' + PHONE) : ('我的 ID：' + PHONE);
       if (!isAdmin && !$('contact').value) $('contact').value = PHONE;

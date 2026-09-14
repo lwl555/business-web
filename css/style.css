@@ -209,6 +209,11 @@ h1, .title {
   border-color: #e9edf2;
 }
 
+/* 登录页 ← 返回平台选择 */
+.back-home { text-align: center; margin-top: 18px; font-size: 13px; }
+.back-home a { color: var(--muted); text-decoration: none; }
+.back-home a:hover { color: var(--brand); }
+
 /* ---------- 小节标题 ---------- */
 .section-title {
   font-size: 14px;
