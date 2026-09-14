@@ -4,21 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 入口</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=2" />
 </head>
-<body>
+<body class="page-entry">
   <div class="wrap-narrow card">
     <div class="entry-head">
-      <div class="logo" style="margin:0 auto 14px; width:56px; height:56px; font-size:26px;">业</div>
+      <div class="logo">业</div>
       <h1>业务网</h1>
       <p>请选择您要进入的版本</p>
     </div>
 
     <div class="choices">
-      <!-- 第一按钮：全新版 -->
+      <!-- 主推：全新版 -->
       <button class="choice choice-new" id="btnNew">
-        <span class="ribbon">非常推荐</span>
-        <div class="c-title"><span class="c-icon">✨</span> 业务网 · 全新版</div>
+        <span class="ribbon">推荐</span>
+        <div class="c-title">业务网 · 全新版</div>
         <div class="c-desc">更稳定、更省心，当前主推入口。</div>
         <div class="chips">
           <span class="chip">价格低</span>
@@ -27,10 +27,10 @@
         </div>
       </button>
 
-      <!-- 第二按钮：旧版 -->
+      <!-- 旧版 -->
       <button class="choice choice-old" id="btnOld">
         <span class="ribbon">不推荐</span>
-        <div class="c-title"><span class="c-icon">🕓</span> 业务网 · 旧版</div>
+        <div class="c-title">业务网 · 旧版</div>
         <div class="c-desc">即将下线，建议迁移至全新版。</div>
         <div class="chips">
           <span class="chip">稳定性低</span>
@@ -44,10 +44,11 @@
 
   <script>
     document.getElementById('btnNew').addEventListener('click', () => {
-      window.location.href = '/app.html';
+      // 相对路径：兼容 GitHub Pages 项目页子路径
+      window.location.href = 'app.html';
     });
     document.getElementById('btnOld').addEventListener('click', () => {
-      // 在新标签打开旧版站点（保留本站）；如需当前页打开改为 window.location.href = url
+      // 新标签打开旧版站点（保留本站）
       window.open('https://mirabloom.chuangzaoba.top/', '_blank');
     });
   </script>
