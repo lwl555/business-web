@@ -286,6 +286,25 @@ a.thumb:hover { border-color: var(--brand); box-shadow: var(--shadow); }
   padding: 0;
 }
 .thumb-del:hover { background: rgba(15, 23, 42, .88); }
+.thumb-wait { background: #eef1f5; }
+
+/* ---------- 密码显示切换 ---------- */
+.pwd { position: relative; }
+.pwd input { padding-right: 56px; }
+.pwd-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.pwd-toggle:hover { text-decoration: underline; }
 
 /* ---------- 按钮 ---------- */
 .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

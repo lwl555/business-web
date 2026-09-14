@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 全新版</title>
-  <link rel="stylesheet" href="css/style.css?v=4" />
+  <link rel="stylesheet" href="css/style.css?v=5" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -189,7 +189,12 @@
           try { detail = (await r.text()).slice(0, 140); } catch (e) {}
           throw new Error('图片上传失败（' + r.status + '）' + (detail ? '：' + detail : ''));
         }
-        urls.push(window.SUPABASE_URL + '/storage/v1/object/public/' + window.UPLOAD_BUCKET + '/' + path);
+        // 桶已私有：只存相对 path，展示时再向后端换临时链接
+        const j = await r.json().catch(() => ({}));
+        const key = (j && j.Key) ? String(j.Key) : '';
+        const path = key.indexOf('biz-uploads/') === 0 ? key.slice('biz-uploads/'.length) : '';
+        if (!path) throw new Error('图片上传返回异常，请重试');
+        urls.push(path);
       }
       return urls;
     }
@@ -237,6 +242,32 @@
       }
     });
 
+    // ---------- 私有图片：按需换取临时链接并缓存（避免轮询时反复重载） ----------
+    const signedCache = {};                 // path -> { url, exp }
+
+    function signedUrl(p) {
+      const c = signedCache[p];
+      return (c && c.exp > Date.now()) ? c.url : '';
+    }
+
+    async function ensureSigned(tasks) {
+      const need = [];
+      (tasks || []).forEach(t => {
+        (Array.isArray(t.images) ? t.images : []).forEach(p => {
+          const c = signedCache[p];
+          if (!c || c.exp < Date.now() + 60000) need.push(p);
+        });
+      });
+      const uniq = Array.from(new Set(need));
+      if (!uniq.length) return;
+      const res = await api('image/sign', { uid, paths: uniq });
+      if (res.ok && res.urls) {
+        Object.keys(res.urls).forEach(p => {
+          signedCache[p] = { url: res.urls[p], exp: Date.now() + 50 * 60 * 1000 };
+        });
+      }
+    }
+
     function badge(status) {
       return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>';
     }
@@ -255,9 +286,12 @@
         const note = t.progress_note ? '<div class="note">管理员备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         const imgs = Array.isArray(t.images) ? t.images : [];
         const imgHtml = imgs.length
-          ? '<div class="thumbs">' + imgs.map(u =>
-              '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>'
-            ).join('') + '</div>'
+          ? '<div class="thumbs">' + imgs.map(p => {
+              const u = signedUrl(p);
+              return u
+                ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>'
+                : '<div class="thumb thumb-wait"></div>';
+            }).join('') + '</div>'
           : '';
         return '<div class="task">' +
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
@@ -280,8 +314,12 @@
 
     async function loadTasks() {
       const res = await api('tasks', { uid });
-      if (res.ok) renderTasks(res.tasks);
-      else document.getElementById('taskList').innerHTML = '<div class="empty">加载失败</div>';
+      if (res.ok) {
+        await ensureSigned(res.tasks);
+        renderTasks(res.tasks);
+      } else {
+        document.getElementById('taskList').innerHTML = '<div class="empty">加载失败</div>';
+      }
     }
 
     function escapeHtml(s) {

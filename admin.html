@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css?v=4" />
+  <link rel="stylesheet" href="css/style.css?v=5" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -17,11 +17,14 @@
     </div>
     <div class="field">
       <label>账号</label>
-      <input id="username" placeholder="admin" />
+      <input id="username" value="admin" placeholder="admin" />
     </div>
     <div class="field">
       <label>密码</label>
-      <input id="password" type="password" placeholder="******" />
+      <div class="pwd">
+        <input id="password" type="password" placeholder="******" />
+        <button type="button" id="pwdToggle" class="pwd-toggle">显示</button>
+      </div>
     </div>
     <button class="btn btn-primary btn-block" id="loginBtn">登录</button>
     <div id="loginMsg" class="msg err"></div>
@@ -87,6 +90,30 @@
       return r.json();
     }
 
+    // ---------- 私有图片：按需换取临时链接并缓存 ----------
+    const signedCache = {};                 // path -> { url, exp }
+    function signedUrl(p) {
+      const c = signedCache[p];
+      return (c && c.exp > Date.now()) ? c.url : '';
+    }
+    async function ensureSigned(tasks) {
+      const need = [];
+      (tasks || []).forEach(t => {
+        (Array.isArray(t.images) ? t.images : []).forEach(p => {
+          const c = signedCache[p];
+          if (!c || c.exp < Date.now() + 60000) need.push(p);
+        });
+      });
+      const uniq = Array.from(new Set(need));
+      if (!uniq.length) return;
+      const res = await api('image/sign', { paths: uniq }, true);
+      if (res.ok && res.urls) {
+        Object.keys(res.urls).forEach(p => {
+          signedCache[p] = { url: res.urls[p], exp: Date.now() + 50 * 60 * 1000 };
+        });
+      }
+    }
+
     function badge(status) {
       return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>';
     }
@@ -96,11 +123,18 @@
     function fmtTime(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
     function moneyText(v) { return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v)); }
 
+    document.getElementById('pwdToggle').addEventListener('click', () => {
+      const el = document.getElementById('password');
+      const show = el.type === 'password';
+      el.type = show ? 'text' : 'password';
+      document.getElementById('pwdToggle').textContent = show ? '隐藏' : '显示';
+    });
+
     document.getElementById('loginBtn').addEventListener('click', async () => {
       const msg = document.getElementById('loginMsg');
       msg.textContent = '';
       const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
+      const password = document.getElementById('password').value.trim();
       const res = await api('login', { username, password });
       if (res.ok) {
         token = res.token;
@@ -176,9 +210,12 @@
         const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         const imgs = Array.isArray(t.images) ? t.images : [];
         const imgHtml = imgs.length
-          ? '<div class="thumbs">' + imgs.map(u =>
-              '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>'
-            ).join('') + '</div>'
+          ? '<div class="thumbs">' + imgs.map(p => {
+              const u = signedUrl(p);
+              return u
+                ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>'
+                : '<div class="thumb thumb-wait"></div>';
+            }).join('') + '</div>'
           : '';
         const amountRow = '<div class="actions">' +
           '<input id="amt-' + t.id + '" type="number" min="0" class="num" placeholder="改金额（留空=待评估）" style="width:190px">' +
@@ -225,7 +262,10 @@
       const res = await api('admin/tasks', {}, true);
       if (res.ok) {
         renderStats(res.tasks);
-        if (currentTab !== 'rates') renderTasks(filterTasks(res.tasks));
+        if (currentTab !== 'rates') {
+          await ensureSigned(res.tasks);
+          renderTasks(filterTasks(res.tasks));
+        }
       } else {
         document.getElementById('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>';
         token = ''; localStorage.removeItem('biz_admin_token');
