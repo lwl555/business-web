@@ -150,14 +150,14 @@
             '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">确认充值完成</button>' +
             '<button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝</button>';
         }
-        const note = t.progressNote ? '<div class="note">备注：' + escapeHtml(t.progressNote) + '</div>' : '';
+        const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         const progInput = '<div class="actions">' +
           '<input id="pn-' + t.id + '" placeholder="填写进度备注…" style="flex:1; padding:9px 12px">' +
           '<button class="btn btn-ghost btn-sm" onclick="setProgress(\'' + t.id + '\')">保存备注</button></div>';
         return '<div class="task">' +
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
-          (t.desc ? '<div class="t-desc">' + escapeHtml(t.desc) + '</div>' : '') +
+          (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           '<div class="t-meta">用户：' + t.uid + ' ｜ 金额：¥' + (t.amount || 0) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note + progInput +
