@@ -113,7 +113,7 @@
     <div id="payPanel" style="display:none">
       <div class="section-title">充值申请</div>
       <div class="t-meta" style="margin-bottom:12px">
-        用户提交充值申请后在此确认到账。通过后按其积分数给账户加积分（1 元 = 多少积分可在「金额规则」页调整）。
+        用户扫码付款并上传截图 &amp; 支付宝账号后，在此核对截图与账号，确认无误即到账。通过后按其积分数给账户加积分（1 元 = 多少积分可在「金额规则」页调整）。
       </div>
       <div id="payList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
@@ -153,6 +153,22 @@
           const c = signedCache[p];
           if (!c || c.exp < Date.now() + 60000) need.push(p);
         });
+      });
+      const uniq = Array.from(new Set(need));
+      if (!uniq.length) return;
+      const res = await api('image/sign', { paths: uniq }, true);
+      if (res.ok && res.urls) {
+        Object.keys(res.urls).forEach(p => {
+          signedCache[p] = { url: res.urls[p], exp: Date.now() + 50 * 60 * 1000 };
+        });
+      }
+    }
+
+    // 充值截图等散列路径也可复用同一签名缓存
+    async function ensureSignedPaths(paths) {
+      const need = (paths || []).filter(p => {
+        const c = signedCache[p];
+        return !c || c.exp < Date.now() + 60000;
       });
       const uniq = Array.from(new Set(need));
       if (!uniq.length) return;
@@ -340,7 +356,7 @@
     }
 
     // ---------- 充值审核 ----------
-    const RC_STATUS = { pending: '待确认', approved: '已到账', rejected: '已拒绝' };
+    const RC_STATUS = { pending: '待核对', approved: '已到账', rejected: '已拒绝' };
 
     async function loadRecharges() {
       const box = document.getElementById('payList');
@@ -348,8 +364,17 @@
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
       const list = res.recharges || [];
       if (!list.length) { box.innerHTML = '<div class="empty">还没有充值申请</div>'; return; }
+      await ensureSignedPaths(list.map(r => r.proof).filter(Boolean));
       box.innerHTML = list.map(r => {
         const cls = r.status === 'approved' ? 'b-completed' : r.status === 'rejected' ? 'b-rejected' : 'b-pending_review';
+        const proofHtml = r.proof
+          ? (() => {
+              const u = signedUrl(r.proof);
+              return u
+                ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="付款截图" /></a>'
+                : '<div class="thumb thumb-wait"></div>';
+            })()
+          : '<span class="t-meta">未上传截图</span>';
         const actions = r.status === 'pending'
           ? '<div class="actions">' +
               '<button class="btn btn-green btn-sm" onclick="payReview(\'' + r.id + '\',\'approve\')">确认到账</button>' +
@@ -359,6 +384,8 @@
         return '<div class="task">' +
           '<div class="t-head"><span class="badge ' + cls + '">' + (RC_STATUS[r.status] || r.status) + '</span><span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
           '<div class="t-type">用户 ID：' + escapeHtml(r.phone) + ' ｜ 充值 ¥' + Number(r.amount) + ' → ' + Number(r.points) + ' 积分</div>' +
+          (r.pay_account ? '<div class="t-meta">付款账号：' + escapeHtml(r.pay_account) + '</div>' : '') +
+          (r.proof ? '<div class="thumbs">' + proofHtml + '</div>' : '<div>' + proofHtml + '</div>') +
           (r.note ? '<div class="t-meta">备注：' + escapeHtml(r.note) + '</div>' : '') +
           actions +
         '</div>';
