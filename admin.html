@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
+  <link rel="stylesheet" href="css/style.css?v=8" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -47,9 +47,10 @@
     <div class="stats" id="stats"></div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="review">一审 · 待审核</div>
-      <div class="tab" data-tab="recharge">二审 · 待确认</div>
+      <div class="tab active" data-tab="review">待审核</div>
+      <div class="tab" data-tab="doing">待完成</div>
       <div class="tab" data-tab="all">全部任务</div>
+      <div class="tab" data-tab="pay">充值审核</div>
       <div class="tab" data-tab="rates">金额规则</div>
       <div class="tab" data-tab="announce">公告</div>
     </div>
@@ -108,13 +109,20 @@
       <div class="section-title">已发布的公告</div>
       <div id="annList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
+
+    <div id="payPanel" style="display:none">
+      <div class="section-title">充值申请</div>
+      <div class="t-meta" style="margin-bottom:12px">
+        用户提交充值申请后在此确认到账。通过后按其积分数给账户加积分（1 元 = 多少积分可在「金额规则」页调整）。
+      </div>
+      <div id="payList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
   </div>
 
   <script>
     const STATUS_TEXT = {
       pending_review: '待审核',
-      approved: '已通过 · 待充值',
-      recharge_pending: '已充值 · 待确认',
+      approved: '已受理',
       completed: '已完成',
       rejected: '已拒绝'
     };
@@ -207,6 +215,7 @@
         currentTab = t.dataset.tab;
         if (currentTab === 'rates') showPanel('rates');
         else if (currentTab === 'announce') showPanel('announce');
+        else if (currentTab === 'pay') showPanel('pay');
         else { showPanel('tasks'); loadTasks(); }
       });
     });
@@ -216,8 +225,10 @@
       document.getElementById('list').style.display = (name === 'tasks') ? '' : 'none';
       document.getElementById('ratePanel').style.display = (name === 'rates') ? 'block' : 'none';
       document.getElementById('annPanel').style.display = (name === 'announce') ? 'block' : 'none';
+      document.getElementById('payPanel').style.display = (name === 'pay') ? 'block' : 'none';
       if (name === 'rates') { loadRates(); loadSettings(); }
       if (name === 'announce') loadAnnouncements();
+      if (name === 'pay') loadRecharges();
     }
 
     // ---------- 积分设置 ----------
@@ -328,6 +339,38 @@
       if (res.ok) loadAnnouncements(); else alert(res.msg || '删除失败');
     }
 
+    // ---------- 充值审核 ----------
+    const RC_STATUS = { pending: '待确认', approved: '已到账', rejected: '已拒绝' };
+
+    async function loadRecharges() {
+      const box = document.getElementById('payList');
+      const res = await api('admin/recharges', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      const list = res.recharges || [];
+      if (!list.length) { box.innerHTML = '<div class="empty">还没有充值申请</div>'; return; }
+      box.innerHTML = list.map(r => {
+        const cls = r.status === 'approved' ? 'b-completed' : r.status === 'rejected' ? 'b-rejected' : 'b-pending_review';
+        const actions = r.status === 'pending'
+          ? '<div class="actions">' +
+              '<button class="btn btn-green btn-sm" onclick="payReview(\'' + r.id + '\',\'approve\')">确认到账</button>' +
+              '<button class="btn btn-red btn-sm" onclick="payReview(\'' + r.id + '\',\'reject\')">拒绝</button>' +
+            '</div>'
+          : '';
+        return '<div class="task">' +
+          '<div class="t-head"><span class="badge ' + cls + '">' + (RC_STATUS[r.status] || r.status) + '</span><span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
+          '<div class="t-type">用户 ID：' + escapeHtml(r.phone) + ' ｜ 充值 ¥' + Number(r.amount) + ' → ' + Number(r.points) + ' 积分</div>' +
+          (r.note ? '<div class="t-meta">备注：' + escapeHtml(r.note) + '</div>' : '') +
+          actions +
+        '</div>';
+      }).join('');
+    }
+
+    async function payReview(id, action) {
+      if (action === 'reject' && !confirm('确认拒绝这笔充值申请？')) return;
+      const res = await api('admin/recharge/review', { id, action }, true);
+      if (res.ok) loadRecharges(); else alert(res.msg || '操作失败');
+    }
+
     function showDash(username) {
       document.getElementById('loginBox').style.display = 'none';
       document.getElementById('dash').style.display = 'block';
@@ -337,16 +380,16 @@
 
     function filterTasks(tasks) {
       if (currentTab === 'review') return tasks.filter(t => t.status === 'pending_review');
-      if (currentTab === 'recharge') return tasks.filter(t => t.status === 'recharge_pending');
+      if (currentTab === 'doing') return tasks.filter(t => t.status === 'approved');
       return tasks;
     }
 
     function renderStats(tasks) {
-      const c = { pending_review: 0, recharge_pending: 0, completed: 0 };
+      const c = { pending_review: 0, approved: 0, completed: 0 };
       tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; });
       document.getElementById('stats').innerHTML =
-        '<div class="stat"><div class="s-num warn">' + c.pending_review + '</div><div class="s-lbl">待一审</div></div>' +
-        '<div class="stat"><div class="s-num brand">' + c.recharge_pending + '</div><div class="s-lbl">待二审</div></div>' +
+        '<div class="stat"><div class="s-num warn">' + c.pending_review + '</div><div class="s-lbl">待审核</div></div>' +
+        '<div class="stat"><div class="s-num brand">' + c.approved + '</div><div class="s-lbl">待完成</div></div>' +
         '<div class="stat"><div class="s-num ok">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
     }
 
@@ -359,10 +402,10 @@
           actions =
             '<button class="btn btn-green btn-sm" onclick="review(\'' + t.id + '\',\'approve\')">一审通过</button>' +
             '<button class="btn btn-red btn-sm" onclick="review(\'' + t.id + '\',\'reject\')">拒绝</button>';
-        } else if (t.status === 'recharge_pending') {
+        } else if (t.status === 'approved') {
           actions =
-            '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">确认充值完成</button>' +
-            '<button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝</button>';
+            '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">标记完成</button>' +
+            '<button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝（退积分）</button>';
         }
         const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         const imgs = Array.isArray(t.images) ? t.images : [];
@@ -386,7 +429,7 @@
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           imgHtml +
           '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' +
-          '<div class="t-meta">预估资金：' + moneyText(t.amount) + moneyExtra(t) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
+          '<div class="t-meta">费用：' + moneyText(t.amount) + ' ｜ 已付积分：' + Number(t.points_paid || 0) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note + amountRow + progInput +
           (actions ? '<div class="actions">' + actions + '</div>' : '') +
@@ -419,7 +462,7 @@
       const res = await api('admin/tasks', {}, true);
       if (res.ok) {
         renderStats(res.tasks);
-        if (currentTab !== 'rates' && currentTab !== 'announce') {
+        if (currentTab !== 'rates' && currentTab !== 'announce' && currentTab !== 'pay') {
           await ensureSigned(res.tasks);
           renderTasks(filterTasks(res.tasks));
         }
