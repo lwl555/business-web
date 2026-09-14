@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=12" />
+  <link rel="stylesheet" href="css/style.css?v=13" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -110,6 +110,8 @@
         <button class="btn btn-ghost btn-sm" id="logoutBtn">退出</button>
       </div>
     </div>
+
+    <button type="button" class="cs-fab" id="csFab" style="display:none">联系客服</button>
 
     <!-- 主导航 -->
     <div class="nav" id="nav"></div>
@@ -232,6 +234,17 @@
       <div id="msgList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
+    <!-- ---------- 在线客服（用户端） ---------- -->
+    <div class="view" id="view-chat" style="display:none">
+      <div class="section-title">在线客服</div>
+      <div class="t-meta" style="margin-bottom:12px">有问题随时联系客服，客服回复会实时显示在这里。</div>
+      <div class="chat-box" id="chatBox"><div class="loading">加载中…</div></div>
+      <div class="chat-input">
+        <input id="chatInput" placeholder="输入消息，按回车发送…" />
+        <button class="btn btn-primary btn-sm" id="chatSendBtn">发送</button>
+      </div>
+    </div>
+
     <!-- ---------- 用户管理（管理员） ---------- -->
     <div class="view" id="view-users" style="display:none">
       <div class="section-title">用户管理</div>
@@ -247,6 +260,31 @@
           <span>手机号</span><span>积分</span><span>任务数</span><span>到账充值</span><span>注册时间</span><span>最近登录</span><span>操作</span>
         </div>
         <div id="userList"><div class="loading">加载中…</div></div>
+      </div>
+    </div>
+
+    <!-- ---------- 客服消息（管理员） ---------- -->
+    <div class="view" id="view-cs" style="display:none">
+      <div class="section-title">客服消息</div>
+      <div class="t-meta" style="margin-bottom:12px">左侧选择用户会话，右侧回复。可直接点预设文字填入回复框。</div>
+      <div class="cs-grid">
+        <div class="cs-convs">
+          <div id="convList" class="task-list"><div class="loading">加载中…</div></div>
+        </div>
+        <div class="cs-panel">
+          <div class="t-meta" id="csWho" style="margin-bottom:8px">未选择会话</div>
+          <div class="chat-box" id="csBox"><div class="empty">请从左侧选择一个用户会话</div></div>
+          <div class="preset-chips" id="presetChips"><span class="t-meta">预设文字加载中…</span></div>
+          <div class="chat-input">
+            <input id="csReply" placeholder="输入回复内容，按回车发送…" />
+            <button class="btn btn-primary btn-sm" id="csSendBtn">发送</button>
+          </div>
+          <div class="preset-manage">
+            <input id="csNewPreset" class="grow" placeholder="新增一条预设文字…" />
+            <button class="btn btn-ghost btn-sm" id="csAddPresetBtn">加为预设</button>
+          </div>
+          <div id="csPresetList" class="preset-manage-list"></div>
+        </div>
       </div>
     </div>
 
@@ -427,6 +465,8 @@
     let ADMIN_TASKS = [];
     let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
     let MSG_UNREAD = 0;
+    let CHAT_UNREAD = 0;
+    let CS_UNREAD = 0;
     let picked = [];
     let rcPicked = null;
     const signedCache = {};
@@ -561,18 +601,29 @@
     // ==================== 应用框架 ====================
     const NAV = [
       { id: 'work', label: '工作台', roles: ['user', 'admin'] },
+      { id: 'chat', label: '在线客服', roles: ['user'] },
       { id: 'messages', label: '消息', roles: ['user'] },
       { id: 'users', label: '用户管理', roles: ['admin'] },
+      { id: 'cs', label: '客服消息', roles: ['admin'] },
       { id: 'pay', label: '充值审核', roles: ['admin'] },
       { id: 'tasks', label: '任务审核', roles: ['admin'] },
       { id: 'rules', label: '金额规则', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
     ];
+    const VIEW_IDS = ['work', 'users', 'pay', 'tasks', 'rules', 'ann', 'messages', 'chat', 'cs'];
+
+    function navBadge(id) {
+      if (id === 'messages') return MSG_UNREAD;
+      if (id === 'chat') return CHAT_UNREAD;
+      if (id === 'cs') return CS_UNREAD;
+      return 0;
+    }
 
     function renderNav() {
       const box = $('nav');
       box.innerHTML = NAV.filter(n => n.roles.includes(isAdmin ? 'admin' : 'user')).map(n => {
-        const label = (n.id === 'messages' && MSG_UNREAD > 0) ? (n.label + ' (' + MSG_UNREAD + ')') : n.label;
+        const b = navBadge(n.id);
+        const label = b > 0 ? (n.label + ' (' + b + ')') : n.label;
         return '<div class="nav-item' + (n.id === currentView ? ' active' : '') + '" data-view="' + n.id + '">' + label + '</div>';
       }).join('');
       box.querySelectorAll('.nav-item').forEach(el => {
@@ -582,13 +633,16 @@
 
     function switchView(v) {
       currentView = v;
-      ['work', 'users', 'pay', 'tasks', 'rules', 'ann', 'messages'].forEach(id => {
-        $('view-' + id).style.display = (id === v) ? '' : 'none';
+      VIEW_IDS.forEach(id => {
+        const el = $('view-' + id);
+        if (el) el.style.display = (id === v) ? '' : 'none';
       });
       renderNav();
       if (v === 'work') { loadRates(); loadPoints(); loadAnnouncements(); loadTasks(); }
+      else if (v === 'chat') loadChat();
       else if (v === 'messages') loadMessages();
       else if (v === 'users') loadUsers();
+      else if (v === 'cs') loadConversations();
       else if (v === 'pay') loadRecharges();
       else if (v === 'tasks') loadAdminTasks();
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
@@ -607,7 +661,9 @@
       if (!isAdmin && !$('contact').value) $('contact').value = PHONE;
       currentView = 'work';
       switchView('work');
-      if (!isAdmin) loadUnread();
+      $('csFab').style.display = isAdmin ? 'none' : 'block';
+      if (!isAdmin) { loadUnread(); loadChatUnread(); }
+      else { loadConversations(); loadPresets(); }
     }
 
     // ==================== 积分 / 签到 ====================
@@ -986,6 +1042,127 @@
       if (res.ok) { MSG_UNREAD = res.unread || 0; renderNav(); }
     }
 
+    // ==================== 客服聊天：气泡渲染（用户 / 管理员共用） ====================
+    function renderChat(box, msgs, meRole) {
+      if (!msgs.length) { box.innerHTML = '<div class="empty">还没有消息，发一条试试～</div>'; return; }
+      box.innerHTML = msgs.map(m => {
+        const mine = m.role === meRole;
+        return '<div class="chat-row ' + (mine ? 'me' : 'them') + '">' +
+          '<div class="chat-bubble">' + escapeHtml(m.content) + '</div>' +
+          '<div class="chat-time">' + (m.role === 'admin' ? '客服 · ' : '我 · ') + fmtTime(m.created_at) + '</div>' +
+        '</div>';
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // ==================== 用户端在线客服 ====================
+    async function loadChat() {
+      const res = await api('user/chat/list', { phone: PHONE });
+      if (!res.ok) { $('chatBox').innerHTML = '<div class="empty">加载失败</div>'; return; }
+      CHAT_UNREAD = 0; renderNav();
+      renderChat($('chatBox'), res.messages || [], 'user');
+    }
+    async function sendChat() {
+      const input = $('chatInput');
+      const content = input.value.trim();
+      if (!content) return;
+      const btn = $('chatSendBtn'); btn.disabled = true;
+      const res = await api('user/chat/send', { phone: PHONE, content });
+      btn.disabled = false;
+      if (res.ok) { input.value = ''; loadChat(); }
+      else alert(res.msg || '发送失败');
+    }
+    $('chatSendBtn').addEventListener('click', sendChat);
+    $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+    async function loadChatUnread() {
+      if (isAdmin || !PHONE) return;
+      const res = await api('user/chat/unread', { phone: PHONE });
+      if (res.ok) {
+        CHAT_UNREAD = res.unread || 0; renderNav();
+        const fab = $('csFab');
+        if (fab) fab.textContent = CHAT_UNREAD > 0 ? ('联系客服 (' + CHAT_UNREAD + ')') : '联系客服';
+      }
+    }
+    $('csFab').addEventListener('click', () => switchView('chat'));
+
+    // ==================== 管理端客服消息 ====================
+    let CS_PHONE = '';
+    async function loadConversations() {
+      const res = await api('admin/chat/conversations', {}, true);
+      const box = $('convList');
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      CS_UNREAD = res.unreadTotal || 0; renderNav();
+      const list = res.conversations || [];
+      if (!list.length) { box.innerHTML = '<div class="empty">还没有用户会话</div>'; return; }
+      box.innerHTML = list.map(c =>
+        '<div class="conv' + (c.phone === CS_PHONE ? ' active' : '') + '" onclick="openConv(\'' + escapeHtml(c.phone) + '\')">' +
+          '<div class="conv-top"><span class="conv-phone">' + escapeHtml(c.phone) + '</span>' +
+          (c.unread > 0 ? '<span class="conv-dot">' + c.unread + '</span>' : '') + '</div>' +
+          '<div class="conv-last">' + (c.last_role === 'admin' ? '我：' : '') + escapeHtml(c.last) + '</div>' +
+          '<div class="conv-time">' + fmtTime(c.last_at) + '</div>' +
+        '</div>'
+      ).join('');
+    }
+    async function openConv(phone) {
+      CS_PHONE = phone;
+      $('csWho').textContent = '当前会话：' + phone;
+      $('csBox').innerHTML = '<div class="loading">加载中…</div>';
+      const res = await api('admin/chat/list', { phone }, true);
+      if (!res.ok) { $('csBox').innerHTML = '<div class="empty">加载失败</div>'; return; }
+      renderChat($('csBox'), res.messages || [], 'admin');
+      loadConversations();
+    }
+    async function refreshCsMsgs() {
+      if (!CS_PHONE) return;
+      const res = await api('admin/chat/list', { phone: CS_PHONE }, true);
+      if (res.ok) renderChat($('csBox'), res.messages || [], 'admin');
+    }
+    async function sendCsReply() {
+      if (!CS_PHONE) { alert('请先选择一个用户会话'); return; }
+      const input = $('csReply');
+      const content = input.value.trim();
+      if (!content) return;
+      const btn = $('csSendBtn'); btn.disabled = true;
+      const res = await api('admin/chat/send', { phone: CS_PHONE, content }, true);
+      btn.disabled = false;
+      if (res.ok) { input.value = ''; refreshCsMsgs(); loadConversations(); }
+      else alert(res.msg || '发送失败');
+    }
+    $('csSendBtn').addEventListener('click', sendCsReply);
+    $('csReply').addEventListener('keydown', e => { if (e.key === 'Enter') sendCsReply(); });
+
+    async function loadPresets() {
+      const res = await api('admin/chat/presets', {}, true);
+      const chips = $('presetChips');
+      if (!res.ok) { chips.innerHTML = ''; return; }
+      const list = res.presets || [];
+      chips.innerHTML = '<span class="t-meta">预设：</span>' + list.map(p =>
+        '<span class="preset-chip" data-preset="' + escapeHtml(p.content) + '">' + escapeHtml(p.content) +
+        '<i class="preset-del" data-id="' + p.id + '" title="删除">×</i></span>'
+      ).join('');
+      chips.querySelectorAll('.preset-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          if (e.target.classList.contains('preset-del')) return;
+          const inp = $('csReply'); inp.value = chip.dataset.preset; inp.focus();
+        });
+      });
+      chips.querySelectorAll('.preset-del').forEach(x => {
+        x.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('删除这条预设文字？')) return;
+          const r = await api('admin/chat/preset/delete', { id: x.dataset.id }, true);
+          if (r.ok) loadPresets(); else alert(r.msg || '删除失败');
+        });
+      });
+    }
+    $('csAddPresetBtn').addEventListener('click', async () => {
+      const inp = $('csNewPreset');
+      const content = inp.value.trim();
+      if (!content) { alert('请输入预设内容'); return; }
+      const res = await api('admin/chat/preset/save', { content }, true);
+      if (res.ok) { inp.value = ''; loadPresets(); } else alert(res.msg || '保存失败');
+    });
+
     // ==================== 充值审核（管理员） ====================
     async function loadRecharges() {
       const box = $('payList');
@@ -1192,12 +1369,15 @@
 
     setInterval(() => {
       if ($('appBox').style.display === 'none') return;
-      if (!isAdmin) loadUnread();
+      if (!isAdmin) { loadUnread(); loadChatUnread(); }
+      else loadConversations();
       if (currentView === 'work') loadTasks();
       else if (currentView === 'tasks') loadAdminTasks();
       else if (currentView === 'pay') loadRecharges();
       else if (currentView === 'users') loadUsers();
       else if (currentView === 'messages') loadMessages();
+      else if (currentView === 'chat') loadChat();
+      else if (currentView === 'cs') refreshCsMsgs();
     }, 12000);
   </script>
 </body>
