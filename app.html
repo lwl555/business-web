@@ -107,11 +107,11 @@
         const rechargeBtn = canRecharge
           ? '<button class="btn btn-green btn-sm" onclick="markRecharge(\'' + t.id + '\')">我已充值</button>'
           : '';
-        const note = t.progressNote ? '<div class="note">管理员备注：' + escapeHtml(t.progressNote) + '</div>' : '';
+        const note = t.progress_note ? '<div class="note">管理员备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         return '<div class="task">' +
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
-          (t.desc ? '<div class="t-desc">' + escapeHtml(t.desc) + '</div>' : '') +
+          (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           '<div class="t-meta">金额：¥' + (t.amount || 0) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note +
