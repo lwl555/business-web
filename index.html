@@ -3,93 +3,951 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>业务网 · 入口</title>
-  <link rel="stylesheet" href="css/style.css?v=8" />
+  <title>业务网 · 统一工作台</title>
+  <link rel="stylesheet" href="css/style.css?v=9" />
+  <script src="config.js"></script>
 </head>
-<body class="page-entry">
+<body>
 
-  <!-- 入口：两个按钮 -->
-  <div class="wrap-narrow card" id="entry">
-    <div class="entry-head">
+  <!-- ============ 登录 ============ -->
+  <div class="wrap-narrow card tight" id="loginBox">
+    <div class="entry-head" style="margin-bottom:18px">
       <div class="logo">业</div>
       <h1>业务网</h1>
-      <p>请选择您要进入的版本</p>
+      <p>手机号登录使用，管理员请切到账号登录</p>
     </div>
 
-    <div class="choices">
-      <!-- 主推：全新版 -->
-      <button class="choice choice-new" id="btnNew">
-        <span class="ribbon">推荐</span>
-        <div class="c-title">业务网 · 全新版</div>
-        <div class="c-desc">更稳定、更省心，当前主推入口。</div>
-        <div class="chips">
-          <span class="chip">价格低</span>
-          <span class="chip">稳定性好</span>
-          <span class="chip">售后优质</span>
-        </div>
-      </button>
-
-      <!-- 旧版 -->
-      <button class="choice choice-old" id="btnOld">
-        <span class="ribbon">不推荐</span>
-        <div class="c-title">业务网 · 旧版</div>
-        <div class="c-desc">即将下线，建议迁移至全新版。</div>
-        <div class="chips">
-          <span class="chip">稳定性低</span>
-          <span class="chip">售后低</span>
-        </div>
-      </button>
+    <div class="tabs login-tabs">
+      <div class="tab active" data-mode="user">用户登录</div>
+      <div class="tab" data-mode="admin">管理员登录</div>
     </div>
 
-    <div class="foot">© 业务网 · 全新版为当前主推入口</div>
+    <!-- 用户登录 -->
+    <div id="loginUser">
+      <div class="field">
+        <label>手机号</label>
+        <input id="loginPhone" inputmode="numeric" autocomplete="tel" placeholder="11 位手机号" />
+      </div>
+      <button class="btn btn-primary btn-block" id="loginUserBtn">登录 / 注册</button>
+      <div class="msg err" id="loginUserMsg"></div>
+    </div>
+
+    <!-- 管理员登录 -->
+    <div id="loginAdmin" style="display:none">
+      <div class="field">
+        <label>账号</label>
+        <input id="username" value="18882632073" placeholder="管理员账号" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <div class="pwd">
+          <input id="password" type="password" placeholder="******" />
+          <button type="button" id="pwdToggle" class="pwd-toggle">显示</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="loginAdminBtn">登录</button>
+      <div class="msg err" id="loginAdminMsg"></div>
+    </div>
   </div>
 
-  <!-- 当前页内嵌显示旧版 -->
-  <div class="wrap card" id="viewer" style="display:none">
+  <!-- ============ 主界面 ============ -->
+  <div class="wrap card" id="appBox" style="display:none">
     <div class="topbar">
       <div class="brandmark">
-        <div class="logo">旧</div>
+        <div class="logo">业</div>
         <div>
-          <h1 class="title">业务网 · 旧版</h1>
-          <div class="subtitle">mirabloom.chuangzaoba.top</div>
+          <h1 class="title">业务网</h1>
+          <div class="subtitle" id="whoami">--</div>
         </div>
       </div>
       <div class="actions">
-        <a class="btn btn-ghost btn-sm" href="https://mirabloom.chuangzaoba.top/" target="_blank" rel="noopener">在新标签打开</a>
-        <button class="btn btn-primary btn-sm" id="backBtn">返回入口</button>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">退出</button>
       </div>
     </div>
 
-    <div class="frame-wrap">
-      <iframe id="oldFrame" src="about:blank" title="旧版业务网"></iframe>
+    <!-- 主导航 -->
+    <div class="nav" id="nav"></div>
+
+    <!-- ---------- 工作台（用户端 / 管理员也能用） ---------- -->
+    <div class="view" id="view-work">
+      <div class="ann-list" id="annList" style="display:none"></div>
+
+      <div class="points-bar">
+        <div class="pb-left">
+          <span class="pb-num" id="myPoints">0</span>
+          <span class="pb-lbl">我的积分（≈ ¥<span id="pointsYuan">0</span>）</span>
+        </div>
+        <div class="pb-right">
+          <span class="t-meta" id="streakTip"></span>
+          <button class="btn btn-ghost btn-sm" id="checkinBtn">签到</button>
+          <button class="btn btn-primary btn-sm" id="rechargeBtn">充值</button>
+        </div>
+      </div>
+
+      <div class="recharge-box" id="rechargeBox" style="display:none">
+        <div class="section-title">账户充值</div>
+        <div class="pay-steps">
+          <div class="pay-step">
+            <span class="step-no">1</span>
+            <div class="step-body">
+              <div class="step-title">用支付宝扫码付款</div>
+              <div class="t-meta">长按下方二维码识别，或在支付宝里「扫一扫」扫码，付款金额填你要充的值。</div>
+              <img class="qr-img" src="img/alipay-qr.jpg" alt="支付宝收款码" />
+              <div class="t-meta">支持信用卡 / 花呗付款</div>
+            </div>
+          </div>
+          <div class="pay-step">
+            <span class="step-no">2</span>
+            <div class="step-body">
+              <div class="step-title">填付款信息并上传截图</div>
+              <div class="row2">
+                <div class="field">
+                  <label>充值金额 *</label>
+                  <input id="rcAmount" type="number" min="1" placeholder="如 10" />
+                </div>
+                <div class="field">
+                  <label>支付宝账号 / 昵称 *</label>
+                  <input id="rcAccount" placeholder="你付款用的支付宝账号或昵称" />
+                </div>
+              </div>
+              <span class="t-meta" id="rcTip"></span>
+              <div class="field" style="margin-top:10px">
+                <label>付款成功截图 *</label>
+                <div class="uploader">
+                  <input type="file" id="rcFile" accept="image/*" hidden />
+                  <button type="button" class="btn btn-ghost btn-sm" id="rcPickBtn">+ 上传截图</button>
+                  <span class="t-meta">转账成功页截图（能看到金额和付款时间）</span>
+                </div>
+                <div class="thumbs" id="rcThumb"></div>
+              </div>
+              <div class="actions" style="margin-top:12px">
+                <button class="btn btn-primary btn-sm" id="rcSubmitBtn">我已付款，提交审核</button>
+                <span class="msg ok" id="rcMsg"></span>
+              </div>
+              <div class="t-meta" style="margin-top:10px">
+                提交后管理员核对截图，通过后自动到账，1 元 = <span id="ppY">100</span> 积分。
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sub-title" style="margin:18px 0 8px">我的充值记录</div>
+        <div id="rcList" class="task-list"></div>
+      </div>
+
+      <div class="section-title">类型任务提交</div>
+      <div class="row2">
+        <div class="field">
+          <label>任务类型 *</label>
+          <input id="type" placeholder="例如：点赞 / 关注 / 数据标注" />
+        </div>
+        <div class="field">
+          <label>联系方式 *</label>
+          <input id="contact" placeholder="手机号 / 微信号" />
+        </div>
+      </div>
+      <div class="quick" id="quickTypes"></div>
+      <div class="row2">
+        <div class="field">
+          <label>预估费用</label>
+          <div class="estimate pending" id="estimate">待评估</div>
+        </div>
+        <div class="field">
+          <label>应付积分</label>
+          <div class="estimate pending" id="needPoints">--</div>
+        </div>
+      </div>
+      <div class="t-meta" id="payTip" style="margin: -6px 0 14px"></div>
+      <div class="field">
+        <label>任务描述（选填）</label>
+        <textarea id="desc" placeholder="补充说明任务要求…"></textarea>
+      </div>
+      <div class="field">
+        <label>任务图片（选填，最多 6 张）</label>
+        <div class="uploader">
+          <input type="file" id="imgInput" accept="image/*" multiple hidden />
+          <button type="button" class="btn btn-ghost btn-sm" id="pickBtn">+ 选择图片</button>
+          <span class="t-meta">支持 jpg / png / webp，单张不超过 5MB</span>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="submitBtn">提交并支付</button>
+        <span id="submitMsg" class="msg ok"></span>
+      </div>
+
+      <div class="section-title">我的任务 / 当前进度</div>
+      <div id="taskList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
-    <div class="frame-tip">若上方内容空白，说明该站点不允许被嵌入，请点右上角「在新标签打开」。</div>
+
+    <!-- ---------- 用户管理（管理员） ---------- -->
+    <div class="view" id="view-users" style="display:none">
+      <div class="section-title">用户管理</div>
+      <div class="rate-add">
+        <input id="userSearch" class="grow" placeholder="搜索手机号…" />
+        <button class="btn btn-primary btn-sm" id="userSearchBtn">搜索</button>
+        <button class="btn btn-ghost btn-sm" id="userAllBtn">全部</button>
+        <span class="t-meta" id="userCount"></span>
+      </div>
+      <div class="user-table">
+        <div class="ut-head">
+          <span>手机号</span><span>积分</span><span>任务数</span><span>到账充值</span><span>注册时间</span><span>操作</span>
+        </div>
+        <div id="userList"><div class="loading">加载中…</div></div>
+      </div>
+    </div>
+
+    <!-- ---------- 充值审核（管理员） ---------- -->
+    <div class="view" id="view-pay" style="display:none">
+      <div class="section-title">充值申请</div>
+      <div class="t-meta" style="margin-bottom:12px">
+        用户扫码付款并上传截图 &amp; 支付宝账号后，在此核对截图与账号，确认无误即到账。
+      </div>
+      <div id="payList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 任务审核（管理员） ---------- -->
+    <div class="view" id="view-tasks" style="display:none">
+      <div class="stats" id="stats"></div>
+      <div id="list" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 金额规则（管理员） ---------- -->
+    <div class="view" id="view-rules" style="display:none">
+      <div class="section-title">积分设置</div>
+      <div class="rate-add">
+        <label class="inline-field">每天签到得
+          <input id="setCheckin" class="num" type="number" min="0" />
+          <span>积分</span>
+        </label>
+        <label class="inline-field">
+          <input id="setPerYuan" class="num" type="number" min="1" />
+          <span>积分抵 1 元</span>
+        </label>
+        <label class="inline-field">最高抵扣
+          <input id="setRatio" class="num" type="number" min="0" max="100" />
+          <span>%</span>
+        </label>
+        <button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存</button>
+        <span class="msg ok" id="setMsg"></span>
+      </div>
+      <div class="section-title">关键词金额规则</div>
+      <div class="rate-add">
+        <input id="newKw" class="grow" placeholder="关键词，如：数据标注" />
+        <input id="newAmt" class="num" type="number" min="0" placeholder="金额（元）" />
+        <button class="btn btn-primary btn-sm" id="addRateBtn">添加规则</button>
+      </div>
+      <div class="subtitle" style="margin-bottom:14px">
+        任务类型里含该关键词时，自动按此金额预估；多个关键词命中时取最长的那个。
+      </div>
+      <div id="rateList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 公告管理（管理员） ---------- -->
+    <div class="view" id="view-ann" style="display:none">
+      <div class="section-title" id="annFormTitle">发布公告</div>
+      <input type="hidden" id="annId" />
+      <div class="field">
+        <label>标题</label>
+        <input id="annTitle" placeholder="如：平台维护通知" />
+      </div>
+      <div class="field">
+        <label>内容</label>
+        <textarea id="annContent" placeholder="公告正文，可换行…"></textarea>
+      </div>
+      <div class="actions">
+        <label class="chk"><input type="checkbox" id="annActive" checked /> <span>立即启用（用户端可见）</span></label>
+        <button class="btn btn-primary btn-sm" id="annSaveBtn">发布</button>
+        <button class="btn btn-ghost btn-sm" id="annResetBtn">清空表单</button>
+        <span class="msg ok" id="annMsg"></span>
+      </div>
+      <div class="section-title">已发布的公告</div>
+      <div id="annListAdmin" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+  </div>
+
+  <!-- 加积分弹窗 -->
+  <div class="modal" id="userModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">给用户调整积分</div>
+      <div class="t-meta" id="umPhone"></div>
+      <div class="field">
+        <label>积分（正 = 加，负 = 扣）</label>
+        <input id="umDelta" type="number" placeholder="如 100 或 -50" />
+      </div>
+      <div class="field">
+        <label>原因（必填）</label>
+        <input id="umReason" placeholder="如：活动赠送 / 客服补偿" />
+      </div>
+      <div class="msg" id="umMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="umSubmit">确定</button>
+        <button class="btn btn-ghost btn-sm" id="umClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 流水弹窗 -->
+  <div class="modal" id="logModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">积分流水</div>
+      <div class="t-meta" id="logPhone"></div>
+      <div id="logList" class="task-list"><div class="loading">加载中…</div></div>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn btn-ghost btn-sm" id="logClose">关闭</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    const OLD_URL = 'https://mirabloom.chuangzaoba.top/';
+    // ==================== 通用 ====================
+    const STATUS_TEXT = {
+      pending_review: '待审核',
+      approved: '已受理',
+      completed: '已完成',
+      rejected: '已拒绝（积分已退）'
+    };
+    const RC_STATUS = { pending: '待核对', approved: '已到账', rejected: '已拒绝' };
 
-    document.getElementById('btnNew').addEventListener('click', () => {
-      // 相对路径：兼容 GitHub Pages 项目页子路径
-      window.location.href = 'app.html';
-    });
+    let PHONE = localStorage.getItem('biz_phone') || '';
+    let token = localStorage.getItem('biz_admin_token') || '';
+    let isAdmin = false;
+    let currentView = 'work';
+    let RATES = [];
+    let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
+    let picked = [];
+    let rcPicked = null;
+    const signedCache = {};
 
-    document.getElementById('btnOld').addEventListener('click', () => {
-      document.getElementById('entry').style.display = 'none';
-      document.getElementById('viewer').style.display = 'block';
-      document.body.className = 'page-viewer';
-      const f = document.getElementById('oldFrame');
-      if (!f.getAttribute('src') || f.getAttribute('src') === 'about:blank') {
-        f.setAttribute('src', OLD_URL);
+    function $(id) { return document.getElementById(id); }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function fmtTime(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
+    function moneyText(v) { return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v)); }
+    function intFmt(n) { return Number(n || 0).toLocaleString('en-US'); }
+
+    // 用户端接口（带 phone）；管理员接口（needToken=true 带 token）
+    async function api(endpoint, body, needToken) {
+      const payload = Object.assign({}, body || {});
+      if (needToken && token) payload.token = token;
+      const r = await fetch(window.API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: endpoint, ...payload })
+      });
+      return r.json();
+    }
+
+    // 图片签名：管理员用 token（看全部），用户用 phone（看自己）
+    function signedUrl(p) {
+      const c = signedCache[p];
+      return (c && c.exp > Date.now()) ? c.url : '';
+    }
+    async function ensureSigned(paths) {
+      const need = (paths || []).filter(p => {
+        const c = signedCache[p];
+        return !c || c.exp < Date.now() + 60000;
+      });
+      const uniq = Array.from(new Set(need));
+      if (!uniq.length) return;
+      const body = { paths: uniq };
+      if (token) body.token = token; else body.phone = PHONE;
+      const res = await api('image/sign', body, !!token);
+      if (res.ok && res.urls) {
+        Object.keys(res.urls).forEach(p => { signedCache[p] = { url: res.urls[p], exp: Date.now() + 50 * 60 * 1000 }; });
       }
-      window.scrollTo(0, 0);
+    }
+
+    // ==================== 登录 ====================
+    let loginMode = 'user';
+    document.querySelectorAll('.login-tabs .tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.login-tabs .tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        loginMode = t.dataset.mode;
+        $('loginUser').style.display = loginMode === 'user' ? '' : 'none';
+        $('loginAdmin').style.display = loginMode === 'admin' ? '' : 'none';
+      });
     });
 
-    document.getElementById('backBtn').addEventListener('click', () => {
-      document.getElementById('viewer').style.display = 'none';
-      document.getElementById('entry').style.display = 'block';
-      document.body.className = 'page-entry';
+    $('loginUserBtn').addEventListener('click', async () => {
+      const phone = $('loginPhone').value.trim();
+      const msg = $('loginUserMsg'); msg.textContent = '';
+      if (!/^\d{6,15}$/.test(phone)) { msg.textContent = '请输入正确的手机号'; return; }
+      const btn = $('loginUserBtn'); btn.disabled = true;
+      const res = await api('user/login', { phone });
+      btn.disabled = false;
+      if (!res.ok) { msg.textContent = res.msg || '登录失败'; return; }
+      PHONE = res.phone; isAdmin = false; token = '';
+      localStorage.setItem('biz_phone', PHONE);
+      localStorage.removeItem('biz_admin_token');
+      showApp();
     });
+    $('loginPhone').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginUserBtn').click(); });
+
+    $('pwdToggle').addEventListener('click', () => {
+      const el = $('password'); const show = el.type === 'password';
+      el.type = show ? 'text' : 'password';
+      $('pwdToggle').textContent = show ? '隐藏' : '显示';
+    });
+    $('loginAdminBtn').addEventListener('click', async () => {
+      const msg = $('loginAdminMsg'); msg.textContent = '';
+      const username = $('username').value.trim();
+      const password = $('password').value.trim();
+      const res = await api('login', { username, password });
+      if (res.ok) {
+        token = res.token; isAdmin = true; PHONE = res.username;
+        localStorage.setItem('biz_admin_token', token);
+        showApp();
+      } else { msg.textContent = res.msg || '登录失败'; }
+    });
+    $('password').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginAdminBtn').click(); });
+
+    $('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('biz_phone');
+      localStorage.removeItem('biz_admin_token');
+      PHONE = ''; token = ''; isAdmin = false;
+      $('appBox').style.display = 'none';
+      $('loginBox').style.display = '';
+      $('loginPhone').value = ''; $('password').value = '';
+    });
+
+    // ==================== 应用框架 ====================
+    const NAV = [
+      { id: 'work', label: '工作台', admin: false },
+      { id: 'users', label: '用户管理', admin: true },
+      { id: 'pay', label: '充值审核', admin: true },
+      { id: 'tasks', label: '任务审核', admin: true },
+      { id: 'rules', label: '金额规则', admin: true },
+      { id: 'ann', label: '公告管理', admin: true },
+    ];
+
+    function renderNav() {
+      const box = $('nav');
+      box.innerHTML = NAV.filter(n => isAdmin || !n.admin).map(n =>
+        '<div class="nav-item' + (n.id === currentView ? ' active' : '') + '" data-view="' + n.id + '">' + n.label + '</div>'
+      ).join('');
+      box.querySelectorAll('.nav-item').forEach(el => {
+        el.addEventListener('click', () => switchView(el.dataset.view));
+      });
+    }
+
+    function switchView(v) {
+      currentView = v;
+      ['work', 'users', 'pay', 'tasks', 'rules', 'ann'].forEach(id => {
+        $('view-' + id).style.display = (id === v) ? '' : 'none';
+      });
+      renderNav();
+      if (v === 'work') { loadRates(); loadPoints(); loadAnnouncements(); loadTasks(); }
+      else if (v === 'users') loadUsers();
+      else if (v === 'pay') loadRecharges();
+      else if (v === 'tasks') loadAdminTasks();
+      else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
+      else if (v === 'ann') loadAnnouncementsAdmin();
+    }
+
+    function showApp() {
+      $('loginBox').style.display = 'none';
+      $('appBox').style.display = 'block';
+      $('whoami').textContent = isAdmin ? ('管理员：' + PHONE) : ('我的 ID：' + PHONE);
+      if (!isAdmin && !$('contact').value) $('contact').value = PHONE;
+      currentView = 'work';
+      switchView('work');
+    }
+
+    // ==================== 积分 / 签到 ====================
+    async function loadPoints() {
+      const res = await api('my/points', { phone: PHONE });
+      if (!res.ok) return;
+      PTS = res;
+      $('myPoints').textContent = intFmt(res.points);
+      $('pointsYuan').textContent = (res.points / (res.pointsPerYuan || 100)).toFixed(2);
+      $('ppY').textContent = res.pointsPerYuan;
+      const btn = $('checkinBtn');
+      if (res.checkedToday) {
+        btn.disabled = true; btn.textContent = '今日已签到';
+        $('streakTip').textContent = res.streak > 1 ? ('连续签到 ' + res.streak + ' 天') : '';
+      } else {
+        btn.disabled = false; btn.textContent = '签到 +' + res.checkinPoints;
+        $('streakTip').textContent = res.streak > 0 ? ('已连续 ' + res.streak + ' 天') : '';
+      }
+      renderPay();
+    }
+    $('checkinBtn').addEventListener('click', async () => {
+      const btn = $('checkinBtn'); btn.disabled = true;
+      const res = await api('checkin', { phone: PHONE });
+      if (res.ok) alert('签到成功，获得 ' + res.gain + ' 积分' + (res.streak > 1 ? '（连续 ' + res.streak + ' 天）' : ''));
+      else alert(res.msg || '签到失败');
+      loadPoints();
+    });
+
+    // ==================== 充值 ====================
+    $('rechargeBtn').addEventListener('click', () => {
+      const box = $('rechargeBox');
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      if (box.style.display === 'block') loadRecharges();
+    });
+    $('rcAmount').addEventListener('input', () => {
+      const a = Number($('rcAmount').value) || 0;
+      $('rcTip').textContent = a > 0 ? ('将到账 ' + intFmt(Math.floor(a * (PTS.pointsPerYuan || 100))) + ' 积分') : '';
+    });
+    $('rcPickBtn').addEventListener('click', () => $('rcFile').click());
+    $('rcFile').addEventListener('change', () => {
+      const f = $('rcFile').files && $('rcFile').files[0];
+      if (!f) return;
+      if (!f.type || f.type.indexOf('image/') !== 0) { alert('只能上传图片文件'); return; }
+      if (f.size > (window.MAX_IMAGE_MB || 5) * 1024 * 1024) { alert('图片超过 5MB，请压缩后再传'); return; }
+      rcPicked = f;
+      const url = URL.createObjectURL(f);
+      $('rcThumb').innerHTML = '<div class="thumb"><img src="' + url + '" alt="" /><button type="button" class="thumb-del" title="移除" onclick="removeRcProof()">×</button></div>';
+    });
+    function removeRcProof() { rcPicked = null; $('rcFile').value = ''; $('rcThumb').innerHTML = ''; }
+
+    $('rcSubmitBtn').addEventListener('click', async () => {
+      const amount = Number($('rcAmount').value);
+      const account = $('rcAccount').value.trim();
+      const msg = $('rcMsg'); msg.className = 'msg ok'; msg.textContent = '';
+      if (!amount || amount <= 0) { msg.className = 'msg err'; msg.textContent = '请输入充值金额'; return; }
+      if (!account) { msg.className = 'msg err'; msg.textContent = '请填写付款的支付宝账号或昵称'; return; }
+      if (!rcPicked) { msg.className = 'msg err'; msg.textContent = '请上传付款成功截图'; return; }
+      const btn = $('rcSubmitBtn'); btn.disabled = true;
+      try {
+        msg.textContent = '正在上传截图…';
+        const proof = await uploadFile(rcPicked, 'recharge');
+        msg.textContent = '正在提交…';
+        const res = await api('recharge/submit', { phone: PHONE, amount, payAccount: account, proof });
+        if (!res.ok) { msg.className = 'msg err'; msg.textContent = res.msg || '提交失败'; btn.disabled = false; return; }
+        msg.textContent = '已提交，等待管理员核对截图后到账';
+        $('rcAmount').value = ''; $('rcAccount').value = ''; $('rcTip').textContent = '';
+        removeRcProof(); loadRecharges();
+      } catch (e) { msg.className = 'msg err'; msg.textContent = e.message || '提交失败'; }
+      btn.disabled = false;
+    });
+
+    async function loadRecharges() {
+      const box = $('rcList');
+      const res = await api('recharge/list', { phone: PHONE });
+      if (!res.ok) { box.innerHTML = ''; return; }
+      const list = res.recharges || [];
+      if (!list.length) { box.innerHTML = '<div class="empty">还没有充值记录</div>'; return; }
+      await ensureSigned(list.map(r => r.proof).filter(Boolean));
+      box.innerHTML = list.map(r => {
+        const badge = '<span class="badge b-' + (r.status === 'approved' ? 'completed' : r.status === 'rejected' ? 'rejected' : 'pending_review') + '">' + (RC_STATUS[r.status] || r.status) + '</span>';
+        const proofHtml = r.proof
+          ? (() => { const u = signedUrl(r.proof); return u ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="付款截图" /></a>' : '<div class="thumb thumb-wait"></div>'; })()
+          : '<span class="t-meta">未上传截图</span>';
+        return '<div class="task">' +
+          '<div class="t-head">' + badge + '<span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
+          '<div class="t-type">充值 ¥' + Number(r.amount) + ' → ' + intFmt(r.points) + ' 积分</div>' +
+          (r.pay_account ? '<div class="t-meta">付款账号：' + escapeHtml(r.pay_account) + '</div>' : '') +
+          (r.proof ? '<div class="thumbs">' + proofHtml + '</div>' : '<div>' + proofHtml + '</div>') +
+          (r.note ? '<div class="t-meta">管理员备注：' + escapeHtml(r.note) + '</div>' : '') +
+        '</div>';
+      }).join('');
+    }
+
+    // ==================== 关键词 / 预估 ====================
+    async function loadRates() {
+      const res = await api('rate/list', {});
+      if (!res.ok) return;
+      RATES = res.rates || [];
+      renderQuick(); renderEstimate();
+    }
+    function renderQuick() {
+      const box = $('quickTypes');
+      if (!RATES.length) { box.innerHTML = ''; return; }
+      box.innerHTML = '<span class="q-lbl">常用：</span>' + RATES.slice(0, 12).map(r =>
+        '<button type="button" class="q-chip" data-kw="' + escapeHtml(r.keyword) + '">' + escapeHtml(r.keyword) + ' <i>¥' + Number(r.amount) + '</i></button>'
+      ).join('');
+      box.querySelectorAll('.q-chip').forEach(b => b.addEventListener('click', () => { $('type').value = b.dataset.kw; renderEstimate(); }));
+    }
+    function estimateLocal(type) {
+      const t = String(type || '').toLowerCase().trim();
+      if (!t) return null;
+      let best = null;
+      for (const r of RATES) {
+        const k = String(r.keyword || '').toLowerCase().trim();
+        if (!k || t.indexOf(k) === -1) continue;
+        if (!best || k.length > best.len) best = { len: k.length, amount: Number(r.amount) };
+      }
+      return best ? best.amount : null;
+    }
+    function renderEstimate() {
+      const el = $('estimate');
+      const v = estimateLocal($('type').value);
+      if (v === null) { el.className = 'estimate pending'; el.textContent = '待评估'; }
+      else { el.className = 'estimate'; el.textContent = '¥' + v; }
+      renderPay();
+    }
+    function renderPay() {
+      const v = estimateLocal($('type').value);
+      const need = $('needPoints'); const tip = $('payTip');
+      if (v === null) {
+        need.className = 'estimate pending'; need.textContent = '--';
+        tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。'; tip.className = 't-meta'; return;
+      }
+      const p = Math.floor(v * (PTS.pointsPerYuan || 100));
+      need.className = 'estimate'; need.textContent = intFmt(p) + ' 积分';
+      const bal = Number(PTS.points) || 0;
+      if (bal >= p) { tip.textContent = '余额 ' + intFmt(bal) + ' 积分，支付后剩余 ' + intFmt(bal - p) + ' 积分'; tip.className = 't-meta'; tip.style.color = ''; }
+      else { tip.textContent = '余额不足：还差 ' + intFmt(p - bal) + ' 积分，请先充值'; tip.className = 't-meta'; tip.style.color = 'var(--danger)'; }
+    }
+    $('type').addEventListener('input', renderEstimate);
+
+    // ==================== 图片 ====================
+    const MAX_IMAGES = window.MAX_IMAGES || 6;
+    const MAX_IMAGE_MB = window.MAX_IMAGE_MB || 5;
+    $('pickBtn').addEventListener('click', () => $('imgInput').click());
+    $('imgInput').addEventListener('change', () => {
+      const files = Array.from($('imgInput').files || []);
+      for (const f of files) {
+        if (picked.length >= MAX_IMAGES) { alert('最多上传 ' + MAX_IMAGES + ' 张图片'); break; }
+        if (!f.type || f.type.indexOf('image/') !== 0) { alert('只能上传图片文件'); continue; }
+        if (f.size > MAX_IMAGE_MB * 1024 * 1024) { alert('「' + f.name + '」超过 ' + MAX_IMAGE_MB + 'MB，已跳过'); continue; }
+        picked.push({ file: f, url: URL.createObjectURL(f) });
+      }
+      $('imgInput').value = ''; renderThumbs();
+    });
+    function renderThumbs() {
+      $('thumbs').innerHTML = picked.map((p, i) =>
+        '<div class="thumb"><img src="' + p.url + '" alt="" /><button type="button" class="thumb-del" title="移除" onclick="removeImg(' + i + ')">×</button></div>'
+      ).join('');
+    }
+    function removeImg(i) { if (picked[i]) { URL.revokeObjectURL(picked[i].url); picked.splice(i, 1); } renderThumbs(); }
+    function clearPicked() { picked.forEach(p => URL.revokeObjectURL(p.url)); picked = []; renderThumbs(); }
+    async function uploadFile(file, tag) {
+      let ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!ext) ext = 'jpg';
+      const path = PHONE + '/' + tag + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+      const r = await fetch(window.SUPABASE_URL + '/storage/v1/object/' + window.UPLOAD_BUCKET + '/' + path, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY, 'apikey': window.SUPABASE_ANON_KEY, 'Content-Type': file.type || 'image/jpeg', 'x-upsert': 'false' },
+        body: file
+      });
+      if (!r.ok) { let d = ''; try { d = (await r.text()).slice(0, 140); } catch (e) {} throw new Error('图片上传失败（' + r.status + '）' + (d ? '：' + d : '')); }
+      const j = await r.json().catch(() => ({}));
+      const key = (j && j.Key) ? String(j.Key) : '';
+      const rel = key.indexOf('biz-uploads/') === 0 ? key.slice('biz-uploads/'.length) : '';
+      if (!rel) throw new Error('图片上传返回异常，请重试');
+      return rel;
+    }
+    async function uploadImages() { const urls = []; for (let i = 0; i < picked.length; i++) urls.push(await uploadFile(picked[i].file, 'task' + i)); return urls; }
+
+    // ==================== 提交任务 ====================
+    $('submitBtn').addEventListener('click', async () => {
+      const type = $('type').value.trim();
+      const desc = $('desc').value.trim();
+      const contact = $('contact').value.trim();
+      const msg = $('submitMsg'); msg.className = 'msg ok'; msg.textContent = '';
+      if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
+      if (!contact) { msg.className = 'msg err'; msg.textContent = '请填写联系方式'; return; }
+      const v = estimateLocal(type);
+      if (v === null) { msg.className = 'msg err'; msg.textContent = '该任务类型暂无报价，请换一个类型'; return; }
+      const need = Math.floor(v * (PTS.pointsPerYuan || 100));
+      if ((Number(PTS.points) || 0) < need) {
+        $('rechargeBox').style.display = 'block'; loadRecharges();
+        msg.className = 'msg err'; msg.textContent = '积分不足（需 ' + intFmt(need) + '），请先充值'; return;
+      }
+      const btn = $('submitBtn'); btn.disabled = true;
+      let images = [];
+      if (picked.length) {
+        msg.textContent = '正在上传图片…';
+        try { images = await uploadImages(); } catch (e) { msg.className = 'msg err'; msg.textContent = e.message || '图片上传失败'; btn.disabled = false; return; }
+      }
+      msg.textContent = '正在提交…';
+      const res = await api('task/submit', { phone: PHONE, type, desc, contact, images });
+      btn.disabled = false;
+      if (res.ok) {
+        msg.className = 'msg ok'; msg.textContent = '提交成功，已扣 ' + intFmt(res.task.points_paid) + ' 积分（' + res.task.id + '）';
+        $('type').value = ''; $('desc').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
+      } else {
+        msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
+        if (res.code === 'INSUFFICIENT_POINTS') { $('rechargeBox').style.display = 'block'; loadRecharges(); }
+      }
+    });
+
+    // ==================== 我的任务 ====================
+    function badge(status) { return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>'; }
+    function renderTasks(tasks, adminMode) {
+      const box = adminMode ? $('list') : $('taskList');
+      if (!tasks.length) { box.innerHTML = '<div class="empty">' + (adminMode ? '暂无相关任务' : '暂无任务，提交后将在此显示进度') + '</div>'; return; }
+      box.innerHTML = tasks.map(t => {
+        const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
+        const imgs = Array.isArray(t.images) ? t.images : [];
+        const imgHtml = imgs.length ? '<div class="thumbs">' + imgs.map(p => {
+          const u = signedUrl(p);
+          return u ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>' : '<div class="thumb thumb-wait"></div>';
+        }).join('') + '</div>' : '';
+        let actions = '';
+        if (adminMode) {
+          if (t.status === 'pending_review') actions = '<button class="btn btn-green btn-sm" onclick="review(\'' + t.id + '\',\'approve\')">一审通过</button><button class="btn btn-red btn-sm" onclick="review(\'' + t.id + '\',\'reject\')">拒绝</button>';
+          else if (t.status === 'approved') actions = '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">标记完成</button><button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝（退积分）</button>';
+        }
+        return '<div class="task">' +
+          '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
+          '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
+          (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
+          imgHtml +
+          (adminMode ? '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' : '') +
+          '<div class="t-meta">费用：' + moneyText(t.amount) + ' ｜ 已付：' + intFmt(t.points_paid) + ' 积分 ｜ ' + fmtTime(t.created_at) + '</div>' +
+          '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
+          note +
+          (adminMode && actions ? '<div class="actions">' + actions + '</div>' : '') +
+        '</div>';
+      }).join('');
+    }
+    async function loadTasks() {
+      const res = await api('tasks', { phone: PHONE });
+      if (res.ok) { const paths = []; (res.tasks || []).forEach(t => (Array.isArray(t.images) ? t.images : []).forEach(p => paths.push(p))); await ensureSigned(paths); renderTasks(res.tasks, false); }
+      else $('taskList').innerHTML = '<div class="empty">加载失败</div>';
+    }
+
+    // ==================== 公告（用户端） ====================
+    async function loadAnnouncements() {
+      const res = await api('announcement/list', {});
+      const box = $('annList');
+      const list = (res.ok && res.announcements) ? res.announcements : [];
+      if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      box.innerHTML = list.slice(0, 3).map(a =>
+        '<div class="ann"><div class="ann-title"><span class="ann-tag">公告</span>' + escapeHtml(a.title || '平台公告') + '</div>' +
+        (a.content ? '<div class="ann-body">' + escapeHtml(a.content).replace(/\n/g, '<br />') + '</div>' : '') + '</div>'
+      ).join('');
+    }
+
+    // ==================== 用户管理（管理员） ====================
+    let userKeyword = '';
+    async function loadUsers() {
+      const res = await api('admin/users', {}, true);
+      const box = $('userList');
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      let list = res.users || [];
+      if (userKeyword) list = list.filter(u => String(u.phone).indexOf(userKeyword) !== -1);
+      $('userCount').textContent = '共 ' + list.length + ' 人';
+      if (!list.length) { box.innerHTML = '<div class="empty">没有用户</div>'; return; }
+      box.innerHTML = list.map(u =>
+        '<div class="ut-row">' +
+          '<span>' + escapeHtml(u.phone) + '</span>' +
+          '<span>' + intFmt(u.points) + '</span>' +
+          '<span>' + (u.task_count || 0) + '</span>' +
+          '<span>¥' + Number(u.recharge_total || 0) + '</span>' +
+          '<span class="ut-time">' + (u.registered_at ? fmtTime(u.registered_at).slice(0, 10) : '—') + '</span>' +
+          '<span class="ut-ops">' +
+            '<button class="btn btn-ghost btn-sm" onclick="openUserModal(\'' + escapeHtml(u.phone) + '\')">加积分</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="openLog(\'' + escapeHtml(u.phone) + '\')">流水</button>' +
+          '</span>' +
+        '</div>'
+      ).join('');
+    }
+    $('userSearchBtn').addEventListener('click', () => { userKeyword = $('userSearch').value.trim(); loadUsers(); });
+    $('userAllBtn').addEventListener('click', () => { userKeyword = ''; $('userSearch').value = ''; loadUsers(); });
+    $('userSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { userKeyword = $('userSearch').value.trim(); loadUsers(); } });
+
+    function openUserModal(phone) {
+      $('umPhone').textContent = '用户：' + phone;
+      $('umDelta').value = ''; $('umReason').value = '';
+      $('umMsg').className = 'msg'; $('umMsg').textContent = '';
+      $('userModal').style.display = 'flex';
+    }
+    function closeUserModal() { $('userModal').style.display = 'none'; }
+    $('umClose').addEventListener('click', closeUserModal);
+    $('umSubmit').addEventListener('click', async () => {
+      const phone = $('umPhone').textContent.replace('用户：', '').trim();
+      const delta = Math.floor(Number($('umDelta').value));
+      const reason = $('umReason').value.trim();
+      const msg = $('umMsg'); msg.className = 'msg'; msg.textContent = '';
+      if (!delta || delta === 0) { msg.className = 'msg err'; msg.textContent = '请输入非 0 的积分值'; return; }
+      if (!reason) { msg.className = 'msg err'; msg.textContent = '请填写原因'; return; }
+      const res = await api('admin/user/points', { phone, delta, reason }, true);
+      if (res.ok) {
+        msg.className = 'msg ok'; msg.textContent = (delta > 0 ? '已加 ' : '已扣 ') + Math.abs(delta) + ' 积分，当前 ' + intFmt(res.points);
+        loadUsers();
+        setTimeout(closeUserModal, 900);
+      } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+    });
+
+    async function openLog(phone) {
+      $('logPhone').textContent = '用户：' + phone;
+      $('logList').innerHTML = '<div class="loading">加载中…</div>';
+      $('logModal').style.display = 'flex';
+      const res = await api('admin/user/logs', { phone }, true);
+      if (!res.ok) { $('logList').innerHTML = '<div class="empty">加载失败</div>'; return; }
+      const logs = res.logs || [];
+      if (!logs.length) { $('logList').innerHTML = '<div class="empty">暂无积分变动记录</div>'; return; }
+      $('logList').innerHTML = logs.map(l =>
+        '<div class="task">' +
+          '<div class="t-head"><span class="badge ' + (l.delta >= 0 ? 'b-completed' : 'b-rejected') + '">' + (l.delta >= 0 ? '+' : '') + l.delta + '</span><span class="t-meta">' + fmtTime(l.created_at) + '</span></div>' +
+          '<div class="t-meta">操作人：' + escapeHtml(l.operator || '—') + ' ｜ 原因：' + escapeHtml(l.reason || '—') + '</div>' +
+        '</div>'
+      ).join('');
+    }
+    $('logClose').addEventListener('click', () => { $('logModal').style.display = 'none'; });
+
+    // ==================== 充值审核（管理员） ====================
+    async function loadRecharges() {
+      const box = $('payList');
+      const res = await api('admin/recharges', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      const list = res.recharges || [];
+      if (!list.length) { box.innerHTML = '<div class="empty">还没有充值申请</div>'; return; }
+      await ensureSigned(list.map(r => r.proof).filter(Boolean));
+      box.innerHTML = list.map(r => {
+        const cls = r.status === 'approved' ? 'b-completed' : r.status === 'rejected' ? 'b-rejected' : 'b-pending_review';
+        const proofHtml = r.proof
+          ? (() => { const u = signedUrl(r.proof); return u ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="付款截图" /></a>' : '<div class="thumb thumb-wait"></div>'; })()
+          : '<span class="t-meta">未上传截图</span>';
+        const actions = r.status === 'pending'
+          ? '<div class="actions"><button class="btn btn-green btn-sm" onclick="payReview(\'' + r.id + '\',\'approve\')">确认到账</button><button class="btn btn-red btn-sm" onclick="payReview(\'' + r.id + '\',\'reject\')">拒绝</button></div>'
+          : '';
+        return '<div class="task">' +
+          '<div class="t-head"><span class="badge ' + cls + '">' + (RC_STATUS[r.status] || r.status) + '</span><span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
+          '<div class="t-type">用户 ID：' + escapeHtml(r.phone) + ' ｜ 充值 ¥' + Number(r.amount) + ' → ' + Number(r.points) + ' 积分</div>' +
+          (r.pay_account ? '<div class="t-meta">付款账号：' + escapeHtml(r.pay_account) + '</div>' : '') +
+          (r.proof ? '<div class="thumbs">' + proofHtml + '</div>' : '<div>' + proofHtml + '</div>') +
+          (r.note ? '<div class="t-meta">备注：' + escapeHtml(r.note) + '</div>' : '') +
+          actions + '</div>';
+      }).join('');
+    }
+    async function payReview(id, action) {
+      if (action === 'reject' && !confirm('确认拒绝这笔充值申请？')) return;
+      const res = await api('admin/recharge/review', { id, action }, true);
+      if (res.ok) loadRecharges(); else alert(res.msg || '操作失败');
+    }
+
+    // ==================== 任务审核（管理员） ====================
+    function renderStats(tasks) {
+      const c = { pending_review: 0, approved: 0, completed: 0 };
+      tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; });
+      $('stats').innerHTML =
+        '<div class="stat"><div class="s-num warn">' + c.pending_review + '</div><div class="s-lbl">待审核</div></div>' +
+        '<div class="stat"><div class="s-num brand">' + c.approved + '</div><div class="s-lbl">待完成</div></div>' +
+        '<div class="stat"><div class="s-num ok">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
+    }
+    async function loadAdminTasks() {
+      const res = await api('admin/tasks', {}, true);
+      if (res.ok) { renderStats(res.tasks); await ensureSigned((res.tasks || []).flatMap(t => Array.isArray(t.images) ? t.images : [])); renderTasks(res.tasks, true); }
+      else { $('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>'; token = ''; localStorage.removeItem('biz_admin_token'); }
+    }
+    async function review(id, action) {
+      if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
+      const res = await api('admin/review', { id, action }, true);
+      if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
+    }
+    async function confirmR(id, action) {
+      if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
+      const res = await api('admin/confirm', { id, action }, true);
+      if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
+    }
+
+    // ==================== 金额规则（管理员） ====================
+    async function loadSettings() {
+      const res = await api('admin/settings', {}, true);
+      if (!res.ok) return;
+      const s = res.settings;
+      $('setCheckin').value = s.checkin_points; $('setPerYuan').value = s.points_per_yuan; $('setRatio').value = Math.round(s.max_deduct_ratio * 100);
+    }
+    async function saveSettings() {
+      const msg = $('setMsg'); msg.className = 'msg ok'; msg.textContent = '';
+      const res = await api('admin/settings/save', {
+        checkin_points: $('setCheckin').value, points_per_yuan: $('setPerYuan').value, max_deduct_ratio: $('setRatio').value
+      }, true);
+      if (res.ok) { msg.textContent = '已保存'; loadSettings(); } else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
+    }
+    async function loadRatesAdmin() {
+      const box = $('rateList');
+      const res = await api('admin/rates', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      const rates = res.rates || [];
+      if (!rates.length) { box.innerHTML = '<div class="empty">还没有规则，先在上面添加一条</div>'; return; }
+      box.innerHTML = rates.map(r =>
+        '<div class="task"><div class="rate-row">' +
+          '<input class="grow" id="kw-' + r.id + '" value="' + escapeHtml(r.keyword) + '" />' +
+          '<input class="num" id="am-' + r.id + '" type="number" min="0" value="' + Number(r.amount) + '" />' +
+          '<button class="btn btn-ghost btn-sm" onclick="saveRate(\'' + r.id + '\')">保存</button>' +
+          '<button class="btn btn-red btn-sm" onclick="delRate(\'' + r.id + '\')">删除</button>' +
+        '</div></div>'
+      ).join('');
+    }
+    async function addRate() {
+      const kw = $('newKw').value.trim(); const amt = $('newAmt').value.trim();
+      if (!kw) { alert('请填写关键词'); return; }
+      if (amt === '') { alert('请填写金额'); return; }
+      const res = await api('admin/rate/save', { keyword: kw, amount: amt }, true);
+      if (res.ok) { $('newKw').value = ''; $('newAmt').value = ''; loadRatesAdmin(); } else alert(res.msg || '保存失败');
+    }
+    async function saveRate(id) {
+      const kw = $('kw-' + id).value.trim(); const amt = $('am-' + id).value.trim();
+      const res = await api('admin/rate/save', { id, keyword: kw, amount: amt }, true);
+      if (res.ok) loadRatesAdmin(); else alert(res.msg || '保存失败');
+    }
+    async function delRate(id) { if (!confirm('确认删除这条规则？')) return; const res = await api('admin/rate/delete', { id }, true); if (res.ok) loadRatesAdmin(); else alert(res.msg || '删除失败'); }
+
+    // ==================== 公告管理（管理员） ====================
+    let ANN = [];
+    async function loadAnnouncementsAdmin() {
+      const box = $('annListAdmin');
+      const res = await api('admin/announcements', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      ANN = res.announcements || [];
+      if (!ANN.length) { box.innerHTML = '<div class="empty">还没有公告，在上面发布一条试试</div>'; return; }
+      box.innerHTML = ANN.map(a =>
+        '<div class="task">' +
+          '<div class="t-head"><span class="badge ' + (a.active ? 'b-completed' : 'b-rejected') + '">' + (a.active ? '已启用' : '已停用') + '</span><span class="t-meta">' + fmtTime(a.created_at) + '</span></div>' +
+          '<div class="t-type">' + escapeHtml(a.title || '(无标题)') + '</div>' +
+          (a.content ? '<div class="t-desc">' + escapeHtml(a.content).replace(/\n/g, '<br />') + '</div>' : '') +
+          '<div class="actions"><button class="btn btn-ghost btn-sm" onclick="annEdit(\'' + a.id + '\')">编辑</button><button class="btn btn-ghost btn-sm" onclick="annToggle(\'' + a.id + '\')">' + (a.active ? '停用' : '启用') + '</button><button class="btn btn-red btn-sm" onclick="annDelete(\'' + a.id + '\')">删除</button></div>' +
+        '</div>'
+      ).join('');
+    }
+    function annReset() {
+      $('annId').value = ''; $('annTitle').value = ''; $('annContent').value = ''; $('annActive').checked = true;
+      $('annFormTitle').textContent = '发布公告'; $('annSaveBtn').textContent = '发布'; $('annMsg').textContent = '';
+    }
+    function annEdit(id) {
+      const a = ANN.find(x => x.id === id); if (!a) return;
+      $('annId').value = a.id; $('annTitle').value = a.title || ''; $('annContent').value = a.content || ''; $('annActive').checked = !!a.active;
+      $('annFormTitle').textContent = '编辑公告'; $('annSaveBtn').textContent = '保存修改'; window.scrollTo(0, 0);
+    }
+    async function annSave() {
+      const msg = $('annMsg'); msg.className = 'msg ok'; msg.textContent = '';
+      const id = $('annId').value;
+      const title = $('annTitle').value.trim(); const content = $('annContent').value.trim(); const active = $('annActive').checked;
+      if (!title && !content) { msg.className = 'msg err'; msg.textContent = '标题和内容至少填一个'; return; }
+      const res = await api('admin/announcement/save', { id: id || undefined, title, content, active }, true);
+      if (res.ok) { msg.textContent = id ? '已保存修改' : '发布成功'; annReset(); loadAnnouncementsAdmin(); } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+    }
+    async function annToggle(id) {
+      const a = ANN.find(x => x.id === id); if (!a) return;
+      const res = await api('admin/announcement/save', { id, title: a.title, content: a.content, active: !a.active }, true);
+      if (res.ok) loadAnnouncementsAdmin(); else alert(res.msg || '操作失败');
+    }
+    async function annDelete(id) { if (!confirm('确认删除这条公告？')) return; const res = await api('admin/announcement/delete', { id }, true); if (res.ok) loadAnnouncementsAdmin(); else alert(res.msg || '删除失败'); }
+
+    // ==================== 事件绑定（规则 / 公告 / 统计） ====================
+    $('addRateBtn').addEventListener('click', addRate);
+    $('saveSettingsBtn').addEventListener('click', saveSettings);
+    $('annSaveBtn').addEventListener('click', annSave);
+    $('annResetBtn').addEventListener('click', annReset);
+    $('newAmt').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
+    $('newKw').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
+
+    // ==================== 启动 ====================
+    (async () => {
+      if (token) {
+        const res = await api('admin/tasks', {}, true);
+        if (res.ok) { isAdmin = true; PHONE = $('username').value.trim() || (localStorage.getItem('biz_phone') || '18882632073'); showApp(); return; }
+        else { token = ''; localStorage.removeItem('biz_admin_token'); }
+      }
+      if (PHONE) { isAdmin = false; showApp(); }
+    })();
+
+    setInterval(() => {
+      if ($('appBox').style.display === 'none') return;
+      if (currentView === 'work') loadTasks();
+      else if (currentView === 'tasks') loadAdminTasks();
+      else if (currentView === 'pay') loadRecharges();
+      else if (currentView === 'users') loadUsers();
+    }, 12000);
   </script>
 </body>
 </html>

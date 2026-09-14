@@ -567,6 +567,66 @@ body.page-viewer { padding: 20px 16px; }
 /* ---------- 页脚 ---------- */
 .foot { text-align: center; font-size: 12px; color: var(--muted-2); margin-top: 24px; }
 
+/* ---------- 主导航 ---------- */
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.nav-item {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s ease;
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg-2); color: var(--text); }
+.nav-item.active { background: var(--brand); color: #fff; }
+
+/* ---------- 用户管理表格 ---------- */
+.user-table { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.ut-head, .ut-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.7fr 0.9fr 1fr 1.5fr;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.ut-head {
+  background: var(--bg-2);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .3px;
+}
+.ut-row { border-top: 1px solid var(--border); font-size: 14px; }
+.ut-row:hover { background: #fafbfc; }
+.ut-time { font-size: 12px; color: var(--muted-2); }
+.ut-ops { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- 弹窗 ---------- */
+.modal {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; z-index: 50;
+}
+.modal-box {
+  background: #fff;
+  border-radius: var(--radius);
+  width: 100%; max-width: 420px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, .25);
+}
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+.modal-box .field { margin: 10px 0; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
@@ -575,6 +635,8 @@ body.page-viewer { padding: 20px 16px; }
   .row2 { grid-template-columns: 1fr; gap: 0; }
   .stats { grid-template-columns: 1fr; gap: 10px; }
   .tabs { overflow-x: auto; }
+  .user-table { overflow-x: auto; }
+  .ut-head, .ut-row { min-width: 560px; }
   .choice-new { padding: 18px; }
   .choice-old { width: 100%; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
