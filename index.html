@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=10" />
+  <link rel="stylesheet" href="css/style.css?v=11" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -14,12 +14,18 @@
     <div class="entry-head" style="margin-bottom:18px">
       <div class="logo">业</div>
       <h1>业务网</h1>
-      <p>手机号登录使用，管理员请切到账号登录</p>
+      <p>请选择登录方式</p>
     </div>
 
-    <div class="tabs login-tabs">
-      <div class="tab active" data-mode="user">用户登录</div>
-      <div class="tab" data-mode="admin">管理员登录</div>
+    <div class="login-split">
+      <button type="button" class="login-card user active" data-mode="user">
+        <div class="lc-title">用户登录</div>
+        <div class="lc-desc">手机号一键登录 / 注册</div>
+      </button>
+      <button type="button" class="login-card admin" data-mode="admin">
+        <div class="lc-title">管理员登录</div>
+        <div class="lc-desc">账号 + 密码</div>
+      </button>
     </div>
 
     <!-- 用户登录 -->
@@ -179,6 +185,13 @@
       <div id="taskList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
+    <!-- ---------- 我的消息（用户端） ---------- -->
+    <div class="view" id="view-messages" style="display:none">
+      <div class="section-title">我的消息</div>
+      <div class="t-meta" style="margin-bottom:12px">管理员发给你的通知会显示在这里，新消息会标「未读」。</div>
+      <div id="msgList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
     <!-- ---------- 用户管理（管理员） ---------- -->
     <div class="view" id="view-users" style="display:none">
       <div class="section-title">用户管理</div>
@@ -186,11 +199,12 @@
         <input id="userSearch" class="grow" placeholder="搜索手机号…" />
         <button class="btn btn-primary btn-sm" id="userSearchBtn">搜索</button>
         <button class="btn btn-ghost btn-sm" id="userAllBtn">全部</button>
+        <button class="btn btn-ghost btn-sm" id="broadcastBtn">群发消息</button>
         <span class="t-meta" id="userCount"></span>
       </div>
       <div class="user-table">
         <div class="ut-head">
-          <span>手机号</span><span>积分</span><span>任务数</span><span>到账充值</span><span>注册时间</span><span>操作</span>
+          <span>手机号</span><span>积分</span><span>任务数</span><span>到账充值</span><span>注册时间</span><span>最近登录</span><span>操作</span>
         </div>
         <div id="userList"><div class="loading">加载中…</div></div>
       </div>
@@ -316,6 +330,45 @@
     </div>
   </div>
 
+  <!-- 拒绝原因弹窗 -->
+  <div class="modal" id="rejectModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">填写拒绝原因</div>
+      <div class="t-meta" id="rjHint"></div>
+      <div class="field">
+        <label>拒绝原因（会展示给用户，必填）</label>
+        <textarea id="rjReason" placeholder="如：付款截图不清晰 / 任务信息不全，请补充后重新提交"></textarea>
+      </div>
+      <div class="msg" id="rjMsg"></div>
+      <div class="actions">
+        <button class="btn btn-red btn-sm" id="rjSubmit">确认拒绝</button>
+        <button class="btn btn-ghost btn-sm" id="rjClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理员发消息弹窗 -->
+  <div class="modal" id="msgModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">给用户发消息</div>
+      <div class="t-meta" id="msgTo"></div>
+      <div class="field">
+        <label>接收用户手机号</label>
+        <input id="msgPhone" placeholder="输入手机号，或勾选下方发给所有人" />
+      </div>
+      <label class="chk"><input type="checkbox" id="msgAll" /> <span>发给平台当前所有用户</span></label>
+      <div class="field" style="margin-top:10px">
+        <label>消息内容 *</label>
+        <textarea id="msgContent" placeholder="例如：您的任务已受理，预计明日完成；或：充值已到账，请注意查收"></textarea>
+      </div>
+      <div class="msg" id="msgModalMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="msgSubmit">发送</button>
+        <button class="btn btn-ghost btn-sm" id="msgClose">取消</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ==================== 通用 ====================
     const STATUS_TEXT = {
@@ -333,6 +386,7 @@
     let RATES = [];
     let ADMIN_TASKS = [];
     let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
+    let MSG_UNREAD = 0;
     let picked = [];
     let rcPicked = null;
     const signedCache = {};
@@ -379,9 +433,9 @@
 
     // ==================== 登录 ====================
     let loginMode = 'user';
-    document.querySelectorAll('.login-tabs .tab').forEach(t => {
+    document.querySelectorAll('.login-card').forEach(t => {
       t.addEventListener('click', () => {
-        document.querySelectorAll('.login-tabs .tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.login-card').forEach(x => x.classList.remove('active'));
         t.classList.add('active');
         loginMode = t.dataset.mode;
         $('loginUser').style.display = loginMode === 'user' ? '' : 'none';
@@ -433,19 +487,21 @@
 
     // ==================== 应用框架 ====================
     const NAV = [
-      { id: 'work', label: '工作台', admin: false },
-      { id: 'users', label: '用户管理', admin: true },
-      { id: 'pay', label: '充值审核', admin: true },
-      { id: 'tasks', label: '任务审核', admin: true },
-      { id: 'rules', label: '金额规则', admin: true },
-      { id: 'ann', label: '公告管理', admin: true },
+      { id: 'work', label: '工作台', roles: ['user', 'admin'] },
+      { id: 'messages', label: '消息', roles: ['user'] },
+      { id: 'users', label: '用户管理', roles: ['admin'] },
+      { id: 'pay', label: '充值审核', roles: ['admin'] },
+      { id: 'tasks', label: '任务审核', roles: ['admin'] },
+      { id: 'rules', label: '金额规则', roles: ['admin'] },
+      { id: 'ann', label: '公告管理', roles: ['admin'] },
     ];
 
     function renderNav() {
       const box = $('nav');
-      box.innerHTML = NAV.filter(n => isAdmin || !n.admin).map(n =>
-        '<div class="nav-item' + (n.id === currentView ? ' active' : '') + '" data-view="' + n.id + '">' + n.label + '</div>'
-      ).join('');
+      box.innerHTML = NAV.filter(n => n.roles.includes(isAdmin ? 'admin' : 'user')).map(n => {
+        const label = (n.id === 'messages' && MSG_UNREAD > 0) ? (n.label + ' (' + MSG_UNREAD + ')') : n.label;
+        return '<div class="nav-item' + (n.id === currentView ? ' active' : '') + '" data-view="' + n.id + '">' + label + '</div>';
+      }).join('');
       box.querySelectorAll('.nav-item').forEach(el => {
         el.addEventListener('click', () => switchView(el.dataset.view));
       });
@@ -453,11 +509,12 @@
 
     function switchView(v) {
       currentView = v;
-      ['work', 'users', 'pay', 'tasks', 'rules', 'ann'].forEach(id => {
+      ['work', 'users', 'pay', 'tasks', 'rules', 'ann', 'messages'].forEach(id => {
         $('view-' + id).style.display = (id === v) ? '' : 'none';
       });
       renderNav();
       if (v === 'work') { loadRates(); loadPoints(); loadAnnouncements(); loadTasks(); }
+      else if (v === 'messages') loadMessages();
       else if (v === 'users') loadUsers();
       else if (v === 'pay') loadRecharges();
       else if (v === 'tasks') loadAdminTasks();
@@ -472,6 +529,7 @@
       if (!isAdmin && !$('contact').value) $('contact').value = PHONE;
       currentView = 'work';
       switchView('work');
+      if (!isAdmin) loadUnread();
     }
 
     // ==================== 积分 / 签到 ====================
@@ -693,8 +751,8 @@
         }).join('') + '</div>' : '';
         let actions = '';
         if (adminMode) {
-          if (t.status === 'pending_review') actions = '<button class="btn btn-green btn-sm" onclick="openReview(\'' + t.id + '\')">一审通过</button><button class="btn btn-red btn-sm" onclick="review(\'' + t.id + '\',\'reject\')">拒绝</button>';
-          else if (t.status === 'approved') actions = '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">标记完成</button><button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝（退积分）</button>';
+          if (t.status === 'pending_review') actions = '<button class="btn btn-green btn-sm" onclick="openReview(\'' + t.id + '\')">一审通过</button><button class="btn btn-red btn-sm" onclick="openReject(\'review\',\'' + t.id + '\')">拒绝</button>';
+          else if (t.status === 'approved') actions = '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">标记完成</button><button class="btn btn-red btn-sm" onclick="openReject(\'confirm\',\'' + t.id + '\')">拒绝（退积分）</button>';
         }
         return '<div class="task">' +
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
@@ -747,9 +805,11 @@
           '<span>' + (u.task_count || 0) + '</span>' +
           '<span>¥' + Number(u.recharge_total || 0) + '</span>' +
           '<span class="ut-time">' + (u.registered_at ? fmtTime(u.registered_at).slice(0, 10) : '—') + '</span>' +
+          '<span class="ut-time">' + (u.last_login ? fmtTime(u.last_login).slice(0, 10) : '—') + '</span>' +
           '<span class="ut-ops">' +
             '<button class="btn btn-ghost btn-sm" onclick="openUserModal(\'' + escapeHtml(u.phone) + '\')">加积分</button>' +
             '<button class="btn btn-ghost btn-sm" onclick="openLog(\'' + escapeHtml(u.phone) + '\')">流水</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="openMsg(\'' + escapeHtml(u.phone) + '\')">发消息</button>' +
           '</span>' +
         '</div>'
       ).join('');
@@ -798,6 +858,56 @@
     }
     $('logClose').addEventListener('click', () => { $('logModal').style.display = 'none'; });
 
+    // ==================== 管理员发消息（单发 / 群发） ====================
+    function openMsg(phone) {
+      const all = phone === '__all__';
+      $('msgTo').textContent = all ? '接收：平台当前所有用户' : ('接收用户：' + phone);
+      $('msgPhone').value = all ? '' : phone;
+      $('msgAll').checked = all;
+      $('msgContent').value = '';
+      $('msgModalMsg').className = 'msg'; $('msgModalMsg').textContent = '';
+      $('msgModal').style.display = 'flex';
+      setTimeout(() => $('msgContent').focus(), 50);
+    }
+    function closeMsg() { $('msgModal').style.display = 'none'; }
+    $('msgClose').addEventListener('click', closeMsg);
+    $('msgAll').addEventListener('change', () => { if ($('msgAll').checked) $('msgPhone').value = ''; });
+    $('msgSubmit').addEventListener('click', async () => {
+      const content = $('msgContent').value.trim();
+      const toAll = $('msgAll').checked;
+      const phone = $('msgPhone').value.trim();
+      const msg = $('msgModalMsg'); msg.className = 'msg'; msg.textContent = '';
+      if (!content) { msg.className = 'msg err'; msg.textContent = '请填写消息内容'; return; }
+      if (!toAll && !phone) { msg.className = 'msg err'; msg.textContent = '请填写接收用户手机号，或勾选发给所有人'; return; }
+      if (!toAll && !/^\d{6,15}$/.test(phone)) { msg.className = 'msg err'; msg.textContent = '手机号格式不对'; return; }
+      const btn = $('msgSubmit'); btn.disabled = true;
+      const res = await api('admin/message/send', { phone, content, toAll }, true);
+      btn.disabled = false;
+      if (res.ok) { msg.className = 'msg ok'; msg.textContent = '已发送，共 ' + res.count + ' 人接收'; setTimeout(closeMsg, 900); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '发送失败'; }
+    });
+    $('broadcastBtn').addEventListener('click', () => openMsg('__all__'));
+
+    // ==================== 用户端消息 ====================
+    async function loadMessages() {
+      const res = await api('user/messages', { phone: PHONE });
+      if (!res.ok) { $('msgList').innerHTML = '<div class="empty">加载失败</div>'; return; }
+      MSG_UNREAD = 0; renderNav();
+      const list = res.messages || [];
+      if (!list.length) { $('msgList').innerHTML = '<div class="empty">暂无消息</div>'; return; }
+      $('msgList').innerHTML = list.map(m =>
+        '<div class="task">' +
+          '<div class="t-head"><span class="badge ' + (m.read ? 'b-completed' : 'b-pending_review') + '">' + (m.read ? '已读' : '未读') + '</span><span class="t-meta">' + fmtTime(m.created_at) + '</span></div>' +
+          '<div class="t-desc">' + escapeHtml(m.content) + '</div>' +
+        '</div>'
+      ).join('');
+    }
+    async function loadUnread() {
+      if (isAdmin || !PHONE) return;
+      const res = await api('user/messages/unread', { phone: PHONE });
+      if (res.ok) { MSG_UNREAD = res.unread || 0; renderNav(); }
+    }
+
     // ==================== 充值审核（管理员） ====================
     async function loadRecharges() {
       const box = $('payList');
@@ -812,7 +922,7 @@
           ? (() => { const u = signedUrl(r.proof); return u ? '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="付款截图" /></a>' : '<div class="thumb thumb-wait"></div>'; })()
           : '<span class="t-meta">未上传截图</span>';
         const actions = r.status === 'pending'
-          ? '<div class="actions"><button class="btn btn-green btn-sm" onclick="payReview(\'' + r.id + '\',\'approve\')">确认到账</button><button class="btn btn-red btn-sm" onclick="payReview(\'' + r.id + '\',\'reject\')">拒绝</button></div>'
+          ? '<div class="actions"><button class="btn btn-green btn-sm" onclick="payReview(\'' + r.id + '\',\'approve\')">确认到账</button><button class="btn btn-red btn-sm" onclick="openReject(\'recharge\',\'' + r.id + '\')">拒绝</button></div>'
           : '';
         return '<div class="task">' +
           '<div class="t-head"><span class="badge ' + cls + '">' + (RC_STATUS[r.status] || r.status) + '</span><span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
@@ -843,9 +953,38 @@
       if (res.ok) { ADMIN_TASKS = res.tasks || []; renderStats(ADMIN_TASKS); await ensureSigned((ADMIN_TASKS).flatMap(t => Array.isArray(t.images) ? t.images : [])); renderTasks(ADMIN_TASKS, true); }
       else { $('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>'; token = ''; localStorage.removeItem('biz_admin_token'); }
     }
-    async function review(id, action) {
-      if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
-      const res = await api('admin/review', { id, action }, true);
+    // 拒绝原因弹窗：任务一审拒绝 / 二审拒绝 / 充值拒绝 共用
+    let rjKind = '', rjId = '';
+    function openReject(kind, id) {
+      rjKind = kind; rjId = id;
+      const hint = kind === 'recharge'
+        ? '拒绝这笔充值申请（不会给用户到账积分）'
+        : (kind === 'confirm' ? '拒绝并退回该任务已扣的积分' : '拒绝该任务（提交时未扣费，无积分变动）');
+      $('rjHint').textContent = hint;
+      $('rjReason').value = '';
+      $('rjMsg').className = 'msg'; $('rjMsg').textContent = '';
+      $('rejectModal').style.display = 'flex';
+      setTimeout(() => $('rjReason').focus(), 50);
+    }
+    function closeReject() { $('rejectModal').style.display = 'none'; }
+    $('rjClose').addEventListener('click', closeReject);
+    $('rjSubmit').addEventListener('click', async () => {
+      const reason = $('rjReason').value.trim();
+      const msg = $('rjMsg'); msg.className = 'msg'; msg.textContent = '';
+      if (!reason) { msg.className = 'msg err'; msg.textContent = '请填写拒绝原因'; return; }
+      const btn = $('rjSubmit'); btn.disabled = true;
+      let res;
+      if (rjKind === 'recharge') res = await api('admin/recharge/review', { id: rjId, action: 'reject', note: reason }, true);
+      else if (rjKind === 'confirm') res = await api('admin/confirm', { id: rjId, action: 'reject', progressNote: reason }, true);
+      else res = await api('admin/review', { id: rjId, action: 'reject', progressNote: reason }, true);
+      btn.disabled = false;
+      if (res.ok) { closeReject(); if (rjKind === 'recharge') loadRecharges(); else loadAdminTasks(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+    });
+    // 二审标记完成（拒绝已走 openReject）
+    async function confirmR(id, action) {
+      if (action === 'confirm' && !confirm('确认将该任务标记为已完成？')) return;
+      const res = await api('admin/confirm', { id, action }, true);
       if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
     }
     // 一审通过：填写实际扣除积分（默认=预估，可改任意）
@@ -868,11 +1007,6 @@
       if (res.ok) { closeReview(); loadAdminTasks(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
     });
-    async function confirmR(id, action) {
-      if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
-      const res = await api('admin/confirm', { id, action }, true);
-      if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
-    }
 
     // ==================== 金额规则（管理员） ====================
     async function loadSettings() {
@@ -980,10 +1114,12 @@
 
     setInterval(() => {
       if ($('appBox').style.display === 'none') return;
+      if (!isAdmin) loadUnread();
       if (currentView === 'work') loadTasks();
       else if (currentView === 'tasks') loadAdminTasks();
       else if (currentView === 'pay') loadRecharges();
       else if (currentView === 'users') loadUsers();
+      else if (currentView === 'messages') loadMessages();
     }, 12000);
   </script>
 </body>
