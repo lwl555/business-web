@@ -1316,7 +1316,7 @@
           const pts = Math.round(Number(r.unitPrice || 0) * (PTS.pointsPerYuan || 100));
           const hl = (r.tier === tier) ? ' hl' : '';
           return '<div class="pr-row' + hl + '"><span>' + escapeHtml(r.tier || '') + '</span>' +
-            '<span>¥' + Number(r.unitPrice || 0) + (r.threshold ? '（门槛 ' + escapeHtml(r.threshold) + '）' : '') + '</span>' +
+            '<span>¥' + Number(r.unitPrice || 0) + (r.discount ? '（' + escapeHtml(r.discount) + '）' : '') + (r.threshold ? ' 门槛 ' + escapeHtml(r.threshold) : '') + '</span>' +
             '<span class="pr-pts">' + intFmt(pts) + ' 积分</span></div>';
         }).join('');
         return '<div class="pr-card"><div class="pr-title">' + escapeHtml(c.name) + '</div>' + (rows || '<div class="t-meta">暂无档位</div>') + '</div>';
@@ -1337,6 +1337,7 @@
             '<input class="pa-tier" value="' + escapeHtml(r.tier || '') + '" placeholder="档位名" />' +
             '<input class="pa-thr" value="' + escapeHtml(r.threshold || '') + '" placeholder="月门槛(选填)" />' +
             '<input class="pa-price num" type="number" step="0.001" min="0" value="' + escapeHtml(r.unitPrice) + '" placeholder="单价(元)" />' +
+            '<input class="pa-disc" value="' + escapeHtml(r.discount || '') + '" placeholder="折扣(选填)" />' +
             '<button class="btn btn-primary btn-sm" onclick="saveRate(\'' + escapeHtml(c.id) + '\',\'' + escapeHtml(r.id) + '\',this)">保存</button>' +
             '<button class="btn btn-ghost btn-sm" onclick="delRate(\'' + escapeHtml(r.id) + '\',this)">删除</button>' +
           '</div>'
@@ -1368,6 +1369,7 @@
       row.innerHTML = '<input class="pa-tier" placeholder="档位名" />' +
         '<input class="pa-thr" placeholder="月门槛(选填)" />' +
         '<input class="pa-price num" type="number" step="0.001" min="0" placeholder="单价(元)" />' +
+        '<input class="pa-disc" placeholder="折扣(选填)" />' +
         '<button class="btn btn-primary btn-sm" onclick="saveRate(\'' + escapeHtml(cid) + '\',\'\',this)">保存</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.pr-edit-row\').remove()">取消</button>';
       wrap.appendChild(row);
@@ -1378,9 +1380,10 @@
       const tier = row.querySelector('.pa-tier').value.trim();
       const threshold = row.querySelector('.pa-thr').value.trim();
       const price = Number(row.querySelector('.pa-price').value);
+      const discount = row.querySelector('.pa-disc').value.trim();
       if (!tier) { alert('请填写档位名称'); return; }
       if (isNaN(price) || price < 0) { alert('请填写正确的单价'); return; }
-      const res = await api('admin/channel/rate/save', { id: rid, channelId: cid, tier, threshold, unitPrice: price }, true);
+      const res = await api('admin/channel/rate/save', { id: rid, channelId: cid, tier, threshold, unitPrice: price, discount }, true);
       if (res.ok) { loadPricingAdmin(); } else alert(res.msg || '保存失败');
     }
     async function delRate(rid, btn) {
