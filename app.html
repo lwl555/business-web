@@ -27,9 +27,13 @@
         <input id="type" placeholder="例如：数据标注 / 文案撰写 / 设计稿" />
       </div>
       <div class="field">
-        <label>预估资金</label>
-        <div class="estimate pending" id="estimate">待评估</div>
+        <label>联系方式 *</label>
+        <input id="contact" placeholder="手机号 / 微信号" />
       </div>
+    </div>
+    <div class="field">
+      <label>预估资金</label>
+      <div class="estimate pending" id="estimate">待评估</div>
     </div>
     <div class="field">
       <label>任务描述（选填）</label>
@@ -111,16 +115,23 @@
       if (res.ok) { RATES = res.rates || []; renderEstimate(); }
     }
 
+    const CONTACT_KEY = 'biz_contact';
+    const contactInput = document.getElementById('contact');
+    contactInput.value = localStorage.getItem(CONTACT_KEY) || '';   // 记住上次填的，省得每次重填
+
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const type = document.getElementById('type').value.trim();
       const desc = document.getElementById('desc').value.trim();
+      const contact = contactInput.value.trim();
       const msg = document.getElementById('submitMsg');
       msg.className = 'msg ok'; msg.textContent = '';
       if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
-      const res = await api('task/submit', { uid, type, desc });
+      if (!contact) { msg.className = 'msg err'; msg.textContent = '请填写联系方式'; return; }
+      const res = await api('task/submit', { uid, type, desc, contact });
       if (res.ok) {
         msg.className = 'msg ok';
         msg.textContent = '提交成功，等待管理员审核（' + res.task.id + '）';
+        localStorage.setItem(CONTACT_KEY, contact);
         document.getElementById('type').value = '';
         document.getElementById('desc').value = '';
         renderEstimate();
