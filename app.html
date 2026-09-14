@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 全新版</title>
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=4" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -38,6 +38,15 @@
     <div class="field">
       <label>任务描述（选填）</label>
       <textarea id="desc" placeholder="补充说明任务要求…"></textarea>
+    </div>
+    <div class="field">
+      <label>任务图片（选填，最多 6 张）</label>
+      <div class="uploader">
+        <input type="file" id="imgInput" accept="image/*" multiple hidden />
+        <button type="button" class="btn btn-ghost btn-sm" id="pickBtn">+ 选择图片</button>
+        <span class="t-meta">支持 jpg / png / webp，单张不超过 5MB</span>
+      </div>
+      <div class="thumbs" id="thumbs"></div>
     </div>
     <div class="actions">
       <button class="btn btn-primary" id="submitBtn">提交任务</button>
@@ -119,6 +128,72 @@
     const contactInput = document.getElementById('contact');
     contactInput.value = localStorage.getItem(CONTACT_KEY) || '';   // 记住上次填的，省得每次重填
 
+    // ---------- 图片选择 / 预览 / 上传 ----------
+    const MAX_IMAGES = window.MAX_IMAGES || 6;
+    const MAX_IMAGE_MB = window.MAX_IMAGE_MB || 5;
+    const imgInput = document.getElementById('imgInput');
+    let picked = [];                 // [{ file, url }]
+
+    document.getElementById('pickBtn').addEventListener('click', () => imgInput.click());
+
+    imgInput.addEventListener('change', () => {
+      const files = Array.from(imgInput.files || []);
+      for (const f of files) {
+        if (picked.length >= MAX_IMAGES) { alert('最多上传 ' + MAX_IMAGES + ' 张图片'); break; }
+        if (!f.type || f.type.indexOf('image/') !== 0) { alert('只能上传图片文件'); continue; }
+        if (f.size > MAX_IMAGE_MB * 1024 * 1024) { alert('「' + f.name + '」超过 ' + MAX_IMAGE_MB + 'MB，已跳过'); continue; }
+        picked.push({ file: f, url: URL.createObjectURL(f) });
+      }
+      imgInput.value = '';
+      renderThumbs();
+    });
+
+    function renderThumbs() {
+      document.getElementById('thumbs').innerHTML = picked.map((p, i) =>
+        '<div class="thumb"><img src="' + p.url + '" alt="" />' +
+        '<button type="button" class="thumb-del" title="移除" onclick="removeImg(' + i + ')">×</button></div>'
+      ).join('');
+    }
+
+    function removeImg(i) {
+      if (picked[i]) { URL.revokeObjectURL(picked[i].url); picked.splice(i, 1); }
+      renderThumbs();
+    }
+
+    function clearPicked() {
+      picked.forEach(p => URL.revokeObjectURL(p.url));
+      picked = [];
+      renderThumbs();
+    }
+
+    // 逐张上传到 Supabase Storage，返回公开访问 URL 数组
+    async function uploadImages(u) {
+      const urls = [];
+      for (let i = 0; i < picked.length; i++) {
+        const p = picked[i];
+        let ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!ext) ext = 'jpg';
+        const path = u + '/' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+        const r = await fetch(window.SUPABASE_URL + '/storage/v1/object/' + window.UPLOAD_BUCKET + '/' + path, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+            'apikey': window.SUPABASE_ANON_KEY,
+            'Content-Type': p.file.type || 'image/jpeg',
+            'x-upsert': 'false'
+          },
+          body: p.file
+        });
+        if (!r.ok) {
+          let detail = '';
+          try { detail = (await r.text()).slice(0, 140); } catch (e) {}
+          throw new Error('图片上传失败（' + r.status + '）' + (detail ? '：' + detail : ''));
+        }
+        urls.push(window.SUPABASE_URL + '/storage/v1/object/public/' + window.UPLOAD_BUCKET + '/' + path);
+      }
+      return urls;
+    }
+
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const type = document.getElementById('type').value.trim();
       const desc = document.getElementById('desc').value.trim();
@@ -127,13 +202,34 @@
       msg.className = 'msg ok'; msg.textContent = '';
       if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
       if (!contact) { msg.className = 'msg err'; msg.textContent = '请填写联系方式'; return; }
-      const res = await api('task/submit', { uid, type, desc, contact });
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+
+      let images = [];
+      if (picked.length) {
+        msg.className = 'msg ok';
+        msg.textContent = '正在上传图片（0/' + picked.length + '）…';
+        try {
+          images = await uploadImages(uid);
+        } catch (e) {
+          msg.className = 'msg err'; msg.textContent = e.message || '图片上传失败';
+          btn.disabled = false;
+          return;
+        }
+      }
+
+      msg.className = 'msg ok';
+      msg.textContent = '正在提交…';
+      const res = await api('task/submit', { uid, type, desc, contact, images });
+      btn.disabled = false;
       if (res.ok) {
         msg.className = 'msg ok';
         msg.textContent = '提交成功，等待管理员审核（' + res.task.id + '）';
         localStorage.setItem(CONTACT_KEY, contact);
         document.getElementById('type').value = '';
         document.getElementById('desc').value = '';
+        clearPicked();
         renderEstimate();
         loadTasks();
       } else {
@@ -157,10 +253,17 @@
           ? '<button class="btn btn-green btn-sm" onclick="markRecharge(\'' + t.id + '\')">我已充值</button>'
           : '';
         const note = t.progress_note ? '<div class="note">管理员备注：' + escapeHtml(t.progress_note) + '</div>' : '';
+        const imgs = Array.isArray(t.images) ? t.images : [];
+        const imgHtml = imgs.length
+          ? '<div class="thumbs">' + imgs.map(u =>
+              '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>'
+            ).join('') + '</div>'
+          : '';
         return '<div class="task">' +
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
+          imgHtml +
           '<div class="t-meta">预估资金：' + moneyText(t.amount) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note +

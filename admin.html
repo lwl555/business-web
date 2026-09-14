@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=4" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -174,6 +174,12 @@
             '<button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝</button>';
         }
         const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
+        const imgs = Array.isArray(t.images) ? t.images : [];
+        const imgHtml = imgs.length
+          ? '<div class="thumbs">' + imgs.map(u =>
+              '<a class="thumb" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="" /></a>'
+            ).join('') + '</div>'
+          : '';
         const amountRow = '<div class="actions">' +
           '<input id="amt-' + t.id + '" type="number" min="0" class="num" placeholder="改金额（留空=待评估）" style="width:190px">' +
           '<button class="btn btn-ghost btn-sm" onclick="setAmount(\'' + t.id + '\')">保存金额</button></div>';
@@ -184,6 +190,7 @@
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
+          imgHtml +
           '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' +
           '<div class="t-meta">预估资金：' + moneyText(t.amount) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
