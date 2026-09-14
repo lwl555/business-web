@@ -4,10 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 入口</title>
-  <link rel="stylesheet" href="css/style.css?v=2" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
 </head>
 <body class="page-entry">
-  <div class="wrap-narrow card">
+
+  <!-- 入口：两个按钮 -->
+  <div class="wrap-narrow card" id="entry">
     <div class="entry-head">
       <div class="logo">业</div>
       <h1>业务网</h1>
@@ -42,14 +44,51 @@
     <div class="foot">© 业务网 · 全新版为当前主推入口</div>
   </div>
 
+  <!-- 当前页内嵌显示旧版 -->
+  <div class="wrap card" id="viewer" style="display:none">
+    <div class="topbar">
+      <div class="brandmark">
+        <div class="logo">旧</div>
+        <div>
+          <h1 class="title">业务网 · 旧版</h1>
+          <div class="subtitle">mirabloom.chuangzaoba.top</div>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn btn-ghost btn-sm" href="https://mirabloom.chuangzaoba.top/" target="_blank" rel="noopener">在新标签打开</a>
+        <button class="btn btn-primary btn-sm" id="backBtn">返回入口</button>
+      </div>
+    </div>
+
+    <div class="frame-wrap">
+      <iframe id="oldFrame" src="about:blank" title="旧版业务网"></iframe>
+    </div>
+    <div class="frame-tip">若上方内容空白，说明该站点不允许被嵌入，请点右上角「在新标签打开」。</div>
+  </div>
+
   <script>
+    const OLD_URL = 'https://mirabloom.chuangzaoba.top/';
+
     document.getElementById('btnNew').addEventListener('click', () => {
       // 相对路径：兼容 GitHub Pages 项目页子路径
       window.location.href = 'app.html';
     });
+
     document.getElementById('btnOld').addEventListener('click', () => {
-      // 新标签打开旧版站点（保留本站）
-      window.open('https://mirabloom.chuangzaoba.top/', '_blank');
+      document.getElementById('entry').style.display = 'none';
+      document.getElementById('viewer').style.display = 'block';
+      document.body.className = 'page-viewer';
+      const f = document.getElementById('oldFrame');
+      if (!f.getAttribute('src') || f.getAttribute('src') === 'about:blank') {
+        f.setAttribute('src', OLD_URL);
+      }
+      window.scrollTo(0, 0);
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      document.getElementById('viewer').style.display = 'none';
+      document.getElementById('entry').style.display = 'block';
+      document.body.className = 'page-entry';
     });
   </script>
 </body>
