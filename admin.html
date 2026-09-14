@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=2" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -131,9 +131,9 @@
       };
       tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; });
       document.getElementById('stats').innerHTML =
-        '<div class="stat"><div class="s-num" style="color:#fde047">' + c.pending_review + '</div><div class="s-lbl">待一审</div></div>' +
-        '<div class="stat"><div class="s-num" style="color:#93c5fd">' + c.recharge_pending + '</div><div class="s-lbl">待二审</div></div>' +
-        '<div class="stat"><div class="s-num" style="color:#e9d5ff">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
+        '<div class="stat"><div class="s-num warn">' + c.pending_review + '</div><div class="s-lbl">待一审</div></div>' +
+        '<div class="stat"><div class="s-num brand">' + c.recharge_pending + '</div><div class="s-lbl">待二审</div></div>' +
+        '<div class="stat"><div class="s-num ok">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
     }
 
     function renderTasks(tasks) {
