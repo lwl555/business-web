@@ -263,6 +263,17 @@ h1, .title {
 .preset-manage .grow { flex: 1; }
 .preset-manage-list { margin-top: 8px; }
 
+/* ---------- 邀请好友 ---------- */
+.invite-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 18px;
+  background: var(--bg-soft, #f5f7fa); text-align: center;
+}
+.invite-code {
+  font-size: 30px; font-weight: 800; letter-spacing: 5px; color: var(--brand);
+  margin-top: 8px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
 @media (max-width: 760px) {
   .cs-grid { grid-template-columns: 1fr; }
   .cs-convs { max-height: 240px; }
