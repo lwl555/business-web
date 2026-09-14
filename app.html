@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>业务网 · 全新版</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="wrap card">
+    <div class="topbar">
+      <div class="brandmark">
+        <div class="logo">业</div>
+        <div>
+          <h1 class="title">业务网 · 全新版</h1>
+          <div class="subtitle">商品与服务 · 任务中心</div>
+        </div>
+      </div>
+      <a class="back-link" href="index.html">← 返回入口</a>
+    </div>
+
+    <div class="section-title">类型任务提交</div>
+    <div class="row2">
+      <div class="field">
+        <label>任务类型 *</label>
+        <input id="type" placeholder="例如：数据标注 / 文案撰写 / 设计稿" />
+      </div>
+      <div class="field">
+        <label>充值金额（元）</label>
+        <input id="amount" type="number" min="0" placeholder="0" value="0" />
+      </div>
+    </div>
+    <div class="field">
+      <label>任务描述（选填）</label>
+      <textarea id="desc" placeholder="补充说明任务要求…"></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="submitBtn">提交任务</button>
+      <span id="submitMsg" class="msg ok"></span>
+    </div>
+
+    <div class="section-title">我的任务 / 当前进度</div>
+    <div id="taskList" class="task-list"><div class="loading">加载中…</div></div>
+  </div>
+
+  <script>
+    const STATUS_TEXT = {
+      pending_review: '待审核',
+      approved: '已通过 · 待充值',
+      recharge_pending: '已充值 · 待确认',
+      completed: '已完成',
+      rejected: '已拒绝'
+    };
+
+    function getUid() {
+      let uid = localStorage.getItem('biz_uid');
+      if (!uid) {
+        uid = 'U-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+        localStorage.setItem('biz_uid', uid);
+      }
+      return uid;
+    }
+    const uid = getUid();
+
+    async function api(endpoint, body) {
+      const r = await fetch(window.API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: endpoint, ...(body || {}) })
+      });
+      return r.json();
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      const type = document.getElementById('type').value.trim();
+      const desc = document.getElementById('desc').value.trim();
+      const amount = Number(document.getElementById('amount').value) || 0;
+      const msg = document.getElementById('submitMsg');
+      msg.className = 'msg ok'; msg.textContent = '';
+      if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
+      const res = await api('task/submit', { uid, type, desc, amount });
+      if (res.ok) {
+        msg.className = 'msg ok';
+        msg.textContent = '提交成功，等待管理员审核（' + res.task.id + '）';
+        document.getElementById('type').value = '';
+        document.getElementById('desc').value = '';
+        document.getElementById('amount').value = '0';
+        loadTasks();
+      } else {
+        msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
+      }
+    });
+
+    function badge(status) {
+      return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>';
+    }
+
+    function renderTasks(tasks) {
+      const box = document.getElementById('taskList');
+      if (!tasks.length) {
+        box.innerHTML = '<div class="empty">暂无任务，提交后将在此显示进度</div>';
+        return;
+      }
+      box.innerHTML = tasks.map(t => {
+        const canRecharge = t.status === 'approved';
+        const rechargeBtn = canRecharge
+          ? '<button class="btn btn-green btn-sm" onclick="markRecharge(\'' + t.id + '\')">我已充值</button>'
+          : '';
+        const note = t.progressNote ? '<div class="note">管理员备注：' + escapeHtml(t.progressNote) + '</div>' : '';
+        return '<div class="task">' +
+          '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
+          '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
+          (t.desc ? '<div class="t-desc">' + escapeHtml(t.desc) + '</div>' : '') +
+          '<div class="t-meta">金额：¥' + (t.amount || 0) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
+          '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
+          note +
+          (rechargeBtn ? '<div class="actions">' + rechargeBtn + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }
+
+    async function markRecharge(id) {
+      if (!confirm('确认已向平台完成资金充值？提交后等待管理员二审确认。')) return;
+      const res = await api('task/recharge', { id, uid });
+      if (res.ok) loadTasks(); else alert(res.msg || '操作失败');
+    }
+
+    async function loadTasks() {
+      const res = await api('tasks', { uid });
+      if (res.ok) renderTasks(res.tasks);
+      else document.getElementById('taskList').innerHTML = '<div class="empty">加载失败</div>';
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function fmtTime(s) {
+      return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : '';
+    }
+
+    loadTasks();
+    setInterval(loadTasks, 8000);
+  </script>
+</body>
+</html>
