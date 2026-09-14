@@ -533,6 +533,8 @@ a.thumb:hover { border-color: var(--brand); box-shadow: var(--shadow); }
 .rate-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .rate-row .grow { flex: 1; min-width: 160px; }
 .rate-row .num { width: 130px; }
+.rate-pts { font-size: 13px; font-weight: 600; color: var(--brand); white-space: nowrap; }
+label small { color: var(--muted-2); font-weight: 400; font-size: 12px; }
 
 /* ---------- 标签页 ---------- */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }

@@ -148,15 +148,15 @@
       <div class="quick" id="quickTypes"></div>
       <div class="row2">
         <div class="field">
+          <label>预估积分 <small>（仅供参考，以审核为准）</small></label>
+          <div class="estimate pending" id="needPoints">--</div>
+        </div>
+        <div class="field">
           <label>预估费用</label>
           <div class="estimate pending" id="estimate">待评估</div>
         </div>
-        <div class="field">
-          <label>应付积分</label>
-          <div class="estimate pending" id="needPoints">--</div>
-        </div>
       </div>
-      <div class="t-meta" id="payTip" style="margin: -6px 0 14px"></div>
+      <div class="t-meta" id="payTip" style="margin: -6px 0 14px">提交后由管理员审核并决定实际扣除多少积分，提交时不会扣费。</div>
       <div class="field">
         <label>任务描述（选填）</label>
         <textarea id="desc" placeholder="补充说明任务要求…"></textarea>
@@ -171,7 +171,7 @@
         <div class="thumbs" id="thumbs"></div>
       </div>
       <div class="actions">
-        <button class="btn btn-primary" id="submitBtn">提交并支付</button>
+        <button class="btn btn-primary" id="submitBtn">提交任务（审核后扣费）</button>
         <span id="submitMsg" class="msg ok"></span>
       </div>
 
@@ -230,14 +230,14 @@
         <button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存</button>
         <span class="msg ok" id="setMsg"></span>
       </div>
-      <div class="section-title">关键词金额规则</div>
+      <div class="section-title">关键词积分规则</div>
       <div class="rate-add">
         <input id="newKw" class="grow" placeholder="关键词，如：数据标注" />
-        <input id="newAmt" class="num" type="number" min="0" placeholder="金额（元）" />
+        <input id="newAmt" class="num" type="number" min="0" step="0.01" placeholder="金额（元，支持 0.xx）" />
         <button class="btn btn-primary btn-sm" id="addRateBtn">添加规则</button>
       </div>
       <div class="subtitle" style="margin-bottom:14px">
-        任务类型里含该关键词时，自动按此金额预估；多个关键词命中时取最长的那个。
+        按「金额（元）」设置，系统自动换算成积分展示（1 元 = 多少积分见上方设置）；金额支持小数，如 0.05 元。多个关键词命中时取最长的那个。
       </div>
       <div id="rateList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
@@ -298,13 +298,31 @@
     </div>
   </div>
 
+  <!-- 一审实扣积分弹窗 -->
+  <div class="modal" id="reviewModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">一审通过 · 填写实际扣除积分</div>
+      <div class="t-meta" id="rvId"></div>
+      <div class="t-meta" id="rvHint"></div>
+      <div class="field">
+        <label>实际扣除积分（可任意填写，默认 = 预估）</label>
+        <input id="rvPoints" type="number" min="0" placeholder="如 500" />
+      </div>
+      <div class="msg" id="rvMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="rvSubmit">确认扣除并受理</button>
+        <button class="btn btn-ghost btn-sm" id="rvClose">取消</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ==================== 通用 ====================
     const STATUS_TEXT = {
-      pending_review: '待审核',
+      pending_review: '待审核（未扣费）',
       approved: '已受理',
       completed: '已完成',
-      rejected: '已拒绝（积分已退）'
+      rejected: '已拒绝（未扣费）'
     };
     const RC_STATUS = { pending: '待核对', approved: '已到账', rejected: '已拒绝' };
 
@@ -313,6 +331,7 @@
     let isAdmin = false;
     let currentView = 'work';
     let RATES = [];
+    let ADMIN_TASKS = [];
     let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
     let picked = [];
     let rcPicked = null;
@@ -557,7 +576,7 @@
       const box = $('quickTypes');
       if (!RATES.length) { box.innerHTML = ''; return; }
       box.innerHTML = '<span class="q-lbl">常用：</span>' + RATES.slice(0, 12).map(r =>
-        '<button type="button" class="q-chip" data-kw="' + escapeHtml(r.keyword) + '">' + escapeHtml(r.keyword) + ' <i>¥' + Number(r.amount) + '</i></button>'
+        '<button type="button" class="q-chip" data-kw="' + escapeHtml(r.keyword) + '">' + escapeHtml(r.keyword) + ' <i>≈' + intFmt(Math.round(Number(r.amount) * (PTS.pointsPerYuan || 100))) + ' 分</i></button>'
       ).join('');
       box.querySelectorAll('.q-chip').forEach(b => b.addEventListener('click', () => { $('type').value = b.dataset.kw; renderEstimate(); }));
     }
@@ -584,13 +603,12 @@
       const need = $('needPoints'); const tip = $('payTip');
       if (v === null) {
         need.className = 'estimate pending'; need.textContent = '--';
-        tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。'; tip.className = 't-meta'; return;
+        tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。'; tip.className = 't-meta'; tip.style.color = ''; return;
       }
-      const p = Math.floor(v * (PTS.pointsPerYuan || 100));
+      const p = Math.round(v * (PTS.pointsPerYuan || 100));
       need.className = 'estimate'; need.textContent = intFmt(p) + ' 积分';
-      const bal = Number(PTS.points) || 0;
-      if (bal >= p) { tip.textContent = '余额 ' + intFmt(bal) + ' 积分，支付后剩余 ' + intFmt(bal - p) + ' 积分'; tip.className = 't-meta'; tip.style.color = ''; }
-      else { tip.textContent = '余额不足：还差 ' + intFmt(p - bal) + ' 积分，请先充值'; tip.className = 't-meta'; tip.style.color = 'var(--danger)'; }
+      tip.textContent = '预估 ' + intFmt(p) + ' 积分（≈¥' + v + '），提交后由管理员审核决定实际扣除，提交时不扣费。';
+      tip.className = 't-meta'; tip.style.color = '';
     }
     $('type').addEventListener('input', renderEstimate);
 
@@ -643,11 +661,6 @@
       if (!contact) { msg.className = 'msg err'; msg.textContent = '请填写联系方式'; return; }
       const v = estimateLocal(type);
       if (v === null) { msg.className = 'msg err'; msg.textContent = '该任务类型暂无报价，请换一个类型'; return; }
-      const need = Math.floor(v * (PTS.pointsPerYuan || 100));
-      if ((Number(PTS.points) || 0) < need) {
-        $('rechargeBox').style.display = 'block'; loadRecharges();
-        msg.className = 'msg err'; msg.textContent = '积分不足（需 ' + intFmt(need) + '），请先充值'; return;
-      }
       const btn = $('submitBtn'); btn.disabled = true;
       let images = [];
       if (picked.length) {
@@ -658,11 +671,11 @@
       const res = await api('task/submit', { phone: PHONE, type, desc, contact, images });
       btn.disabled = false;
       if (res.ok) {
-        msg.className = 'msg ok'; msg.textContent = '提交成功，已扣 ' + intFmt(res.task.points_paid) + ' 积分（' + res.task.id + '）';
+        const ep = res.estimate_points || 0;
+        msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ' + intFmt(ep) + ' 积分，等待管理员审核（实际扣除以审核为准）';
         $('type').value = ''; $('desc').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
-        if (res.code === 'INSUFFICIENT_POINTS') { $('rechargeBox').style.display = 'block'; loadRecharges(); }
       }
     });
 
@@ -680,7 +693,7 @@
         }).join('') + '</div>' : '';
         let actions = '';
         if (adminMode) {
-          if (t.status === 'pending_review') actions = '<button class="btn btn-green btn-sm" onclick="review(\'' + t.id + '\',\'approve\')">一审通过</button><button class="btn btn-red btn-sm" onclick="review(\'' + t.id + '\',\'reject\')">拒绝</button>';
+          if (t.status === 'pending_review') actions = '<button class="btn btn-green btn-sm" onclick="openReview(\'' + t.id + '\')">一审通过</button><button class="btn btn-red btn-sm" onclick="review(\'' + t.id + '\',\'reject\')">拒绝</button>';
           else if (t.status === 'approved') actions = '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">标记完成</button><button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝（退积分）</button>';
         }
         return '<div class="task">' +
@@ -689,7 +702,9 @@
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           imgHtml +
           (adminMode ? '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' : '') +
-          '<div class="t-meta">费用：' + moneyText(t.amount) + ' ｜ 已付：' + intFmt(t.points_paid) + ' 积分 ｜ ' + fmtTime(t.created_at) + '</div>' +
+          (adminMode
+            ? '<div class="t-meta">预估：' + intFmt(t.estimate_points) + ' 积分 ' + moneyText(t.estimate_amount) + ' ｜ 实际已扣：' + intFmt(t.points_paid) + ' 积分 ｜ ' + fmtTime(t.created_at) + '</div>'
+            : '<div class="t-meta">预估 ' + intFmt(t.estimate_points) + ' 积分（提交时不扣费，以审核为准）｜ ' + fmtTime(t.created_at) + '</div>') +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note +
           (adminMode && actions ? '<div class="actions">' + actions + '</div>' : '') +
@@ -825,7 +840,7 @@
     }
     async function loadAdminTasks() {
       const res = await api('admin/tasks', {}, true);
-      if (res.ok) { renderStats(res.tasks); await ensureSigned((res.tasks || []).flatMap(t => Array.isArray(t.images) ? t.images : [])); renderTasks(res.tasks, true); }
+      if (res.ok) { ADMIN_TASKS = res.tasks || []; renderStats(ADMIN_TASKS); await ensureSigned((ADMIN_TASKS).flatMap(t => Array.isArray(t.images) ? t.images : [])); renderTasks(ADMIN_TASKS, true); }
       else { $('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>'; token = ''; localStorage.removeItem('biz_admin_token'); }
     }
     async function review(id, action) {
@@ -833,6 +848,26 @@
       const res = await api('admin/review', { id, action }, true);
       if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
     }
+    // 一审通过：填写实际扣除积分（默认=预估，可改任意）
+    function openReview(id) {
+      const t = ADMIN_TASKS.find(x => x.id === id);
+      $('rvId').textContent = '任务：' + id;
+      $('rvHint').textContent = t ? ('预估 ' + intFmt(t.estimate_points) + ' 积分（' + moneyText(t.estimate_amount) + '），管理员可修改为实际扣除值') : '请输入实际扣除积分';
+      $('rvPoints').value = t ? (t.estimate_points || 0) : 0;
+      $('rvMsg').className = 'msg'; $('rvMsg').textContent = '';
+      $('reviewModal').style.display = 'flex';
+    }
+    function closeReview() { $('reviewModal').style.display = 'none'; }
+    $('rvClose').addEventListener('click', closeReview);
+    $('rvSubmit').addEventListener('click', async () => {
+      const id = $('rvId').textContent.replace('任务：', '').trim();
+      const points = Math.floor(Number($('rvPoints').value));
+      const msg = $('rvMsg'); msg.className = 'msg'; msg.textContent = '';
+      if (isNaN(points) || points < 0) { msg.className = 'msg err'; msg.textContent = '请填写不小于 0 的积分'; return; }
+      const res = await api('admin/review', { id, action: 'approve', points }, true);
+      if (res.ok) { closeReview(); loadAdminTasks(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+    });
     async function confirmR(id, action) {
       if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
       const res = await api('admin/confirm', { id, action }, true);
@@ -859,14 +894,16 @@
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
       const rates = res.rates || [];
       if (!rates.length) { box.innerHTML = '<div class="empty">还没有规则，先在上面添加一条</div>'; return; }
-      box.innerHTML = rates.map(r =>
-        '<div class="task"><div class="rate-row">' +
+      box.innerHTML = rates.map(r => {
+        const pts = Math.round(Number(r.amount) * (PTS.pointsPerYuan || 100));
+        return '<div class="task"><div class="rate-row">' +
           '<input class="grow" id="kw-' + r.id + '" value="' + escapeHtml(r.keyword) + '" />' +
-          '<input class="num" id="am-' + r.id + '" type="number" min="0" value="' + Number(r.amount) + '" />' +
+          '<input class="num" id="am-' + r.id + '" type="number" min="0" step="0.01" value="' + Number(r.amount) + '" />' +
+          '<span class="rate-pts">≈ ' + intFmt(pts) + ' 积分</span>' +
           '<button class="btn btn-ghost btn-sm" onclick="saveRate(\'' + r.id + '\')">保存</button>' +
           '<button class="btn btn-red btn-sm" onclick="delRate(\'' + r.id + '\')">删除</button>' +
-        '</div></div>'
-      ).join('');
+        '</div></div>';
+      }).join('');
     }
     async function addRate() {
       const kw = $('newKw').value.trim(); const amt = $('newAmt').value.trim();
