@@ -204,10 +204,6 @@
           <input id="contact" placeholder="手机号 / 微信号" />
         </div>
       </div>
-      <div class="field">
-        <label>业务 / 渠道（选填，选后按你的等级自动估价）</label>
-        <select id="taskChannel"><option value="">不指定（按关键词估价）</option></select>
-      </div>
       <div class="quick" id="quickTypes"></div>
       <div class="row2">
         <div class="field">
@@ -455,6 +451,10 @@
       <div class="modal-title">一审通过 · 填写实际扣除积分</div>
       <div class="t-meta" id="rvId"></div>
       <div class="t-meta" id="rvHint"></div>
+      <div class="field">
+        <label>业务 / 渠道（管理员指定，用户不可自选）</label>
+        <select id="rvChannel"><option value="">不指定（维持原预估）</option></select>
+      </div>
       <div class="field">
         <label>实际扣除积分（可任意填写，默认 = 预估）</label>
         <input id="rvPoints" type="number" min="0" placeholder="如 500" />
@@ -837,12 +837,6 @@
       const res = await api('channel/list', {});
       if (!res.ok) return;
       CHANNELS = res.channels || [];
-      const sel = $('taskChannel');
-      const cur = sel.value;
-      sel.innerHTML = '<option value="">不指定（按关键词估价）</option>' +
-        CHANNELS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</option>').join('');
-      if (cur) sel.value = cur;
-      renderEstimate();
     }
     function renderQuick() {
       const box = $('quickTypes');
@@ -867,14 +861,8 @@
       if (!v) return null;
       return CHANNELS.find(c => c.id === v || c.name === v) || null;
     }
-    // 返回 { amount, channel, src, missingTier } —— 选了渠道按等级取单价，否则回退关键词
+    // 用户提交时不选渠道：估价只按关键词规则（渠道由管理员在审核时指定）
     function currentEstimate() {
-      const ch = getChannelByIdOrName($('taskChannel').value);
-      if (ch) {
-        const rate = (ch.rates || []).find(r => (r.tier || '') === (PTS.tier || MY_TIER));
-        if (!rate) return { amount: null, channel: ch.name, src: 'channel', missingTier: true };
-        return { amount: Number(rate.unitPrice), channel: ch.name, src: 'channel', missingTier: false };
-      }
       return { amount: estimateLocal($('type').value), src: 'keyword' };
     }
     function renderEstimate() {
@@ -889,18 +877,15 @@
       const need = $('needPoints'); const tip = $('payTip');
       if (e.amount === null) {
         need.className = 'estimate pending'; need.textContent = '--';
-        if (e.missingTier) { tip.textContent = '该渠道（' + e.channel + '）暂未配置你当前等级（' + (PTS.tier || MY_TIER) + '）的价格，请换渠道或联系客服。'; }
-        else { tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。'; }
+        tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。';
         tip.className = 't-meta'; tip.style.color = ''; return;
       }
       const p = Math.round(e.amount * (PTS.pointsPerYuan || 100));
       need.className = 'estimate'; need.textContent = intFmt(p) + ' 积分';
-      const chTip = e.channel ? ('（渠道：' + e.channel + '）') : '';
-      tip.textContent = '预估 ' + intFmt(p) + ' 积分（≈¥' + e.amount + '）' + chTip + '，提交后由管理员审核决定实际扣除，提交时不扣费。';
+      tip.textContent = '预估 ' + intFmt(p) + ' 积分（≈¥' + e.amount + '），提交后由管理员审核决定实际扣除，提交时不扣费。';
       tip.className = 't-meta'; tip.style.color = '';
     }
     $('type').addEventListener('input', renderEstimate);
-    $('taskChannel').addEventListener('change', renderEstimate);
 
     // ==================== 图片 ====================
     const MAX_IMAGES = window.MAX_IMAGES || 6;
@@ -972,14 +957,13 @@
       const type = $('type').value.trim();
       const desc = $('desc').value.trim();
       const contact = $('contact').value.trim();
-      const channel = $('taskChannel').value || '';
       const msg = $('submitMsg'); msg.className = 'msg ok'; msg.textContent = '';
       if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
       if (!contact) { msg.className = 'msg err'; msg.textContent = '请填写联系方式'; return; }
       const e = currentEstimate();
       if (e.amount === null) {
         msg.className = 'msg err';
-        msg.textContent = e.missingTier ? ('该渠道暂未配置你当前等级（' + (PTS.tier || MY_TIER) + '）的价格，请换渠道或联系客服') : '该任务类型暂无报价，请换一个类型';
+        msg.textContent = '该任务类型暂无报价，请换一个类型';
         return;
       }
       const btn = $('submitBtn'); btn.disabled = true;
@@ -989,12 +973,12 @@
         try { images = await uploadImages(); } catch (er) { msg.className = 'msg err'; msg.textContent = er.message || '图片上传失败'; btn.disabled = false; return; }
       }
       msg.textContent = '正在提交…';
-      const res = await api('task/submit', { phone: PHONE, type, desc, contact, channel, images });
+      const res = await api('task/submit', { phone: PHONE, type, desc, contact, images });
       btn.disabled = false;
       if (res.ok) {
         const ep = res.estimate_points || 0;
         msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ' + intFmt(ep) + ' 积分，等待管理员审核（实际扣除以审核为准）';
-        $('type').value = ''; $('desc').value = ''; $('taskChannel').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
+        $('type').value = ''; $('desc').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
       }
@@ -1522,6 +1506,10 @@
         '<div class="stat"><div class="s-num ok">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
     }
     async function loadAdminTasks() {
+      // 预加载渠道价目表（供一审选渠道）与每元积分
+      loadChannels();
+      const sres = await api('admin/settings', {}, true);
+      if (sres.ok && sres.settings) PTS.pointsPerYuan = Number(sres.settings.points_per_yuan) || 100;
       const res = await api('admin/tasks', {}, true);
       if (res.ok) { ADMIN_TASKS = res.tasks || []; renderStats(ADMIN_TASKS); await ensureSigned((ADMIN_TASKS).flatMap(t => Array.isArray(t.images) ? t.images : [])); renderTasks(ADMIN_TASKS, true); }
       else { $('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>'; token = ''; localStorage.removeItem('biz_admin_token'); }
@@ -1561,10 +1549,26 @@
       if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
     }
     // 一审通过：填写实际扣除积分（默认=预估，可改任意）
+    let RV_TIER = '';
     function openReview(id) {
       const t = ADMIN_TASKS.find(x => x.id === id);
       $('rvId').textContent = '任务：' + id;
-      $('rvHint').textContent = t ? ('预估 ' + intFmt(t.estimate_points) + ' 积分（' + moneyText(t.estimate_amount) + '），管理员可修改为实际扣除值') : '请输入实际扣除积分';
+      RV_TIER = (t && t.tier) || MY_TIER;
+      $('rvHint').textContent = t ? ('用户等级：' + RV_TIER + '，原预估 ' + intFmt(t.estimate_points) + ' 积分（' + moneyText(t.estimate_amount) + '），选渠道后按等级重算') : '请输入实际扣除积分';
+      // 渠道下拉（管理员指定）
+      const sel = $('rvChannel');
+      sel.innerHTML = '<option value="">不指定（维持原预估）</option>' +
+        CHANNELS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</option>').join('');
+      sel.value = '';
+      sel.onchange = () => {
+        const c = CHANNELS.find(x => x.id === sel.value);
+        if (!c) { $('rvPoints').value = t ? (t.estimate_points || 0) : 0; $('rvHint').textContent = t ? ('用户等级：' + RV_TIER + '，原预估 ' + intFmt(t.estimate_points) + ' 积分（' + moneyText(t.estimate_amount) + '），选渠道后按等级重算') : ''; return; }
+        const rate = (c.rates || []).find(r => (r.tier || '') === RV_TIER);
+        if (!rate) { $('rvHint').textContent = '该用户等级（' + RV_TIER + '）在渠道「' + c.name + '」下暂无价格，请先到价目表补充'; $('rvPoints').value = t ? (t.estimate_points || 0) : 0; return; }
+        const pts = Math.round(Number(rate.unitPrice || 0) * (PTS.pointsPerYuan || 100));
+        $('rvPoints').value = pts;
+        $('rvHint').textContent = '渠道：' + c.name + ' ｜ 等级：' + RV_TIER + ' ｜ 单价 ¥' + rate.unitPrice + ' → 预估 ' + intFmt(pts) + ' 积分（可改）';
+      };
       $('rvPoints').value = t ? (t.estimate_points || 0) : 0;
       $('rvMsg').className = 'msg'; $('rvMsg').textContent = '';
       $('reviewModal').style.display = 'flex';
@@ -1574,9 +1578,10 @@
     $('rvSubmit').addEventListener('click', async () => {
       const id = $('rvId').textContent.replace('任务：', '').trim();
       const points = Math.floor(Number($('rvPoints').value));
+      const channel = $('rvChannel').value || '';
       const msg = $('rvMsg'); msg.className = 'msg'; msg.textContent = '';
       if (isNaN(points) || points < 0) { msg.className = 'msg err'; msg.textContent = '请填写不小于 0 的积分'; return; }
-      const res = await api('admin/review', { id, action: 'approve', points }, true);
+      const res = await api('admin/review', { id, action: 'approve', points, channel }, true);
       if (res.ok) { closeReview(); loadAdminTasks(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
     });
