@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>业务网 · 管理后台</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <!-- 登录 -->
+  <div class="wrap-narrow card tight" id="loginBox">
+    <div style="text-align:center; margin-bottom: 22px;">
+      <div class="logo" style="margin:0 auto 14px;">管</div>
+      <h1 class="title">管理员登录</h1>
+      <div class="subtitle">业务网 · 审核后台</div>
+    </div>
+    <div class="field">
+      <label>账号</label>
+      <input id="username" placeholder="admin" />
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input id="password" type="password" placeholder="******" />
+    </div>
+    <button class="btn btn-primary btn-block" id="loginBtn">登录</button>
+    <div id="loginMsg" class="msg err"></div>
+    <div class="foot" style="margin-top:14px"><a class="back-link" href="index.html">← 返回入口</a></div>
+  </div>
+
+  <!-- 后台 -->
+  <div class="wrap card" id="dash" style="display:none">
+    <div class="topbar">
+      <div class="brandmark">
+        <div class="logo">管</div>
+        <div>
+          <h1 class="title">审核后台</h1>
+          <div class="subtitle">当前登录：<span id="who"></span></div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">退出登录</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="review">一审 · 待审核</div>
+      <div class="tab" data-tab="recharge">二审 · 待确认</div>
+      <div class="tab" data-tab="all">全部任务</div>
+    </div>
+
+    <div id="list" class="task-list"><div class="loading">加载中…</div></div>
+  </div>
+
+  <script>
+    const STATUS_TEXT = {
+      pending_review: '待审核',
+      approved: '已通过 · 待充值',
+      recharge_pending: '已充值 · 待确认',
+      completed: '已完成',
+      rejected: '已拒绝'
+    };
+    let token = localStorage.getItem('biz_admin_token') || '';
+    let currentTab = 'review';
+
+    async function api(endpoint, body, needToken) {
+      const payload = Object.assign({}, body || {});
+      if (needToken && token) payload.token = token;
+      const r = await fetch(window.API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: endpoint, ...payload })
+      });
+      return r.json();
+    }
+
+    function badge(status) {
+      return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>';
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function fmtTime(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('loginMsg');
+      msg.textContent = '';
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const res = await api('login', { username, password });
+      if (res.ok) {
+        token = res.token;
+        localStorage.setItem('biz_admin_token', token);
+        showDash(res.username);
+      } else {
+        msg.textContent = res.msg || '登录失败';
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      token = ''; localStorage.removeItem('biz_admin_token');
+      document.getElementById('dash').style.display = 'none';
+      document.getElementById('loginBox').style.display = 'block';
+    });
+
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        currentTab = t.dataset.tab;
+        loadTasks();
+      });
+    });
+
+    function showDash(username) {
+      document.getElementById('loginBox').style.display = 'none';
+      document.getElementById('dash').style.display = 'block';
+      document.getElementById('who').textContent = username;
+      loadTasks();
+    }
+
+    function filterTasks(tasks) {
+      if (currentTab === 'review') return tasks.filter(t => t.status === 'pending_review');
+      if (currentTab === 'recharge') return tasks.filter(t => t.status === 'recharge_pending');
+      return tasks;
+    }
+
+    function renderStats(tasks) {
+      const c = {
+        pending_review: 0, recharge_pending: 0, completed: 0
+      };
+      tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; });
+      document.getElementById('stats').innerHTML =
+        '<div class="stat"><div class="s-num" style="color:#fde047">' + c.pending_review + '</div><div class="s-lbl">待一审</div></div>' +
+        '<div class="stat"><div class="s-num" style="color:#93c5fd">' + c.recharge_pending + '</div><div class="s-lbl">待二审</div></div>' +
+        '<div class="stat"><div class="s-num" style="color:#e9d5ff">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
+    }
+
+    function renderTasks(tasks) {
+      const box = document.getElementById('list');
+      if (!tasks.length) { box.innerHTML = '<div class="empty">暂无相关任务</div>'; return; }
+      box.innerHTML = tasks.map(t => {
+        let actions = '';
+        if (t.status === 'pending_review') {
+          actions =
+            '<button class="btn btn-green btn-sm" onclick="review(\'' + t.id + '\',\'approve\')">一审通过</button>' +
+            '<button class="btn btn-red btn-sm" onclick="review(\'' + t.id + '\',\'reject\')">拒绝</button>';
+        } else if (t.status === 'recharge_pending') {
+          actions =
+            '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">确认充值完成</button>' +
+            '<button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝</button>';
+        }
+        const note = t.progressNote ? '<div class="note">备注：' + escapeHtml(t.progressNote) + '</div>' : '';
+        const progInput = '<div class="actions">' +
+          '<input id="pn-' + t.id + '" placeholder="填写进度备注…" style="flex:1; padding:9px 12px">' +
+          '<button class="btn btn-ghost btn-sm" onclick="setProgress(\'' + t.id + '\')">保存备注</button></div>';
+        return '<div class="task">' +
+          '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
+          '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
+          (t.desc ? '<div class="t-desc">' + escapeHtml(t.desc) + '</div>' : '') +
+          '<div class="t-meta">用户：' + t.uid + ' ｜ 金额：¥' + (t.amount || 0) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
+          '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
+          note + progInput +
+          (actions ? '<div class="actions">' + actions + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }
+
+    async function review(id, action) {
+      if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
+      const res = await api('admin/review', { id, action }, true);
+      if (res.ok) loadTasks(); else alert(res.msg || '操作失败');
+    }
+    async function confirmR(id, action) {
+      if (action === 'reject' && !confirm('确认拒绝该任务？')) return;
+      const res = await api('admin/confirm', { id, action }, true);
+      if (res.ok) loadTasks(); else alert(res.msg || '操作失败');
+    }
+    async function setProgress(id) {
+      const note = document.getElementById('pn-' + id).value.trim();
+      const res = await api('admin/progress', { id, progressNote: note }, true);
+      if (res.ok) loadTasks(); else alert(res.msg || '操作失败');
+    }
+
+    async function loadTasks() {
+      const res = await api('admin/tasks', {}, true);
+      if (res.ok) { renderStats(res.tasks); renderTasks(filterTasks(res.tasks)); }
+      else {
+        document.getElementById('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>';
+        token = ''; localStorage.removeItem('biz_admin_token');
+      }
+    }
+
+    (async () => {
+      if (!token) return;
+      const res = await api('admin/tasks', {}, true);
+      if (res.ok) showDash('管理员');
+    })();
+
+    setInterval(() => { if (token && document.getElementById('dash').style.display !== 'none') loadTasks(); }, 8000);
+  </script>
+</body>
+</html>
