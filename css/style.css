@@ -306,6 +306,49 @@ a.thumb:hover { border-color: var(--brand); box-shadow: var(--shadow); }
 }
 .pwd-toggle:hover { text-decoration: underline; }
 
+/* ---------- 积分 / 签到 ---------- */
+.points-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--brand-50);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r);
+  padding: 14px 18px;
+}
+.pb-left { display: flex; align-items: baseline; gap: 8px; }
+.pb-num { font-size: 24px; font-weight: 600; color: var(--brand); line-height: 1.1; }
+.pb-lbl { font-size: 13px; color: var(--muted); }
+.pb-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* 勾选行 */
+.chk { display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer; margin-bottom: 6px; }
+.chk input { width: auto; margin: 0; }
+
+/* 常用类型快捷标签 */
+.quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 16px; }
+.q-lbl { font-size: 12px; color: var(--muted-2); }
+.q-chip {
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  color: var(--text-2);
+  transition: border-color .15s, color .15s, background .15s;
+}
+.q-chip i { font-style: normal; color: var(--muted-2); font-size: 11px; }
+.q-chip:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-50); }
+
+/* 后台行内设置项 */
+.inline-field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.inline-field input { width: 88px; padding: 6px 8px; }
+
 /* ---------- 按钮 ---------- */
 .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .btn {

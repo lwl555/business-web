@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 全新版</title>
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -20,6 +20,18 @@
       <a class="back-link" href="index.html">← 返回入口</a>
     </div>
 
+    <!-- 签到 / 积分 -->
+    <div class="points-bar">
+      <div class="pb-left">
+        <span class="pb-num" id="myPoints">--</span>
+        <span class="pb-lbl">我的积分</span>
+      </div>
+      <div class="pb-right">
+        <span class="t-meta" id="streakTip"></span>
+        <button class="btn btn-primary btn-sm" id="checkinBtn">签到</button>
+      </div>
+    </div>
+
     <div class="section-title">类型任务提交</div>
     <div class="row2">
       <div class="field">
@@ -31,9 +43,17 @@
         <input id="contact" placeholder="手机号 / 微信号" />
       </div>
     </div>
+    <div class="quick" id="quickTypes"></div>
     <div class="field">
       <label>预估资金</label>
       <div class="estimate pending" id="estimate">待评估</div>
+    </div>
+    <div class="field" id="deductWrap" style="display:none">
+      <label class="chk">
+        <input type="checkbox" id="usePoints" />
+        <span>使用积分抵扣（我有 <b id="ptsHave">0</b> 积分，这一单最多可抵 <b id="maxDeduct">¥0</b>）</span>
+      </label>
+      <div class="t-meta" id="payTip"></div>
     </div>
     <div class="field">
       <label>任务描述（选填）</label>
@@ -117,12 +137,105 @@
       return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v));
     }
 
-    document.getElementById('type').addEventListener('input', renderEstimate);
+    function moneyExtra(t) {
+      const d = Number(t.deduction || 0);
+      const p = Number(t.points_used || 0);
+      if (!d && !p) return '';
+      const pay = (t.amount === null || t.amount === undefined) ? null : Math.round((Number(t.amount) - d) * 100) / 100;
+      return ' ｜ 积分抵扣：-' + d + '（' + p + ' 分）' + (pay === null ? '' : ' ｜ 实付：¥' + pay);
+    }
+
+    document.getElementById('type').addEventListener('input', () => { renderEstimate(); renderDeduct(); });
 
     async function loadRates() {
       const res = await api('rate/list', {});
-      if (res.ok) { RATES = res.rates || []; renderEstimate(); }
+      if (res.ok) {
+        RATES = res.rates || [];
+        renderEstimate();
+        renderQuick();
+        renderDeduct();
+      }
     }
+
+    // ---------- 常用任务类型快捷选择 ----------
+    function renderQuick() {
+      const box = document.getElementById('quickTypes');
+      if (!RATES.length) { box.innerHTML = ''; return; }
+      box.innerHTML = '<span class="q-lbl">常用：</span>' + RATES.slice(0, 12).map(r =>
+        '<button type="button" class="q-chip" data-kw="' + escapeHtml(r.keyword) + '">' +
+        escapeHtml(r.keyword) + ' <i>¥' + Number(r.amount) + '</i></button>'
+      ).join('');
+      box.querySelectorAll('.q-chip').forEach(b => {
+        b.addEventListener('click', () => {
+          document.getElementById('type').value = b.dataset.kw;
+          renderEstimate();
+          renderDeduct();
+        });
+      });
+    }
+
+    // ---------- 签到 / 积分 ----------
+    let PTS = { points: 0, checkedToday: false, streak: 0, checkinPoints: 10, pointsPerYuan: 100, maxDeductRatio: 0.5 };
+
+    async function loadPoints() {
+      const res = await api('my/points', { uid });
+      if (!res.ok) return;
+      PTS = res;
+      document.getElementById('myPoints').textContent = res.points;
+      const btn = document.getElementById('checkinBtn');
+      if (res.checkedToday) {
+        btn.disabled = true;
+        btn.textContent = '今日已签到';
+        document.getElementById('streakTip').textContent = res.streak > 1 ? ('连续签到 ' + res.streak + ' 天') : '';
+      } else {
+        btn.disabled = false;
+        btn.textContent = '签到 +' + res.checkinPoints;
+        document.getElementById('streakTip').textContent = res.streak > 0 ? ('已连续 ' + res.streak + ' 天') : '';
+      }
+      renderDeduct();
+    }
+
+    document.getElementById('checkinBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('checkinBtn');
+      btn.disabled = true;
+      const res = await api('checkin', { uid });
+      if (res.ok) {
+        alert('签到成功，获得 ' + res.gain + ' 积分' + (res.streak > 1 ? '（连续 ' + res.streak + ' 天）' : ''));
+      } else {
+        alert(res.msg || '签到失败');
+      }
+      loadPoints();
+    });
+
+    // 这一单最多能用多少积分 / 能抵多少钱
+    function maxDeductInfo() {
+      const amount = estimateLocal(document.getElementById('type').value);
+      if (amount === null) return null;
+      const maxPts = Math.floor(amount * PTS.maxDeductRatio * PTS.pointsPerYuan);
+      const pts = Math.max(0, Math.min(Number(PTS.points) || 0, maxPts));
+      const yuan = Math.round((pts / PTS.pointsPerYuan) * 100) / 100;
+      return { amount: amount, points: pts, yuan: yuan, pay: Math.round((amount - yuan) * 100) / 100 };
+    }
+
+    function renderDeduct() {
+      const wrap = document.getElementById('deductWrap');
+      const info = maxDeductInfo();
+      if (!info || info.points <= 0) {
+        wrap.style.display = 'none';
+        document.getElementById('usePoints').checked = false;
+        document.getElementById('payTip').textContent = '';
+        return;
+      }
+      wrap.style.display = '';
+      document.getElementById('ptsHave').textContent = PTS.points;
+      document.getElementById('maxDeduct').textContent = '¥' + info.yuan;
+      const on = document.getElementById('usePoints').checked;
+      document.getElementById('payTip').textContent = on
+        ? ('抵扣 ' + info.points + ' 积分，减 ¥' + info.yuan + '，实付 ¥' + info.pay)
+        : ('勾选后：抵扣 ' + info.points + ' 积分，实付 ¥' + info.pay);
+    }
+
+    document.getElementById('usePoints').addEventListener('change', renderDeduct);
 
     const CONTACT_KEY = 'biz_contact';
     const contactInput = document.getElementById('contact');
@@ -226,7 +339,8 @@
 
       msg.className = 'msg ok';
       msg.textContent = '正在提交…';
-      const res = await api('task/submit', { uid, type, desc, contact, images });
+      const usePoints = document.getElementById('usePoints').checked;
+      const res = await api('task/submit', { uid, type, desc, contact, images, usePoints });
       btn.disabled = false;
       if (res.ok) {
         msg.className = 'msg ok';
@@ -234,8 +348,11 @@
         localStorage.setItem(CONTACT_KEY, contact);
         document.getElementById('type').value = '';
         document.getElementById('desc').value = '';
+        document.getElementById('usePoints').checked = false;
         clearPicked();
         renderEstimate();
+        renderDeduct();
+        loadPoints();
         loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
@@ -298,7 +415,7 @@
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           imgHtml +
-          '<div class="t-meta">预估资金：' + moneyText(t.amount) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
+          '<div class="t-meta">预估资金：' + moneyText(t.amount) + moneyExtra(t) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note +
           (rechargeBtn ? '<div class="actions">' + rechargeBtn + '</div>' : '') +
@@ -330,6 +447,7 @@
     }
 
     loadRates();
+    loadPoints();
     loadTasks();
     setInterval(loadTasks, 8000);
   </script>

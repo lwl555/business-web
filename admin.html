@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -17,7 +17,7 @@
     </div>
     <div class="field">
       <label>账号</label>
-      <input id="username" value="admin" placeholder="admin" />
+      <input id="username" value="18882632073" placeholder="手机号" />
     </div>
     <div class="field">
       <label>密码</label>
@@ -56,6 +56,25 @@
     <div id="list" class="task-list"><div class="loading">加载中…</div></div>
 
     <div id="ratePanel" style="display:none">
+      <div class="section-title">积分设置</div>
+      <div class="rate-add">
+        <label class="inline-field">每天签到得
+          <input id="setCheckin" class="num" type="number" min="0" />
+          <span>积分</span>
+        </label>
+        <label class="inline-field">
+          <input id="setPerYuan" class="num" type="number" min="1" />
+          <span>积分抵 1 元</span>
+        </label>
+        <label class="inline-field">最高抵扣
+          <input id="setRatio" class="num" type="number" min="0" max="100" />
+          <span>%</span>
+        </label>
+        <button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存</button>
+        <span class="msg ok" id="setMsg"></span>
+      </div>
+
+      <div class="section-title">关键词金额规则</div>
       <div class="rate-add">
         <input id="newKw" class="grow" placeholder="关键词，如：数据标注" />
         <input id="newAmt" class="num" type="number" min="0" placeholder="金额（元）" />
@@ -122,6 +141,13 @@
     }
     function fmtTime(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
     function moneyText(v) { return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v)); }
+    function moneyExtra(t) {
+      const d = Number(t.deduction || 0);
+      const p = Number(t.points_used || 0);
+      if (!d && !p) return '';
+      const pay = (t.amount === null || t.amount === undefined) ? null : Math.round((Number(t.amount) - d) * 100) / 100;
+      return ' ｜ 积分抵扣：-' + d + '（' + p + ' 分）' + (pay === null ? '' : ' ｜ 实付：¥' + pay);
+    }
 
     document.getElementById('pwdToggle').addEventListener('click', () => {
       const el = document.getElementById('password');
@@ -165,6 +191,35 @@
       document.getElementById('list').style.display = 'none';
       document.getElementById('ratePanel').style.display = 'block';
       loadRates();
+      loadSettings();
+    }
+
+    // ---------- 积分设置 ----------
+    async function loadSettings() {
+      const res = await api('admin/settings', {}, true);
+      if (!res.ok) return;
+      const s = res.settings;
+      document.getElementById('setCheckin').value = s.checkin_points;
+      document.getElementById('setPerYuan').value = s.points_per_yuan;
+      document.getElementById('setRatio').value = Math.round(s.max_deduct_ratio * 100);
+    }
+
+    async function saveSettings() {
+      const msg = document.getElementById('setMsg');
+      msg.className = 'msg ok';
+      msg.textContent = '';
+      const res = await api('admin/settings/save', {
+        checkin_points: document.getElementById('setCheckin').value,
+        points_per_yuan: document.getElementById('setPerYuan').value,
+        max_deduct_ratio: document.getElementById('setRatio').value
+      }, true);
+      if (res.ok) {
+        msg.textContent = '已保存';
+        loadSettings();
+      } else {
+        msg.className = 'msg err';
+        msg.textContent = res.msg || '保存失败';
+      }
     }
     function hideRatePanel() {
       document.getElementById('list').style.display = '';
@@ -229,7 +284,7 @@
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           imgHtml +
           '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' +
-          '<div class="t-meta">预估资金：' + moneyText(t.amount) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
+          '<div class="t-meta">预估资金：' + moneyText(t.amount) + moneyExtra(t) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note + amountRow + progInput +
           (actions ? '<div class="actions">' + actions + '</div>' : '') +
@@ -319,6 +374,7 @@
     }
 
     document.getElementById('addRateBtn').addEventListener('click', addRate);
+    document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
     document.getElementById('newAmt').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
     document.getElementById('newKw').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
 
