@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css?v=6" />
+  <link rel="stylesheet" href="css/style.css?v=7" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -51,6 +51,7 @@
       <div class="tab" data-tab="recharge">二审 · 待确认</div>
       <div class="tab" data-tab="all">全部任务</div>
       <div class="tab" data-tab="rates">金额规则</div>
+      <div class="tab" data-tab="announce">公告</div>
     </div>
 
     <div id="list" class="task-list"><div class="loading">加载中…</div></div>
@@ -84,6 +85,28 @@
         任务类型里含该关键词时，自动按此金额预估；多个关键词命中时取最长的那个。用户端实时显示的就是这里的价格。
       </div>
       <div id="rateList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <div id="annPanel" style="display:none">
+      <div class="section-title" id="annFormTitle">发布公告</div>
+      <input type="hidden" id="annId" />
+      <div class="field">
+        <label>标题</label>
+        <input id="annTitle" placeholder="如：平台维护通知" />
+      </div>
+      <div class="field">
+        <label>内容</label>
+        <textarea id="annContent" placeholder="公告正文，可换行…"></textarea>
+      </div>
+      <div class="actions">
+        <label class="chk"><input type="checkbox" id="annActive" checked /> <span>立即启用（用户端可见）</span></label>
+        <button class="btn btn-primary btn-sm" id="annSaveBtn">发布</button>
+        <button class="btn btn-ghost btn-sm" id="annResetBtn">清空表单</button>
+        <span class="msg ok" id="annMsg"></span>
+      </div>
+
+      <div class="section-title">已发布的公告</div>
+      <div id="annList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
   </div>
 
@@ -182,16 +205,19 @@
         document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
         t.classList.add('active');
         currentTab = t.dataset.tab;
-        if (currentTab === 'rates') showRatePanel();
-        else { hideRatePanel(); loadTasks(); }
+        if (currentTab === 'rates') showPanel('rates');
+        else if (currentTab === 'announce') showPanel('announce');
+        else { showPanel('tasks'); loadTasks(); }
       });
     });
 
-    function showRatePanel() {
-      document.getElementById('list').style.display = 'none';
-      document.getElementById('ratePanel').style.display = 'block';
-      loadRates();
-      loadSettings();
+    // 三个面板（任务列表 / 金额规则 / 公告）同时只显示一个
+    function showPanel(name) {
+      document.getElementById('list').style.display = (name === 'tasks') ? '' : 'none';
+      document.getElementById('ratePanel').style.display = (name === 'rates') ? 'block' : 'none';
+      document.getElementById('annPanel').style.display = (name === 'announce') ? 'block' : 'none';
+      if (name === 'rates') { loadRates(); loadSettings(); }
+      if (name === 'announce') loadAnnouncements();
     }
 
     // ---------- 积分设置 ----------
@@ -221,9 +247,85 @@
         msg.textContent = res.msg || '保存失败';
       }
     }
-    function hideRatePanel() {
-      document.getElementById('list').style.display = '';
-      document.getElementById('ratePanel').style.display = 'none';
+    // ---------- 公告 ----------
+    let ANN = [];
+
+    async function loadAnnouncements() {
+      const box = document.getElementById('annList');
+      const res = await api('admin/announcements', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      ANN = res.announcements || [];
+      if (!ANN.length) { box.innerHTML = '<div class="empty">还没有公告，在上面发布一条试试</div>'; return; }
+      box.innerHTML = ANN.map(a =>
+        '<div class="task">' +
+          '<div class="t-head">' +
+            '<span class="badge ' + (a.active ? 'b-completed' : 'b-rejected') + '">' + (a.active ? '已启用' : '已停用') + '</span>' +
+            '<span class="t-meta">' + fmtTime(a.created_at) + '</span>' +
+          '</div>' +
+          '<div class="t-type">' + escapeHtml(a.title || '(无标题)') + '</div>' +
+          (a.content ? '<div class="t-desc">' + escapeHtml(a.content).replace(/\n/g, '<br />') + '</div>' : '') +
+          '<div class="actions">' +
+            '<button class="btn btn-ghost btn-sm" onclick="annEdit(\'' + a.id + '\')">编辑</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="annToggle(\'' + a.id + '\')">' + (a.active ? '停用' : '启用') + '</button>' +
+            '<button class="btn btn-red btn-sm" onclick="annDelete(\'' + a.id + '\')">删除</button>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    function annReset() {
+      document.getElementById('annId').value = '';
+      document.getElementById('annTitle').value = '';
+      document.getElementById('annContent').value = '';
+      document.getElementById('annActive').checked = true;
+      document.getElementById('annFormTitle').textContent = '发布公告';
+      document.getElementById('annSaveBtn').textContent = '发布';
+      document.getElementById('annMsg').textContent = '';
+    }
+
+    function annEdit(id) {
+      const a = ANN.find(x => x.id === id);
+      if (!a) return;
+      document.getElementById('annId').value = a.id;
+      document.getElementById('annTitle').value = a.title || '';
+      document.getElementById('annContent').value = a.content || '';
+      document.getElementById('annActive').checked = !!a.active;
+      document.getElementById('annFormTitle').textContent = '编辑公告';
+      document.getElementById('annSaveBtn').textContent = '保存修改';
+      window.scrollTo(0, 0);
+    }
+
+    async function annSave() {
+      const msg = document.getElementById('annMsg');
+      msg.className = 'msg ok';
+      msg.textContent = '';
+      const id = document.getElementById('annId').value;
+      const title = document.getElementById('annTitle').value.trim();
+      const content = document.getElementById('annContent').value.trim();
+      const active = document.getElementById('annActive').checked;
+      if (!title && !content) { msg.className = 'msg err'; msg.textContent = '标题和内容至少填一个'; return; }
+      const res = await api('admin/announcement/save', { id: id || undefined, title, content, active }, true);
+      if (res.ok) {
+        msg.textContent = id ? '已保存修改' : '发布成功';
+        annReset();
+        loadAnnouncements();
+      } else {
+        msg.className = 'msg err';
+        msg.textContent = res.msg || '操作失败';
+      }
+    }
+
+    async function annToggle(id) {
+      const a = ANN.find(x => x.id === id);
+      if (!a) return;
+      const res = await api('admin/announcement/save', { id, title: a.title, content: a.content, active: !a.active }, true);
+      if (res.ok) loadAnnouncements(); else alert(res.msg || '操作失败');
+    }
+
+    async function annDelete(id) {
+      if (!confirm('确认删除这条公告？')) return;
+      const res = await api('admin/announcement/delete', { id }, true);
+      if (res.ok) loadAnnouncements(); else alert(res.msg || '删除失败');
     }
 
     function showDash(username) {
@@ -317,7 +419,7 @@
       const res = await api('admin/tasks', {}, true);
       if (res.ok) {
         renderStats(res.tasks);
-        if (currentTab !== 'rates') {
+        if (currentTab !== 'rates' && currentTab !== 'announce') {
           await ensureSigned(res.tasks);
           renderTasks(filterTasks(res.tasks));
         }
@@ -375,6 +477,8 @@
 
     document.getElementById('addRateBtn').addEventListener('click', addRate);
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+    document.getElementById('annSaveBtn').addEventListener('click', annSave);
+    document.getElementById('annResetBtn').addEventListener('click', annReset);
     document.getElementById('newAmt').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
     document.getElementById('newKw').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
 

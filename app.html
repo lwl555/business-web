@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 全新版</title>
-  <link rel="stylesheet" href="css/style.css?v=6" />
+  <link rel="stylesheet" href="css/style.css?v=7" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -19,6 +19,9 @@
       </div>
       <a class="back-link" href="index.html">← 返回入口</a>
     </div>
+
+    <!-- 平台公告 -->
+    <div class="ann-list" id="annList" style="display:none"></div>
 
     <!-- 签到 / 积分 -->
     <div class="points-bar">
@@ -446,8 +449,24 @@
       return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : '';
     }
 
+    // ---------- 平台公告 ----------
+    async function loadAnnouncements() {
+      const res = await api('announcement/list', {});
+      const box = document.getElementById('annList');
+      const list = (res.ok && res.announcements) ? res.announcements : [];
+      if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      box.innerHTML = list.slice(0, 3).map(a =>
+        '<div class="ann">' +
+          '<div class="ann-title"><span class="ann-tag">公告</span>' + escapeHtml(a.title || '平台公告') + '</div>' +
+          (a.content ? '<div class="ann-body">' + escapeHtml(a.content).replace(/\n/g, '<br />') + '</div>' : '') +
+        '</div>'
+      ).join('');
+    }
+
     loadRates();
     loadPoints();
+    loadAnnouncements();
     loadTasks();
     setInterval(loadTasks, 8000);
   </script>
