@@ -682,11 +682,12 @@ body.page-viewer { padding: 20px 16px; }
 .user-table { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .ut-head, .ut-row {
   display: grid;
-  grid-template-columns: 1.4fr 0.7fr 0.7fr 0.9fr 1fr 1.5fr;
+  grid-template-columns: 1.3fr 0.7fr 0.7fr 0.9fr 1fr 1.3fr 1.3fr 0.9fr 1.7fr;
   align-items: center;
   gap: 8px;
   padding: 12px 14px;
 }
+.ut-tier select { width: 100%; padding: 5px 6px; font-size: 13px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
 .ut-head {
   background: var(--bg-2);
   font-size: 12px;
@@ -716,6 +717,33 @@ body.page-viewer { padding: 20px 16px; }
 .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
 .modal-box .field { margin: 10px 0; }
 
+/* ---------- 价格表（用户端） ---------- */
+.pr-card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; background: var(--card); }
+.pr-title { font-size: 16px; font-weight: 700; color: var(--brand); margin-bottom: 8px; }
+.pr-row { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr; gap: 8px; padding: 7px 10px; border-radius: 7px; font-size: 14px; align-items: center; }
+.pr-row:nth-child(odd) { background: var(--bg-2); }
+.pr-row.hl { background: #eaf1ff; box-shadow: inset 0 0 0 1px var(--brand); font-weight: 600; }
+.pr-pts { color: var(--brand); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- 价目表（管理员可编辑） ---------- */
+.pa-card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; background: var(--card); }
+.pa-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.pa-name { flex: 1; min-width: 160px; }
+.pa-rates { display: flex; flex-direction: column; gap: 8px; }
+.pr-edit-row { display: grid; grid-template-columns: 1.3fr 1.4fr 1fr auto auto; gap: 8px; align-items: center; }
+.pr-edit-row .pa-tier, .pr-edit-row .pa-thr, .pr-edit-row .pa-price { width: 100%; }
+.pr-edit-row .num { width: 100%; }
+
+/* ---------- 聊天附件（图片 / 文件） ---------- */
+.chat-img { display: block; max-width: 220px; margin-top: 6px; }
+.chat-img img { max-width: 220px; max-height: 220px; border-radius: 8px; display: block; }
+.chat-file { display: inline-block; margin-top: 6px; color: var(--brand); text-decoration: none; font-size: 13px; }
+.chat-attach-wait { font-size: 12px; color: var(--muted-2); margin-top: 4px; }
+.chat-attach { margin-top: 8px; }
+.attach-item { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px 6px 6px; background: var(--bg-2); }
+.attach-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+.attach-del { border: none; background: #fff; color: #e0444f; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 15px; line-height: 1; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
@@ -725,7 +753,7 @@ body.page-viewer { padding: 20px 16px; }
   .stats { grid-template-columns: 1fr; gap: 10px; }
   .tabs { overflow-x: auto; }
   .user-table { overflow-x: auto; }
-  .ut-head, .ut-row { min-width: 560px; }
+  .ut-head, .ut-row { min-width: 880px; }
   .choice-new { padding: 18px; }
   .choice-old { width: 100%; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }

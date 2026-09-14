@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=16" />
+  <link rel="stylesheet" href="css/style.css?v=17" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -204,6 +204,10 @@
           <input id="contact" placeholder="手机号 / 微信号" />
         </div>
       </div>
+      <div class="field">
+        <label>业务 / 渠道（选填，选后按你的等级自动估价）</label>
+        <select id="taskChannel"><option value="">不指定（按关键词估价）</option></select>
+      </div>
       <div class="quick" id="quickTypes"></div>
       <div class="row2">
         <div class="field">
@@ -252,8 +256,11 @@
       <div class="chat-box" id="chatBox"><div class="loading">加载中…</div></div>
       <div class="chat-input">
         <input id="chatInput" placeholder="输入消息，按回车发送…" />
+        <button type="button" class="btn btn-ghost btn-sm" id="chatImgBtn" title="发送图片">图片</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="chatFileBtn" title="发送文件">文件</button>
         <button class="btn btn-primary btn-sm" id="chatSendBtn">发送</button>
       </div>
+      <div class="chat-attach" id="chatAttach"></div>
     </div>
 
     <!-- ---------- 邀请好友（用户端） ---------- -->
@@ -288,7 +295,7 @@
       </div>
       <div class="user-table">
         <div class="ut-head">
-          <span>手机号</span><span>积分</span><span>任务数</span><span>邀请数</span><span>到账充值</span><span>注册时间</span><span>最近登录</span><span>操作</span>
+          <span>手机号</span><span>积分</span><span>任务数</span><span>邀请数</span><span>到账充值</span><span>注册时间</span><span>最近登录</span><span>等级</span><span>操作</span>
         </div>
         <div id="userList"><div class="loading">加载中…</div></div>
       </div>
@@ -308,8 +315,11 @@
           <div class="preset-chips" id="presetChips"><span class="t-meta">预设文字加载中…</span></div>
           <div class="chat-input">
             <input id="csReply" placeholder="输入回复内容，按回车发送…" />
+            <button type="button" class="btn btn-ghost btn-sm" id="csImgBtn" title="发送图片">图片</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="csFileBtn" title="发送文件">文件</button>
             <button class="btn btn-primary btn-sm" id="csSendBtn">发送</button>
           </div>
+          <div class="chat-attach" id="csAttach"></div>
           <div class="preset-manage">
             <input id="csNewPreset" class="grow" placeholder="新增一条预设文字…" />
             <button class="btn btn-ghost btn-sm" id="csAddPresetBtn">加为预设</button>
@@ -389,6 +399,20 @@
       </div>
       <div class="section-title">已发布的公告</div>
       <div id="annListAdmin" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 价格表（用户端） ---------- -->
+    <div class="view" id="view-pricing" style="display:none">
+      <div class="section-title">价格表</div>
+      <div class="t-meta" style="margin-bottom:12px">以下为我平台的业务渠道与各合作档位单价，按你的账号等级自动计算所需积分（1 元 = <span id="ppY2">100</span> 积分）。具体费用以提交任务后管理员审核为准。</div>
+      <div id="pricingTable"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 价目表（管理员可编辑） ---------- -->
+    <div class="view" id="view-pricing-admin" style="display:none">
+      <div class="section-title">渠道价目表</div>
+      <div class="t-meta" style="margin-bottom:12px">配置各业务渠道与不同合作档位的单价（元/个），用户端提交任务时按自己的等级取价。1 元 = <span id="ppY3">100</span> 积分。</div>
+      <div id="pricingAdmin"><div class="loading">加载中…</div></div>
     </div>
   </div>
 
@@ -497,6 +521,8 @@
     let isAdmin = false;
     let currentView = 'work';
     let RATES = [];
+    let CHANNELS = [];
+    let MY_TIER = '普通散客档';
     let ADMIN_TASKS = [];
     let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
     let MSG_UNREAD = 0;
@@ -639,6 +665,7 @@
     const NAV = [
       { id: 'work', label: '工作台', roles: ['user', 'admin'] },
       { id: 'invite', label: '邀请好友', roles: ['user'] },
+      { id: 'pricing', label: '价格表', roles: ['user'] },
       { id: 'chat', label: '在线客服', roles: ['user'] },
       { id: 'messages', label: '消息', roles: ['user'] },
       { id: 'users', label: '用户管理', roles: ['admin'] },
@@ -646,9 +673,10 @@
       { id: 'pay', label: '充值审核', roles: ['admin'] },
       { id: 'tasks', label: '任务审核', roles: ['admin'] },
       { id: 'rules', label: '金额规则', roles: ['admin'] },
+      { id: 'pricingAdmin', label: '价目表', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'invite', 'users', 'pay', 'tasks', 'rules', 'ann', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'invite', 'pricing', 'users', 'pay', 'tasks', 'rules', 'pricingAdmin', 'ann', 'messages', 'chat', 'cs'];
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
@@ -676,7 +704,7 @@
         if (el) el.style.display = (id === v) ? '' : 'none';
       });
       renderNav();
-      if (v === 'work') { loadRates(); loadPoints(); loadAnnouncements(); loadTasks(); }
+      if (v === 'work') { loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks(); }
       else if (v === 'invite') loadInvite();
       else if (v === 'chat') loadChat();
       else if (v === 'messages') loadMessages();
@@ -686,6 +714,8 @@
       else if (v === 'tasks') loadAdminTasks();
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
       else if (v === 'ann') loadAnnouncementsAdmin();
+      else if (v === 'pricing') loadPricing();
+      else if (v === 'pricingAdmin') loadPricingAdmin();
     }
 
     function showApp() {
@@ -709,6 +739,7 @@
       const res = await api('my/points', { phone: PHONE });
       if (!res.ok) return;
       PTS = res;
+      MY_TIER = res.tier || '普通散客';
       $('myPoints').textContent = intFmt(res.points);
       $('pointsYuan').textContent = (res.points / (res.pointsPerYuan || 100)).toFixed(2);
       $('ppY').textContent = res.pointsPerYuan;
@@ -802,6 +833,17 @@
       RATES = res.rates || [];
       renderQuick(); renderEstimate();
     }
+    async function loadChannels() {
+      const res = await api('channel/list', {});
+      if (!res.ok) return;
+      CHANNELS = res.channels || [];
+      const sel = $('taskChannel');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">不指定（按关键词估价）</option>' +
+        CHANNELS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</option>').join('');
+      if (cur) sel.value = cur;
+      renderEstimate();
+    }
     function renderQuick() {
       const box = $('quickTypes');
       if (!RATES.length) { box.innerHTML = ''; return; }
@@ -821,26 +863,44 @@
       }
       return best ? best.amount : null;
     }
+    function getChannelByIdOrName(v) {
+      if (!v) return null;
+      return CHANNELS.find(c => c.id === v || c.name === v) || null;
+    }
+    // 返回 { amount, channel, src, missingTier } —— 选了渠道按等级取单价，否则回退关键词
+    function currentEstimate() {
+      const ch = getChannelByIdOrName($('taskChannel').value);
+      if (ch) {
+        const rate = (ch.rates || []).find(r => (r.tier || '') === (PTS.tier || MY_TIER));
+        if (!rate) return { amount: null, channel: ch.name, src: 'channel', missingTier: true };
+        return { amount: Number(rate.unitPrice), channel: ch.name, src: 'channel', missingTier: false };
+      }
+      return { amount: estimateLocal($('type').value), src: 'keyword' };
+    }
     function renderEstimate() {
       const el = $('estimate');
-      const v = estimateLocal($('type').value);
-      if (v === null) { el.className = 'estimate pending'; el.textContent = '待评估'; }
-      else { el.className = 'estimate'; el.textContent = '¥' + v; }
+      const e = currentEstimate();
+      if (e.amount === null) { el.className = 'estimate pending'; el.textContent = '待评估'; }
+      else { el.className = 'estimate'; el.textContent = '¥' + e.amount; }
       renderPay();
     }
     function renderPay() {
-      const v = estimateLocal($('type').value);
+      const e = currentEstimate();
       const need = $('needPoints'); const tip = $('payTip');
-      if (v === null) {
+      if (e.amount === null) {
         need.className = 'estimate pending'; need.textContent = '--';
-        tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。'; tip.className = 't-meta'; tip.style.color = ''; return;
+        if (e.missingTier) { tip.textContent = '该渠道（' + e.channel + '）暂未配置你当前等级（' + (PTS.tier || MY_TIER) + '）的价格，请换渠道或联系客服。'; }
+        else { tip.textContent = '该类型暂无报价，无法提交。换个类型或联系客服。'; }
+        tip.className = 't-meta'; tip.style.color = ''; return;
       }
-      const p = Math.round(v * (PTS.pointsPerYuan || 100));
+      const p = Math.round(e.amount * (PTS.pointsPerYuan || 100));
       need.className = 'estimate'; need.textContent = intFmt(p) + ' 积分';
-      tip.textContent = '预估 ' + intFmt(p) + ' 积分（≈¥' + v + '），提交后由管理员审核决定实际扣除，提交时不扣费。';
+      const chTip = e.channel ? ('（渠道：' + e.channel + '）') : '';
+      tip.textContent = '预估 ' + intFmt(p) + ' 积分（≈¥' + e.amount + '）' + chTip + '，提交后由管理员审核决定实际扣除，提交时不扣费。';
       tip.className = 't-meta'; tip.style.color = '';
     }
     $('type').addEventListener('input', renderEstimate);
+    $('taskChannel').addEventListener('change', renderEstimate);
 
     // ==================== 图片 ====================
     const MAX_IMAGES = window.MAX_IMAGES || 6;
@@ -863,47 +923,78 @@
     }
     function removeImg(i) { if (picked[i]) { URL.revokeObjectURL(picked[i].url); picked.splice(i, 1); } renderThumbs(); }
     function clearPicked() { picked.forEach(p => URL.revokeObjectURL(p.url)); picked = []; renderThumbs(); }
-    async function uploadFile(file, tag) {
-      let ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!ext) ext = 'jpg';
-      const path = PHONE + '/' + tag + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+    // 大图自动压缩（>300KB 的位图压到长边 1600、JPEG 0.82；gif 不动）
+    async function compressImage(file, maxDim, quality) {
+      try {
+        if (!file || !file.type || file.type.indexOf('image/') !== 0 || file.type === 'image/gif') return file;
+        if (file.size < 300 * 1024) return file;
+        const bmp = await createImageBitmap(file).catch(() => null);
+        if (!bmp) return file;
+        const scale = Math.min(1, (maxDim || 1600) / Math.max(bmp.width, bmp.height));
+        const w = Math.max(1, Math.round(bmp.width * scale));
+        const h = Math.max(1, Math.round(bmp.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+        if (bmp.close) bmp.close();
+        const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/jpeg', quality || 0.82));
+        if (!blob || blob.size >= file.size) return file;
+        return new File([blob], (file.name || 'image').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      } catch (e) { return file; }
+    }
+
+    // 上传到 biz-uploads；opts: { base, owner, image, compress }
+    async function uploadFile(file, tag, opts) {
+      opts = opts || {};
+      let f = file;
+      if (opts.compress !== false && file && file.type && file.type.indexOf('image/') === 0) f = await compressImage(file);
+      let ext = ((f.name || '').split('.').pop() || (opts.image ? 'jpg' : 'bin')).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!ext) ext = opts.image ? 'jpg' : 'bin';
+      const base = opts.base || (PHONE + '/');
+      const path = base + tag + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
       const r = await fetch(window.SUPABASE_URL + '/storage/v1/object/' + window.UPLOAD_BUCKET + '/' + path, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY, 'apikey': window.SUPABASE_ANON_KEY, 'Content-Type': file.type || 'image/jpeg', 'x-upsert': 'false' },
-        body: file
+        headers: { 'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY, 'apikey': window.SUPABASE_ANON_KEY, 'Content-Type': f.type || 'application/octet-stream', 'x-upsert': 'false' },
+        body: f
       });
-      if (!r.ok) { let d = ''; try { d = (await r.text()).slice(0, 140); } catch (e) {} throw new Error('图片上传失败（' + r.status + '）' + (d ? '：' + d : '')); }
+      if (!r.ok) { let d = ''; try { d = (await r.text()).slice(0, 140); } catch (e) {} throw new Error('上传失败（' + r.status + '）' + (d ? '：' + d : '')); }
       const j = await r.json().catch(() => ({}));
       const key = (j && j.Key) ? String(j.Key) : '';
       const rel = key.indexOf('biz-uploads/') === 0 ? key.slice('biz-uploads/'.length) : '';
-      if (!rel) throw new Error('图片上传返回异常，请重试');
-      return rel;
+      if (!rel) throw new Error('上传返回异常，请重试');
+      api('file/register', { phone: opts.owner || PHONE, path: rel, name: f.name, size: f.size }).catch(() => {});
+      return { path: rel, name: f.name, size: f.size, type: f.type };
     }
-    async function uploadImages() { const urls = []; for (let i = 0; i < picked.length; i++) urls.push(await uploadFile(picked[i].file, 'task' + i)); return urls; }
+    async function uploadImages() { const urls = []; for (let i = 0; i < picked.length; i++) { const up = await uploadFile(picked[i].file, 'task' + i); urls.push(up.path); } return urls; }
 
     // ==================== 提交任务 ====================
     $('submitBtn').addEventListener('click', async () => {
       const type = $('type').value.trim();
       const desc = $('desc').value.trim();
       const contact = $('contact').value.trim();
+      const channel = $('taskChannel').value || '';
       const msg = $('submitMsg'); msg.className = 'msg ok'; msg.textContent = '';
       if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
       if (!contact) { msg.className = 'msg err'; msg.textContent = '请填写联系方式'; return; }
-      const v = estimateLocal(type);
-      if (v === null) { msg.className = 'msg err'; msg.textContent = '该任务类型暂无报价，请换一个类型'; return; }
+      const e = currentEstimate();
+      if (e.amount === null) {
+        msg.className = 'msg err';
+        msg.textContent = e.missingTier ? ('该渠道暂未配置你当前等级（' + (PTS.tier || MY_TIER) + '）的价格，请换渠道或联系客服') : '该任务类型暂无报价，请换一个类型';
+        return;
+      }
       const btn = $('submitBtn'); btn.disabled = true;
       let images = [];
       if (picked.length) {
         msg.textContent = '正在上传图片…';
-        try { images = await uploadImages(); } catch (e) { msg.className = 'msg err'; msg.textContent = e.message || '图片上传失败'; btn.disabled = false; return; }
+        try { images = await uploadImages(); } catch (er) { msg.className = 'msg err'; msg.textContent = er.message || '图片上传失败'; btn.disabled = false; return; }
       }
       msg.textContent = '正在提交…';
-      const res = await api('task/submit', { phone: PHONE, type, desc, contact, images });
+      const res = await api('task/submit', { phone: PHONE, type, desc, contact, channel, images });
       btn.disabled = false;
       if (res.ok) {
         const ep = res.estimate_points || 0;
         msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ' + intFmt(ep) + ' 积分，等待管理员审核（实际扣除以审核为准）';
-        $('type').value = ''; $('desc').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
+        $('type').value = ''; $('desc').value = ''; $('taskChannel').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
       }
@@ -968,6 +1059,7 @@
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
       let list = res.users || [];
       if (userKeyword) list = list.filter(u => String(u.phone).indexOf(userKeyword) !== -1);
+      const tiers = res.tiers || [];
       $('userCount').textContent = '共 ' + list.length + ' 人';
       if (!list.length) { box.innerHTML = '<div class="empty">没有用户</div>'; return; }
       box.innerHTML = list.map(u =>
@@ -979,6 +1071,7 @@
           '<span>¥' + Number(u.recharge_total || 0) + '</span>' +
           '<span class="ut-time">' + (u.registered_at ? fmtTime(u.registered_at).slice(0, 10) : '—') + '</span>' +
           '<span class="ut-time">' + (u.last_login ? fmtTime(u.last_login).slice(0, 10) : '—') + '</span>' +
+          (function () { var tl = tiers.slice(); var ut = u.tier || MY_TIER; if (tl.indexOf(ut) === -1) tl.push(ut); return '<span class="ut-tier"><select onchange="changeTier(\'' + escapeHtml(u.phone) + '\', this.value)">' + tl.map(function (t) { return '<option value="' + escapeHtml(t) + '"' + (ut === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>'; }).join('') + '</select></span>'; })() +
           '<span class="ut-ops">' +
             '<button class="btn btn-ghost btn-sm" onclick="openUserModal(\'' + escapeHtml(u.phone) + '\')">加积分</button>' +
             '<button class="btn btn-ghost btn-sm" onclick="openLog(\'' + escapeHtml(u.phone) + '\')">流水</button>' +
@@ -991,6 +1084,11 @@
     $('userAllBtn').addEventListener('click', () => { userKeyword = ''; $('userSearch').value = ''; loadUsers(); });
     $('userSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { userKeyword = $('userSearch').value.trim(); loadUsers(); } });
 
+    async function changeTier(phone, tier) {
+      const res = await api('admin/user/tier', { phone, tier }, true);
+      if (res.ok) { /* 已更新，列表保持 */ }
+      else { alert(res.msg || '修改等级失败'); loadUsers(); }
+    }
     function openUserModal(phone) {
       $('umPhone').textContent = '用户：' + phone;
       $('umDelta').value = ''; $('umReason').value = '';
@@ -1082,12 +1180,24 @@
     }
 
     // ==================== 客服聊天：气泡渲染（用户 / 管理员共用） ====================
-    function renderChat(box, msgs, meRole) {
+    function chatAttachmentHtml(m) {
+      if (!m.file_path) return '';
+      const u = signedUrl(m.file_path);
+      if (!u) return '<div class="chat-attach-wait">附件读取中…</div>';
+      if (m.kind === 'image') return '<a class="chat-img" href="' + escapeHtml(u) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(u) + '" alt="' + escapeHtml(m.file_name || '图片') + '" /></a>';
+      const sz = m.file_size ? '（' + Math.max(1, Math.round(m.file_size / 1024)) + ' KB）' : '';
+      return '<a class="chat-file" href="' + escapeHtml(u) + '" target="_blank" rel="noopener" download="' + escapeHtml(m.file_name || 'file') + '">📎 ' + escapeHtml(m.file_name || '文件') + sz + '</a>';
+    }
+    async function renderChat(box, msgs, meRole) {
       if (!msgs.length) { box.innerHTML = '<div class="empty">还没有消息，发一条试试～</div>'; return; }
+      const paths = [];
+      msgs.forEach(m => { if (m.file_path) paths.push(m.file_path); });
+      await ensureSigned(paths);
       box.innerHTML = msgs.map(m => {
         const mine = m.role === meRole;
+        const att = chatAttachmentHtml(m);
         return '<div class="chat-row ' + (mine ? 'me' : 'them') + '">' +
-          '<div class="chat-bubble">' + escapeHtml(m.content) + '</div>' +
+          '<div class="chat-bubble">' + (m.content ? escapeHtml(m.content) + (att ? '<br/>' : '') : '') + att + '</div>' +
           '<div class="chat-time">' + (m.role === 'admin' ? '客服 · ' : '我 · ') + fmtTime(m.created_at) + '</div>' +
         '</div>';
       }).join('');
@@ -1099,20 +1209,62 @@
       const res = await api('user/chat/list', { phone: PHONE });
       if (!res.ok) { $('chatBox').innerHTML = '<div class="empty">加载失败</div>'; return; }
       CHAT_UNREAD = 0; renderNav();
-      renderChat($('chatBox'), res.messages || [], 'user');
+      await renderChat($('chatBox'), res.messages || [], 'user');
+    }
+    // 聊天附件（图片 / 文件）共用状态
+    let chatPicked = null;
+    let chatAttachBox = '';
+    function chatPick(kind, boxId) {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      if (kind === 'image') inp.accept = 'image/*';
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        chatPicked = { file: f, kind: (f.type && f.type.indexOf('image/') === 0) ? 'image' : 'file', name: f.name, size: f.size, url: (f.type && f.type.indexOf('image/') === 0) ? URL.createObjectURL(f) : '' };
+        chatAttachBox = boxId;
+        renderChatAttach();
+      };
+      inp.click();
+    }
+    function renderChatAttach() {
+      const box = $(chatAttachBox);
+      if (!box) return;
+      if (!chatPicked) { box.innerHTML = ''; return; }
+      const p = chatPicked;
+      const thumb = p.kind === 'image' ? '<img src="' + p.url + '" alt="" />' : '<span>📎 ' + escapeHtml(p.name) + '</span>';
+      box.innerHTML = '<div class="attach-item">' + thumb +
+        '<button type="button" class="attach-del" title="移除" onclick="clearChatPicked()">×</button>' +
+        '<span class="t-meta">发送时上传</span></div>';
+    }
+    function clearChatPicked() { if (chatPicked && chatPicked.url) URL.revokeObjectURL(chatPicked.url); chatPicked = null; renderChatAttach(); }
+    async function sendChatWithAttach(inputId, base, endpoint, extra) {
+      const input = $(inputId);
+      const content = input.value.trim();
+      if (!chatPicked && !content) return;
+      const btn = $('chatSendBtn'); btn.disabled = true;
+      try {
+        let res;
+        if (chatPicked) {
+          const up = await uploadFile(chatPicked.file, 'c' + Date.now(), { base, owner: PHONE, image: chatPicked.kind === 'image' });
+          res = await api(endpoint, Object.assign({ kind: chatPicked.kind, filePath: up.path, fileName: chatPicked.name, fileSize: chatPicked.size, content }, extra));
+          if (res.ok) { if (chatPicked.url) URL.revokeObjectURL(chatPicked.url); chatPicked = null; renderChatAttach(); }
+        } else {
+          res = await api(endpoint, Object.assign({ content }, extra));
+        }
+        if (!res.ok) { alert(res.msg || '发送失败'); return; }
+        input.value = '';
+        return true;
+      } finally { btn.disabled = false; }
     }
     async function sendChat() {
-      const input = $('chatInput');
-      const content = input.value.trim();
-      if (!content) return;
-      const btn = $('chatSendBtn'); btn.disabled = true;
-      const res = await api('user/chat/send', { phone: PHONE, content });
-      btn.disabled = false;
-      if (res.ok) { input.value = ''; loadChat(); }
-      else alert(res.msg || '发送失败');
+      const ok = await sendChatWithAttach('chatInput', 'chat/' + PHONE + '/', 'user/chat/send', { phone: PHONE });
+      if (ok) loadChat();
     }
     $('chatSendBtn').addEventListener('click', sendChat);
     $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+    $('chatImgBtn').addEventListener('click', () => chatPick('image', 'chatAttach'));
+    $('chatFileBtn').addEventListener('click', () => chatPick('file', 'chatAttach'));
     async function loadChatUnread() {
       if (isAdmin || !PHONE) return;
       const res = await api('user/chat/unread', { phone: PHONE });
@@ -1152,6 +1304,91 @@
       copyText('注册时填我的邀请码「' + INVITE_CODE + '」即可：\n' + url);
     });
 
+    // ==================== 价格表（用户端） ====================
+    async function loadPricing() {
+      const box = $('pricingTable');
+      if (!CHANNELS.length) await loadChannels();
+      $('ppY2').textContent = (PTS.pointsPerYuan || 100);
+      if (!CHANNELS.length) { box.innerHTML = '<div class="empty">暂无价目表</div>'; return; }
+      const tier = PTS.tier || MY_TIER;
+      box.innerHTML = CHANNELS.map(c => {
+        const rows = (c.rates || []).map(r => {
+          const pts = Math.round(Number(r.unitPrice || 0) * (PTS.pointsPerYuan || 100));
+          const hl = (r.tier === tier) ? ' hl' : '';
+          return '<div class="pr-row' + hl + '"><span>' + escapeHtml(r.tier || '') + '</span>' +
+            '<span>¥' + Number(r.unitPrice || 0) + (r.threshold ? '（门槛 ' + escapeHtml(r.threshold) + '）' : '') + '</span>' +
+            '<span class="pr-pts">' + intFmt(pts) + ' 积分</span></div>';
+        }).join('');
+        return '<div class="pr-card"><div class="pr-title">' + escapeHtml(c.name) + '</div>' + (rows || '<div class="t-meta">暂无档位</div>') + '</div>';
+      }).join('');
+    }
+
+    // ==================== 价目表（管理员可编辑） ====================
+    async function loadPricingAdmin() {
+      const box = $('pricingAdmin');
+      const res = await api('admin/channels', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      $('ppY3').textContent = (PTS.pointsPerYuan || 100);
+      const chs = res.channels || [];
+      if (!chs.length) { box.innerHTML = '<div class="empty">暂无渠道</div>'; return; }
+      box.innerHTML = chs.map(c => {
+        const rates = (c.rates || []).map(r =>
+          '<div class="pr-edit-row">' +
+            '<input class="pa-tier" value="' + escapeHtml(r.tier || '') + '" placeholder="档位名" />' +
+            '<input class="pa-thr" value="' + escapeHtml(r.threshold || '') + '" placeholder="月门槛(选填)" />' +
+            '<input class="pa-price num" type="number" step="0.001" min="0" value="' + escapeHtml(r.unitPrice) + '" placeholder="单价(元)" />' +
+            '<button class="btn btn-primary btn-sm" onclick="saveRate(\'' + escapeHtml(c.id) + '\',\'' + escapeHtml(r.id) + '\',this)">保存</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="delRate(\'' + escapeHtml(r.id) + '\',this)">删除</button>' +
+          '</div>'
+        ).join('');
+        return '<div class="pr-card pa-card" data-cid="' + escapeHtml(c.id) + '">' +
+          '<div class="pa-head"><input class="pa-name" value="' + escapeHtml(c.name) + '" placeholder="渠道名称" />' +
+            '<label class="chk"><input type="checkbox" class="pa-active"' + (c.active ? ' checked' : '') + ' /> 启用</label>' +
+            '<button class="btn btn-primary btn-sm" onclick="saveChannel(\'' + escapeHtml(c.id) + '\',this)">保存渠道</button>' +
+            '<button class="btn btn-ghost btn-sm" onclick="addRate(\'' + escapeHtml(c.id) + '\')">+ 加档位</button>' +
+          '</div>' +
+          '<div class="pa-rates">' + (rates || '<div class="t-meta">暂无档位</div>') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+    async function saveChannel(id, btn) {
+      const card = btn.closest('.pa-card');
+      const name = card.querySelector('.pa-name').value.trim();
+      const active = card.querySelector('.pa-active').checked;
+      if (!name) { alert('请填写渠道名称'); return; }
+      const res = await api('admin/channel/save', { id, name, active }, true);
+      if (res.ok) { alert('渠道已保存'); } else alert(res.msg || '保存失败');
+    }
+    async function addRate(cid) {
+      const card = document.querySelector('.pa-card[data-cid="' + cid + '"]');
+      if (!card) return;
+      const wrap = card.querySelector('.pa-rates');
+      const row = document.createElement('div');
+      row.className = 'pr-edit-row';
+      row.innerHTML = '<input class="pa-tier" placeholder="档位名" />' +
+        '<input class="pa-thr" placeholder="月门槛(选填)" />' +
+        '<input class="pa-price num" type="number" step="0.001" min="0" placeholder="单价(元)" />' +
+        '<button class="btn btn-primary btn-sm" onclick="saveRate(\'' + escapeHtml(cid) + '\',\'\',this)">保存</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.pr-edit-row\').remove()">取消</button>';
+      wrap.appendChild(row);
+      row.querySelector('.pa-tier').focus();
+    }
+    async function saveRate(cid, rid, btn) {
+      const row = btn.closest('.pr-edit-row');
+      const tier = row.querySelector('.pa-tier').value.trim();
+      const threshold = row.querySelector('.pa-thr').value.trim();
+      const price = Number(row.querySelector('.pa-price').value);
+      if (!tier) { alert('请填写档位名称'); return; }
+      if (isNaN(price) || price < 0) { alert('请填写正确的单价'); return; }
+      const res = await api('admin/channel/rate/save', { id: rid, channelId: cid, tier, threshold, unitPrice: price }, true);
+      if (res.ok) { loadPricingAdmin(); } else alert(res.msg || '保存失败');
+    }
+    async function delRate(rid, btn) {
+      if (!confirm('删除该档位？')) return;
+      const res = await api('admin/channel/rate/delete', { id: rid }, true);
+      if (res.ok) { btn.closest('.pr-edit-row').remove(); } else alert(res.msg || '删除失败');
+    }
+
     // ==================== 管理端客服消息 ====================
     let CS_PHONE = '';
     async function loadConversations() {
@@ -1176,27 +1413,38 @@
       $('csBox').innerHTML = '<div class="loading">加载中…</div>';
       const res = await api('admin/chat/list', { phone }, true);
       if (!res.ok) { $('csBox').innerHTML = '<div class="empty">加载失败</div>'; return; }
-      renderChat($('csBox'), res.messages || [], 'admin');
+      await renderChat($('csBox'), res.messages || [], 'admin');
       loadConversations();
     }
     async function refreshCsMsgs() {
       if (!CS_PHONE) return;
       const res = await api('admin/chat/list', { phone: CS_PHONE }, true);
-      if (res.ok) renderChat($('csBox'), res.messages || [], 'admin');
+      if (res.ok) await renderChat($('csBox'), res.messages || [], 'admin');
     }
     async function sendCsReply() {
       if (!CS_PHONE) { alert('请先选择一个用户会话'); return; }
       const input = $('csReply');
       const content = input.value.trim();
-      if (!content) return;
+      if (!chatPicked && !content) return;
       const btn = $('csSendBtn'); btn.disabled = true;
-      const res = await api('admin/chat/send', { phone: CS_PHONE, content }, true);
-      btn.disabled = false;
-      if (res.ok) { input.value = ''; refreshCsMsgs(); loadConversations(); }
-      else alert(res.msg || '发送失败');
+      try {
+        let res;
+        if (chatPicked) {
+          const up = await uploadFile(chatPicked.file, 'c' + Date.now(), { base: 'chat/' + CS_PHONE + '/', owner: PHONE, image: chatPicked.kind === 'image' });
+          res = await api('admin/chat/send', { phone: CS_PHONE, kind: chatPicked.kind, filePath: up.path, fileName: chatPicked.name, fileSize: chatPicked.size, content }, true);
+          if (res.ok) { if (chatPicked.url) URL.revokeObjectURL(chatPicked.url); chatPicked = null; renderChatAttach(); }
+        } else {
+          res = await api('admin/chat/send', { phone: CS_PHONE, content }, true);
+        }
+        if (!res.ok) { alert(res.msg || '发送失败'); return; }
+        input.value = '';
+        refreshCsMsgs(); loadConversations();
+      } finally { btn.disabled = false; }
     }
     $('csSendBtn').addEventListener('click', sendCsReply);
     $('csReply').addEventListener('keydown', e => { if (e.key === 'Enter') sendCsReply(); });
+    $('csImgBtn').addEventListener('click', () => chatPick('image', 'csAttach'));
+    $('csFileBtn').addEventListener('click', () => chatPick('file', 'csAttach'));
 
     async function loadPresets() {
       const res = await api('admin/chat/presets', {}, true);
