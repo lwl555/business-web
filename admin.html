@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 管理后台</title>
-  <link rel="stylesheet" href="css/style.css?v=2" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -25,7 +25,7 @@
     </div>
     <button class="btn btn-primary btn-block" id="loginBtn">登录</button>
     <div id="loginMsg" class="msg err"></div>
-    <div class="foot" style="margin-top:14px"><a class="back-link" href="index.html">← 返回入口</a></div>
+    <div class="foot"><a class="back-link" href="index.html">← 返回入口</a></div>
   </div>
 
   <!-- 后台 -->
@@ -47,9 +47,22 @@
       <div class="tab active" data-tab="review">一审 · 待审核</div>
       <div class="tab" data-tab="recharge">二审 · 待确认</div>
       <div class="tab" data-tab="all">全部任务</div>
+      <div class="tab" data-tab="rates">金额规则</div>
     </div>
 
     <div id="list" class="task-list"><div class="loading">加载中…</div></div>
+
+    <div id="ratePanel" style="display:none">
+      <div class="rate-add">
+        <input id="newKw" class="grow" placeholder="关键词，如：数据标注" />
+        <input id="newAmt" class="num" type="number" min="0" placeholder="金额（元）" />
+        <button class="btn btn-primary btn-sm" id="addRateBtn">添加规则</button>
+      </div>
+      <div class="subtitle" style="margin-bottom:14px">
+        任务类型里含该关键词时，自动按此金额预估；多个关键词命中时取最长的那个。用户端实时显示的就是这里的价格。
+      </div>
+      <div id="rateList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
   </div>
 
   <script>
@@ -81,6 +94,7 @@
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
     function fmtTime(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
+    function moneyText(v) { return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v)); }
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
       const msg = document.getElementById('loginMsg');
@@ -108,9 +122,20 @@
         document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
         t.classList.add('active');
         currentTab = t.dataset.tab;
-        loadTasks();
+        if (currentTab === 'rates') showRatePanel();
+        else { hideRatePanel(); loadTasks(); }
       });
     });
+
+    function showRatePanel() {
+      document.getElementById('list').style.display = 'none';
+      document.getElementById('ratePanel').style.display = 'block';
+      loadRates();
+    }
+    function hideRatePanel() {
+      document.getElementById('list').style.display = '';
+      document.getElementById('ratePanel').style.display = 'none';
+    }
 
     function showDash(username) {
       document.getElementById('loginBox').style.display = 'none';
@@ -126,9 +151,7 @@
     }
 
     function renderStats(tasks) {
-      const c = {
-        pending_review: 0, recharge_pending: 0, completed: 0
-      };
+      const c = { pending_review: 0, recharge_pending: 0, completed: 0 };
       tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; });
       document.getElementById('stats').innerHTML =
         '<div class="stat"><div class="s-num warn">' + c.pending_review + '</div><div class="s-lbl">待一审</div></div>' +
@@ -151,6 +174,9 @@
             '<button class="btn btn-red btn-sm" onclick="confirmR(\'' + t.id + '\',\'reject\')">拒绝</button>';
         }
         const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
+        const amountRow = '<div class="actions">' +
+          '<input id="amt-' + t.id + '" type="number" min="0" class="num" placeholder="改金额（留空=待评估）" style="width:190px">' +
+          '<button class="btn btn-ghost btn-sm" onclick="setAmount(\'' + t.id + '\')">保存金额</button></div>';
         const progInput = '<div class="actions">' +
           '<input id="pn-' + t.id + '" placeholder="填写进度备注…" style="flex:1; padding:9px 12px">' +
           '<button class="btn btn-ghost btn-sm" onclick="setProgress(\'' + t.id + '\')">保存备注</button></div>';
@@ -158,9 +184,9 @@
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
-          '<div class="t-meta">用户：' + t.uid + ' ｜ 金额：¥' + (t.amount || 0) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
+          '<div class="t-meta">用户：' + t.uid + ' ｜ 预估资金：' + moneyText(t.amount) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
-          note + progInput +
+          note + amountRow + progInput +
           (actions ? '<div class="actions">' + actions + '</div>' : '') +
           '</div>';
       }).join('');
@@ -181,15 +207,72 @@
       const res = await api('admin/progress', { id, progressNote: note }, true);
       if (res.ok) loadTasks(); else alert(res.msg || '操作失败');
     }
+    async function setAmount(id) {
+      const raw = document.getElementById('amt-' + id).value.trim();
+      const res = await api('admin/amount', { id, amount: raw === '' ? null : raw }, true);
+      if (res.ok) loadTasks(); else alert(res.msg || '操作失败');
+    }
 
     async function loadTasks() {
       const res = await api('admin/tasks', {}, true);
-      if (res.ok) { renderStats(res.tasks); renderTasks(filterTasks(res.tasks)); }
-      else {
+      if (res.ok) {
+        renderStats(res.tasks);
+        if (currentTab !== 'rates') renderTasks(filterTasks(res.tasks));
+      } else {
         document.getElementById('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>';
         token = ''; localStorage.removeItem('biz_admin_token');
       }
     }
+
+    // ---------- 金额规则 ----------
+    async function loadRates() {
+      const box = document.getElementById('rateList');
+      const res = await api('admin/rates', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      const rates = res.rates || [];
+      if (!rates.length) {
+        box.innerHTML = '<div class="empty">还没有规则，先在上面添加一条（例如「数据标注 → 200」）</div>';
+        return;
+      }
+      box.innerHTML = rates.map(r =>
+        '<div class="task"><div class="rate-row">' +
+          '<input class="grow" id="kw-' + r.id + '" value="' + escapeHtml(r.keyword) + '" />' +
+          '<input class="num" id="am-' + r.id + '" type="number" min="0" value="' + Number(r.amount) + '" />' +
+          '<button class="btn btn-ghost btn-sm" onclick="saveRate(\'' + r.id + '\')">保存</button>' +
+          '<button class="btn btn-red btn-sm" onclick="delRate(\'' + r.id + '\')">删除</button>' +
+        '</div></div>'
+      ).join('');
+    }
+
+    async function addRate() {
+      const kw = document.getElementById('newKw').value.trim();
+      const amt = document.getElementById('newAmt').value.trim();
+      if (!kw) { alert('请填写关键词'); return; }
+      if (amt === '') { alert('请填写金额'); return; }
+      const res = await api('admin/rate/save', { keyword: kw, amount: amt }, true);
+      if (res.ok) {
+        document.getElementById('newKw').value = '';
+        document.getElementById('newAmt').value = '';
+        loadRates();
+      } else alert(res.msg || '保存失败');
+    }
+
+    async function saveRate(id) {
+      const kw = document.getElementById('kw-' + id).value.trim();
+      const amt = document.getElementById('am-' + id).value.trim();
+      const res = await api('admin/rate/save', { id, keyword: kw, amount: amt }, true);
+      if (res.ok) loadRates(); else alert(res.msg || '保存失败');
+    }
+
+    async function delRate(id) {
+      if (!confirm('确认删除这条规则？')) return;
+      const res = await api('admin/rate/delete', { id }, true);
+      if (res.ok) loadRates(); else alert(res.msg || '删除失败');
+    }
+
+    document.getElementById('addRateBtn').addEventListener('click', addRate);
+    document.getElementById('newAmt').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
+    document.getElementById('newKw').addEventListener('keydown', e => { if (e.key === 'Enter') addRate(); });
 
     (async () => {
       if (!token) return;
