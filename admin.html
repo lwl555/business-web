@@ -184,7 +184,8 @@
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
-          '<div class="t-meta">用户：' + t.uid + ' ｜ 预估资金：' + moneyText(t.amount) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
+          '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' +
+          '<div class="t-meta">预估资金：' + moneyText(t.amount) + ' ｜ ' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note + amountRow + progInput +
           (actions ? '<div class="actions">' + actions + '</div>' : '') +
