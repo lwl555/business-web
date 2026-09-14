@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 全新版</title>
-  <link rel="stylesheet" href="css/style.css?v=2" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
   <script src="config.js"></script>
 </head>
 <body>
@@ -27,8 +27,8 @@
         <input id="type" placeholder="例如：数据标注 / 文案撰写 / 设计稿" />
       </div>
       <div class="field">
-        <label>充值金额（元）</label>
-        <input id="amount" type="number" min="0" placeholder="0" value="0" />
+        <label>预估资金</label>
+        <div class="estimate pending" id="estimate">待评估</div>
       </div>
     </div>
     <div class="field">
@@ -63,6 +63,9 @@
     }
     const uid = getUid();
 
+    // 关键词金额规则（由后台维护），用于本页实时预估
+    let RATES = [];
+
     async function api(endpoint, body) {
       const r = await fetch(window.API_BASE, {
         method: 'POST',
@@ -72,20 +75,55 @@
       return r.json();
     }
 
+    // 与后端同一套规则：任务类型包含某关键词即命中，多个命中取最长的那个
+    function estimateLocal(type) {
+      const t = String(type || '').toLowerCase().trim();
+      if (!t) return null;
+      let best = null;
+      for (const r of RATES) {
+        const k = String(r.keyword || '').toLowerCase().trim();
+        if (!k || t.indexOf(k) === -1) continue;
+        if (!best || k.length > best.len) best = { len: k.length, amount: Number(r.amount) };
+      }
+      return best ? best.amount : null;
+    }
+
+    function renderEstimate() {
+      const el = document.getElementById('estimate');
+      const v = estimateLocal(document.getElementById('type').value);
+      if (v === null) {
+        el.className = 'estimate pending';
+        el.textContent = '待评估';
+      } else {
+        el.className = 'estimate';
+        el.textContent = '¥' + v;
+      }
+    }
+
+    function moneyText(v) {
+      return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v));
+    }
+
+    document.getElementById('type').addEventListener('input', renderEstimate);
+
+    async function loadRates() {
+      const res = await api('rate/list', {});
+      if (res.ok) { RATES = res.rates || []; renderEstimate(); }
+    }
+
     document.getElementById('submitBtn').addEventListener('click', async () => {
       const type = document.getElementById('type').value.trim();
       const desc = document.getElementById('desc').value.trim();
-      const amount = Number(document.getElementById('amount').value) || 0;
       const msg = document.getElementById('submitMsg');
       msg.className = 'msg ok'; msg.textContent = '';
       if (!type) { msg.className = 'msg err'; msg.textContent = '请填写任务类型'; return; }
-      const res = await api('task/submit', { uid, type, desc, amount });
+      const res = await api('task/submit', { uid, type, desc });
       if (res.ok) {
         msg.className = 'msg ok';
         msg.textContent = '提交成功，等待管理员审核（' + res.task.id + '）';
         document.getElementById('type').value = '';
         document.getElementById('desc').value = '';
-        document.getElementById('amount').value = '0';
+        renderEstimate();
         loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
@@ -112,7 +150,7 @@
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
-          '<div class="t-meta">金额：¥' + (t.amount || 0) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
+          '<div class="t-meta">预估资金：' + moneyText(t.amount) + ' ｜ 提交：' + fmtTime(t.created_at) + '</div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note +
           (rechargeBtn ? '<div class="actions">' + rechargeBtn + '</div>' : '') +
@@ -139,6 +177,7 @@
       return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : '';
     }
 
+    loadRates();
     loadTasks();
     setInterval(loadTasks, 8000);
   </script>
