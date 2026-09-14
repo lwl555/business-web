@@ -221,14 +221,6 @@ h1, .title {
 .back-home a:hover { color: var(--brand); }
 
 /* ---------- 客服聊天 ---------- */
-.cs-fab {
-  position: fixed; right: 20px; bottom: 24px; z-index: 50;
-  background: var(--brand); color: #fff; border: none; border-radius: 24px;
-  padding: 12px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
-  box-shadow: 0 6px 18px rgba(29, 78, 216, .35);
-}
-.cs-fab:hover { background: var(--brand-700, #1e40af); }
-
 .chat-box {
   height: 320px; overflow-y: auto; background: var(--bg-soft, #f5f7fa);
   border: 1px solid var(--line); border-radius: 10px; padding: 14px;
