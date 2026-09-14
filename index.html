@@ -542,14 +542,20 @@
 
     // 用户端接口（带 phone）；管理员接口（needToken=true 带 token）
     async function api(endpoint, body, needToken) {
-      const payload = Object.assign({}, body || {});
-      if (needToken && token) payload.token = token;
-      const r = await fetch(window.API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: endpoint, ...payload })
-      });
-      return r.json();
+      try {
+        const payload = Object.assign({}, body || {});
+        if (needToken && token) payload.token = token;
+        const r = await fetch(window.API_BASE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: endpoint, ...payload })
+        });
+        const j = await r.json().catch(() => ({}));
+        return j && typeof j === 'object' ? j : { ok: false, msg: '返回格式异常' };
+      } catch (e) {
+        // 网络/解析失败不应让调用方整段中断（否则列表会卡在“加载中”变空白）
+        return { ok: false, msg: '网络错误，请重试' };
+      }
     }
 
     // 图片签名：管理员用 token（看全部），用户用 phone（看自己）
@@ -1018,7 +1024,7 @@
     }
     async function loadTasks() {
       const res = await api('tasks', { phone: PHONE });
-      if (res.ok) { const paths = []; (res.tasks || []).forEach(t => (Array.isArray(t.images) ? t.images : []).forEach(p => paths.push(p))); await ensureSigned(paths); renderTasks(res.tasks, false); }
+      if (res.ok) { const paths = []; (res.tasks || []).forEach(t => (Array.isArray(t.images) ? t.images : []).forEach(p => paths.push(p))); renderTasks(res.tasks, false); ensureSigned(paths).catch(() => {}); }
       else $('taskList').innerHTML = '<div class="empty">加载失败</div>';
     }
 
@@ -1511,7 +1517,13 @@
       const sres = await api('admin/settings', {}, true);
       if (sres.ok && sres.settings) PTS.pointsPerYuan = Number(sres.settings.points_per_yuan) || 100;
       const res = await api('admin/tasks', {}, true);
-      if (res.ok) { ADMIN_TASKS = res.tasks || []; renderStats(ADMIN_TASKS); await ensureSigned((ADMIN_TASKS).flatMap(t => Array.isArray(t.images) ? t.images : [])); renderTasks(ADMIN_TASKS, true); }
+      if (res.ok) {
+        ADMIN_TASKS = res.tasks || [];
+        renderStats(ADMIN_TASKS);
+        renderTasks(ADMIN_TASKS, true);
+        // 图片签名仅用于缩略图，失败也不影响列表渲染
+        ensureSigned((ADMIN_TASKS).flatMap(t => Array.isArray(t.images) ? t.images : [])).catch(() => {});
+      }
       else { $('list').innerHTML = '<div class="empty">加载失败，请重新登录</div>'; token = ''; localStorage.removeItem('biz_admin_token'); }
     }
     // 拒绝原因弹窗：任务一审拒绝 / 二审拒绝 / 充值拒绝 共用
