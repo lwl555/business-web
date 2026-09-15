@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=23" />
+  <link rel="stylesheet" href="css/style.css?v=24" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -261,9 +261,13 @@
     <!-- ---------- 我的消息（用户端） ---------- -->
     <div class="view" id="view-messages" style="display:none">
       <div class="section-title">我的消息</div>
-      <div class="t-meta" style="margin-bottom:6px">管理员发给你的通知会显示在这里，新消息会标「未读」。</div>
+      <div class="t-meta" style="margin-bottom:6px">管理员的通知会显示在这里，<b>你可以直接回复</b>，回复后管理员会收到。</div>
       <div class="msg-summary" id="msgSummary"></div>
-      <div id="msgList" class="msg-list"><div class="loading">加载中…</div></div>
+      <div id="msgList" class="msg-list msg-chat"><div class="loading">加载中…</div></div>
+      <div class="chat-input">
+        <input id="msgReplyInput" placeholder="输入回复内容，按回车发送…" />
+        <button class="btn btn-primary btn-sm" id="msgReplyBtn">发送</button>
+      </div>
     </div>
 
     <!-- ---------- 在线客服（用户端） ---------- -->
@@ -319,6 +323,26 @@
     </div>
 
     <!-- ---------- 客服消息（管理员） ---------- -->
+    <!-- ---------- 用户消息（管理员） ---------- -->
+    <div class="view" id="view-msgAdmin" style="display:none">
+      <div class="section-title">用户消息</div>
+      <div class="t-meta" style="margin-bottom:8px">用户对平台消息的回复。打开会话即标记已读，可直接回复（用户会在「消息」里收到）。</div>
+      <div class="as-stat" id="msgAdmStat"></div>
+      <div class="cs-grid">
+        <div class="cs-convs">
+          <div id="msgConvList" class="task-list"><div class="loading">加载中…</div></div>
+        </div>
+        <div class="cs-panel">
+          <div class="t-meta" id="msgConvWho" style="margin-bottom:8px">未选择用户</div>
+          <div class="chat-box" id="msgThread"><div class="empty">请从左侧选择一个用户</div></div>
+          <div class="chat-input">
+            <input id="msgAdmReply" placeholder="输入回复内容，按回车发送…" />
+            <button class="btn btn-primary btn-sm" id="msgAdmSend">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="view" id="view-cs" style="display:none">
       <div class="section-title">客服消息</div>
       <div class="t-meta" style="margin-bottom:12px">左侧选择用户会话，右侧回复。可直接点预设文字填入回复框。</div>
@@ -811,6 +835,7 @@
     let MSG_UNREAD = 0;
     let CHAT_UNREAD = 0;
     let CS_UNREAD = 0;
+    let ADM_MSG_UNREAD = 0;
     let picked = [];
     let rcPicked = null;
     const signedCache = {};
@@ -1039,6 +1064,7 @@
       { id: 'chat', label: '在线客服', roles: ['user'] },
       { id: 'messages', label: '消息', roles: ['user'] },
       { id: 'users', label: '用户管理', roles: ['admin'] },
+      { id: 'msgAdmin', label: '用户消息', roles: ['admin'] },
       { id: 'cs', label: '客服消息', roles: ['admin'] },
       { id: 'pay', label: '充值审核', roles: ['admin'] },
       { id: 'tasks', label: '任务审核', roles: ['admin'] },
@@ -1049,12 +1075,13 @@
       { id: 'aftersales', label: '售后处理', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'shop', 'wallet', 'invite', 'pricing', 'users', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'messages', 'chat', 'cs'];
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
       if (id === 'chat') return CHAT_UNREAD;
       if (id === 'cs') return CS_UNREAD;
+      if (id === 'msgAdmin') return ADM_MSG_UNREAD;
       return 0;
     }
 
@@ -1084,6 +1111,7 @@
       else if (v === 'chat') loadChat();
       else if (v === 'messages') loadMessages();
       else if (v === 'users') loadUsers();
+      else if (v === 'msgAdmin') loadAdminMessages();
       else if (v === 'cs') loadConversations();
       else if (v === 'pay') loadRecharges();
       else if (v === 'tasks') loadAdminTasks();
@@ -1110,7 +1138,7 @@
       switchView('work');
       loadUiConfig();
       if (!isAdmin) { loadUnread(); loadChatUnread(); }
-      else { loadConversations(); loadPresets(); }
+      else { loadConversations(); loadPresets(); loadAdmMsgUnread(); }
     }
 
     // ==================== 积分 / 签到 ====================
@@ -1573,22 +1601,41 @@
       if (!res.ok) { $('msgList').innerHTML = '<div class="empty">加载失败</div>'; return; }
       MSG_UNREAD = 0; renderNav();
       const list = res.messages || [];
-      const unread = list.filter(m => !m.read).length;
-      $('msgSummary').textContent = unread ? ('共 ' + list.length + ' 条，' + unread + ' 条未读') : ('共 ' + list.length + ' 条，已全部读完');
+      const unread = list.filter(m => m.direction !== 'to_admin' && !m.read).length;
+      const adminCount = list.filter(m => m.direction !== 'to_admin').length;
+      $('msgSummary').textContent = list.length
+        ? ('共 ' + adminCount + ' 条通知，' + list.filter(m => m.direction === 'to_admin').length + ' 条我的回复' + (unread ? ('，' + unread + ' 条未读') : '，已全部读完'))
+        : '';
       if (!list.length) { $('msgList').innerHTML = '<div class="empty">暂无消息</div>'; return; }
-      $('msgList').innerHTML = list.map(m =>
-        '<div class="msg-item' + (m.read ? '' : ' unread') + '">' +
+      $('msgList').innerHTML = list.map(m => {
+        const me = m.direction === 'to_admin';
+        return '<div class="msg-item ' + (me ? 'me' : 'them') + (!me && !m.read ? ' unread' : '') + '">' +
           '<span class="msg-dot"></span>' +
           '<div class="msg-body">' +
             '<div class="msg-top">' +
-              '<span class="msg-tag">' + (m.read ? '已读' : '未读') + '</span>' +
+              '<span class="msg-tag">' + (me ? '我的回复' : (m.read ? '客服通知 · 已读' : '客服通知 · 未读')) + '</span>' +
               '<span class="msg-time">' + fmtTime(m.created_at) + '</span>' +
             '</div>' +
             '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
           '</div>' +
-        '</div>'
-      ).join('');
+        '</div>';
+      }).join('');
+      const box = $('msgList');
+      box.scrollTop = box.scrollHeight;
     }
+
+    async function sendMsgReply() {
+      const input = $('msgReplyInput');
+      const content = input.value.trim();
+      if (!content) { input.focus(); return; }
+      const btn = $('msgReplyBtn'); btn.disabled = true;
+      const res = await api('user/message/reply', { phone: PHONE, content });
+      btn.disabled = false;
+      if (res.ok) { input.value = ''; loadMessages(); }
+      else alert(res.msg || '发送失败');
+    }
+    $('msgReplyBtn').addEventListener('click', sendMsgReply);
+    $('msgReplyInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMsgReply(); });
     async function loadUnread() {
       if (isAdmin || !PHONE) return;
       const res = await api('user/messages/unread', { phone: PHONE });
@@ -1959,6 +2006,71 @@
       const res = await api('admin/withdraw/review', { id, action, note }, true);
       if (res.ok) loadAdminWithdrawals(); else alert(res.msg || '操作失败');
     }
+    // ==================== 用户消息（管理员） ====================
+    let MSG_CONVS = [], MSG_THREAD_PHONE = '';
+    async function loadAdminMessages() {
+      const box = $('msgConvList');
+      const res = await api('admin/messages', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      MSG_CONVS = res.conversations || [];
+      ADM_MSG_UNREAD = res.unreadTotal || 0; renderNav();
+      $('msgAdmStat').innerHTML =
+        '<span class="as-stat-item' + (res.unreadUsers ? ' hot' : '') + '">有未读回复的用户 <b>' + (res.unreadUsers || 0) + '</b></span>' +
+        '<span class="as-stat-item">未读回复 <b>' + (res.unreadTotal || 0) + '</b></span>' +
+        '<span class="as-stat-item">会话总数 <b>' + MSG_CONVS.length + '</b></span>';
+      if (!MSG_CONVS.length) { box.innerHTML = '<div class="empty">暂无消息会话</div>'; return; }
+      box.innerHTML = MSG_CONVS.map(c =>
+        '<div class="conv' + (c.phone === MSG_THREAD_PHONE ? ' active' : '') + '" onclick="openMsgThread(\'' + escapeHtml(c.phone) + '\')">' +
+          '<div class="conv-top"><span class="conv-phone hl">' + escapeHtml(c.phone) + '</span>' +
+            (c.unread ? '<span class="conv-dot">' + c.unread + '</span>' : '') + '</div>' +
+          '<div class="conv-last">' + (c.last_dir === 'to_admin' ? '<b>用户：</b>' : '我：') + escapeHtml(String(c.last || '').slice(0, 40)) + '</div>' +
+          '<div class="conv-time">' + fmtTime(c.last_at) + '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    async function openMsgThread(phone) {
+      MSG_THREAD_PHONE = phone;
+      $('msgConvWho').innerHTML = '用户：<b class="hl">' + escapeHtml(phone) + '</b>（打开即标为已读）';
+      $('msgThread').innerHTML = '<div class="loading">加载中…</div>';
+      const res = await api('admin/message/thread', { phone }, true);
+      if (!res.ok) { $('msgThread').innerHTML = '<div class="empty">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
+      const list = res.messages || [];
+      $('msgThread').innerHTML = list.length ? list.map(m => {
+        const me = m.direction !== 'to_admin';
+        return '<div class="msg-item ' + (me ? 'me' : 'them') + '">' +
+          '<span class="msg-dot"></span>' +
+          '<div class="msg-body">' +
+            '<div class="msg-top"><span class="msg-tag">' + (me ? '我（管理员）' : '用户') + '</span>' +
+              '<span class="msg-time">' + fmtTime(m.created_at) + '</span></div>' +
+            '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('') : '<div class="empty">暂无消息</div>';
+      const b = $('msgThread'); b.scrollTop = b.scrollHeight;
+      loadAdminMessages();
+    }
+
+    async function sendAdminMsgReply() {
+      if (!MSG_THREAD_PHONE) { alert('请先选择一个用户'); return; }
+      const input = $('msgAdmReply');
+      const content = input.value.trim();
+      if (!content) { input.focus(); return; }
+      const btn = $('msgAdmSend'); btn.disabled = true;
+      const res = await api('admin/message/send', { phone: MSG_THREAD_PHONE, content }, true);
+      btn.disabled = false;
+      if (res.ok) { input.value = ''; openMsgThread(MSG_THREAD_PHONE); }
+      else alert(res.msg || '发送失败');
+    }
+    $('msgAdmSend').addEventListener('click', sendAdminMsgReply);
+    $('msgAdmReply').addEventListener('keydown', e => { if (e.key === 'Enter') sendAdminMsgReply(); });
+
+    async function loadAdmMsgUnread() {
+      if (!isAdmin) return;
+      const res = await api('admin/messages/unread', {}, true);
+      if (res.ok) { ADM_MSG_UNREAD = res.unread || 0; renderNav(); }
+    }
+
     // ==================== 售后处理（管理员工作台） ====================
     let AS_ADMIN_LIST = [], AS_ADMIN_ID = '';
     async function loadAdminAfterSales() {

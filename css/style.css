@@ -861,6 +861,26 @@ body.page-viewer { padding: 20px 16px; }
 .msg-time { font-size: 12px; color: var(--muted-2); }
 .msg-text { font-size: 14px; line-height: 1.75; color: var(--text-2); white-space: pre-wrap; word-break: break-word; }
 
+/* ---------- 消息会话（用户端回复 / 管理端会话） ---------- */
+.msg-chat { max-height: 52vh; overflow-y: auto; }
+.msg-chat .msg-item { border-bottom: 0; padding: 8px 12px; }
+.msg-chat .msg-text,
+#msgThread .msg-text {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f4f6fa;
+  max-width: 100%;
+}
+.msg-chat .msg-item.me { flex-direction: row-reverse; }
+.msg-chat .msg-item.me .msg-body,
+#msgThread .msg-item.me .msg-body { display: flex; flex-direction: column; align-items: flex-end; }
+.msg-chat .msg-item.me .msg-top,
+#msgThread .msg-item.me .msg-top { flex-direction: row-reverse; }
+.msg-chat .msg-item.me .msg-text,
+#msgThread .msg-item.me .msg-text { background: #e0e7ff; }
+#msgThread .msg-item { border-bottom: 0; padding: 8px 4px; }
+
 /* ---------- 任务卡片信息网格（后台提醒更清晰） ---------- */
 .t-kv {
   display: flex;
