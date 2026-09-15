@@ -802,6 +802,32 @@ body.page-viewer { padding: 20px 16px; }
 .w-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .card-box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fff; }
 
+/* ---------- 钱包余额明细 ---------- */
+.wl-row {
+  display: grid;
+  grid-template-columns: 76px 1fr auto 132px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wl-row:last-child { border-bottom: 0; }
+.wl-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, .12);
+  color: #4338ca;
+  text-align: center;
+  white-space: nowrap;
+}
+.wl-title { font-size: 13px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-title .t-meta { font-style: normal; }
+.wl-amt { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+.wl-amt.ok { color: #16a34a; }
+.wl-amt.err { color: #dc2626; }
+.wl-time { font-size: 12px; text-align: right; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
@@ -821,4 +847,6 @@ body.page-viewer { padding: 20px 16px; }
   .ap-cat-row { grid-template-columns: 1fr; gap: 6px; }
   .ap-prices { gap: 8px; }
   .wallet-cards { grid-template-columns: 1fr 1fr; }
+  .wl-row { grid-template-columns: 64px 1fr auto; }
+  .wl-time { display: none; }
 }
