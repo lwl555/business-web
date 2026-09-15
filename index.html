@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=21" />
+  <link rel="stylesheet" href="css/style.css?v=22" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -62,6 +62,17 @@
       <div class="field">
         <label>手机号</label>
         <input id="loginPhone" inputmode="numeric" autocomplete="tel" placeholder="11 位手机号" />
+      </div>
+      <div class="field">
+        <label id="loginPwdLabel">密码</label>
+        <div class="pwd">
+          <input id="loginPwd" type="password" autocomplete="current-password" placeholder="请输入登录密码" />
+          <button type="button" id="loginPwdToggle" class="pwd-toggle">显示</button>
+        </div>
+      </div>
+      <div class="field" id="loginPwd2Field">
+        <label>确认密码</label>
+        <input id="loginPwd2" type="password" autocomplete="new-password" placeholder="请再次输入密码（首次设置）" />
       </div>
       <div class="field">
         <label>邀请码（选填，新用户填可得积分福利）</label>
@@ -225,9 +236,10 @@
       </div>
       <div class="t-meta" id="payTip" style="margin: -6px 0 14px">提交后由管理员审核并决定实际扣除多少金额（元），提交时不会扣费。</div>
       <div class="field">
-        <label>任务描述（选填）</label>
-        <textarea id="desc" placeholder="补充说明任务要求…"></textarea>
+        <label>任务描述（选填，可直接粘贴含链接的文字，系统会自动提取）</label>
+        <textarea id="desc" placeholder="补充说明任务要求…（粘贴整段文字也行，链接会自动识别）"></textarea>
       </div>
+      <div class="t-meta link-hint" id="linkHint" style="display:none"></div>
       <div class="field">
         <label>任务图片（选填，最多 6 张）</label>
         <div class="uploader">
@@ -249,8 +261,9 @@
     <!-- ---------- 我的消息（用户端） ---------- -->
     <div class="view" id="view-messages" style="display:none">
       <div class="section-title">我的消息</div>
-      <div class="t-meta" style="margin-bottom:12px">管理员发给你的通知会显示在这里，新消息会标「未读」。</div>
-      <div id="msgList" class="task-list"><div class="loading">加载中…</div></div>
+      <div class="t-meta" style="margin-bottom:6px">管理员发给你的通知会显示在这里，新消息会标「未读」。</div>
+      <div class="msg-summary" id="msgSummary"></div>
+      <div id="msgList" class="msg-list"><div class="loading">加载中…</div></div>
     </div>
 
     <!-- ---------- 在线客服（用户端） ---------- -->
@@ -387,6 +400,10 @@
         <label class="inline-field">每日提现上限
           <input id="setWdLimit" class="num" type="number" min="0" />
           <span>次（0=不限）</span>
+        </label>
+        <label class="inline-field">订单重点信息颜色
+          <input id="setHlColor" type="color" style="width:44px;height:30px;padding:2px" />
+          <span>（订单号/金额/链接/联系方式）</span>
         </label>
         <button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存</button>
         <span class="msg ok" id="setMsg"></span>
@@ -581,7 +598,8 @@
     <div class="modal-box">
       <div class="modal-title" id="omName">商品下单</div>
       <div class="t-meta" id="omMeta"></div>
-      <div class="field" id="omInputWrap"><label id="omInputLabel">输入项</label><input id="omInput" /></div>
+      <div class="field" id="omInputWrap"><label id="omInputLabel">输入项</label><input id="omInput" placeholder="可直接粘贴含链接的文字，系统会自动提取" /></div>
+      <div class="t-meta link-hint" id="omLinkHint" style="display:none"></div>
       <div class="field"><label>联系方式</label><input id="omContact" placeholder="手机号 / 微信号" /></div>
       <div class="order-summary" id="omSummary"></div>
       <div class="msg" id="omMsg"></div>
@@ -712,6 +730,16 @@
     let MY_TIER = '普通散客档';
     let ADMIN_TASKS = [];
     let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
+
+    // 订单重要信息高亮色（后台可改，来自 ui/config）
+    let HL_COLOR = '#dc2626';
+    async function loadUiConfig() {
+      const res = await api('ui/config', {});
+      if (res.ok && res.highlightColor) {
+        HL_COLOR = res.highlightColor;
+        document.documentElement.style.setProperty('--hl', HL_COLOR);
+      }
+    }
     let MSG_UNREAD = 0;
     let CHAT_UNREAD = 0;
     let CS_UNREAD = 0;
@@ -726,6 +754,45 @@
     function fmtTime(s) { return s ? new Date(s).toLocaleString('zh-CN', { hour12: false }) : ''; }
     function moneyText(v) { return (v === null || v === undefined || v === '') ? '待评估' : ('¥' + Number(v)); }
     function intFmt(n) { return Number(n || 0).toLocaleString('en-US'); }
+
+    // 从一段文字里自动识别并抽取链接（http(s):// 、www. 开头、以及常见域名后缀）
+    function extractLinks(text) {
+      const s = String(text == null ? '' : text);
+      const out = [];
+      // 真正的分隔符（不会出现在 URL 内部；英文 .,;:!? 可能出现在 query 里，只做末尾清理）
+      const sep = '\\s<>"\'，。；、！？：（）()【】\\[\\]{}《》\\u4e00-\\u9fa5';
+      const tlds = 'com|cn|net|org|top|xyz|vip|cc|me|io|co|shop|site|info|app|live|store|online|club|work|tech|pro|link|fun|art|space|wang|xin|ren';
+      // 按优先级匹配：带协议 > www. > 裸域名
+      const re = new RegExp(
+        'https?://[^' + sep + ']+' +
+        '|www\\.[^' + sep + ']+' +
+        '|(?:[A-Za-z0-9-]+\\.)+(?:' + tlds + ')(?:/[^' + sep + ']*)?',
+        'gi'
+      );
+      const trimTail = /[，。；、,.;:!！？?）)】\]}》>"']+$/;
+      let m;
+      while ((m = re.exec(s))) {
+        const start = m.index;
+        // 边界检查：前面紧邻字母/数字/点/横线时，说明它是更长 URL 的一部分，跳过
+        if (start > 0 && /[A-Za-z0-9.\-]/.test(s[start - 1])) continue;
+        let v = m[0].replace(trimTail, '').trim();
+        if (!v) continue;
+        if (v.indexOf('://') === -1) v = 'http://' + v;
+        if (out.indexOf(v) === -1) out.push(v);
+      }
+      return out;
+    }
+
+    // 在指定容器里渲染"已识别链接"提示
+    function renderLinkHint(boxId, text) {
+      const box = $(boxId);
+      if (!box) return;
+      const links = extractLinks(text);
+      if (!links.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      box.innerHTML = '<b>已自动识别到链接</b>（提交后会单独显示，便于处理）：' +
+        links.map(u => '<a class="link-chip" href="' + escapeHtml(u) + '" target="_blank" rel="noopener">' + escapeHtml(u) + '</a>').join('');
+    }
 
     // 用户端接口（带 phone）；管理员接口（needToken=true 带 token）
     async function api(endpoint, body, needToken) {
@@ -777,22 +844,57 @@
       });
     });
 
+    // 输入手机号后自动判断：已设密码 → 只填密码；未设密码（新人/老用户）→ 设置密码并确认
+    async function refreshLoginMode() {
+      const phone = $('loginPhone').value.trim();
+      const p2 = $('loginPwd2Field');
+      if (!/^\d{6,15}$/.test(phone)) {
+        $('loginPwdLabel').textContent = '密码';
+        $('loginPwd').placeholder = '请输入登录密码';
+        p2.style.display = '';
+        return;
+      }
+      const res = await api('user/check', { phone });
+      if (res.ok && res.hasPassword) {
+        $('loginPwdLabel').textContent = '密码';
+        $('loginPwd').placeholder = '请输入登录密码';
+        p2.style.display = 'none';
+      } else {
+        $('loginPwdLabel').textContent = '设置密码（首次登录，至少 6 位）';
+        $('loginPwd').placeholder = '设置登录密码';
+        p2.style.display = '';
+      }
+    }
+    $('loginPhone').addEventListener('blur', refreshLoginMode);
+    $('loginPwdToggle').addEventListener('click', () => {
+      const el = $('loginPwd');
+      const show = el.type === 'password';
+      el.type = show ? 'text' : 'password';
+      $('loginPwdToggle').textContent = show ? '隐藏' : '显示';
+    });
+
     $('loginUserBtn').addEventListener('click', async () => {
       const phone = $('loginPhone').value.trim();
+      const password = $('loginPwd').value;
+      const password2 = $('loginPwd2').value;
       const inviteCode = $('loginInvite').value.trim();
       const msg = $('loginUserMsg'); msg.textContent = '';
       if (!/^\d{6,15}$/.test(phone)) { msg.textContent = '请输入正确的手机号'; return; }
+      if (!password) { msg.textContent = '请输入密码'; return; }
       const btn = $('loginUserBtn'); btn.disabled = true;
-      const res = await api('user/login', { phone, inviteCode });
+      const res = await api('user/login', { phone, password, password2, inviteCode });
       btn.disabled = false;
       if (!res.ok) { msg.textContent = res.msg || '登录失败'; return; }
       PHONE = res.phone; isAdmin = false; token = '';
       localStorage.setItem('biz_phone', PHONE);
       localStorage.removeItem('biz_admin_token');
+      $('loginPwd').value = ''; $('loginPwd2').value = '';
       if (res.inviteMsg) setTimeout(() => alert(res.inviteMsg), 100);
       showApp();
     });
     $('loginPhone').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginUserBtn').click(); });
+    $('loginPwd').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginUserBtn').click(); });
+    $('loginPwd2').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginUserBtn').click(); });
 
     $('pwdToggle').addEventListener('click', () => {
       const el = $('password'); const show = el.type === 'password';
@@ -930,6 +1032,7 @@
       if (!isAdmin && !$('contact').value) $('contact').value = PHONE;
       currentView = 'work';
       switchView('work');
+      loadUiConfig();
       if (!isAdmin) { loadUnread(); loadChatUnread(); }
       else { loadConversations(); loadPresets(); }
     }
@@ -1088,6 +1191,7 @@
       tip.className = 't-meta'; tip.style.color = '';
     }
     $('type').addEventListener('input', renderEstimate);
+    $('desc').addEventListener('input', () => renderLinkHint('linkHint', $('desc').value));
 
     // ==================== 图片 ====================
     const MAX_IMAGES = window.MAX_IMAGES || 6;
@@ -1175,12 +1279,12 @@
         try { images = await uploadImages(); } catch (er) { msg.className = 'msg err'; msg.textContent = er.message || '图片上传失败'; btn.disabled = false; return; }
       }
       msg.textContent = '正在提交…';
-      const res = await api('task/submit', { phone: PHONE, type, desc, contact, images });
+      const res = await api('task/submit', { phone: PHONE, type, desc, contact, images, link: extractLinks(desc).join('\n') });
       btn.disabled = false;
       if (res.ok) {
         const ep = res.estimate_points || 0;
         msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '，等待管理员审核（实际扣除以审核为准）';
-        $('type').value = ''; $('desc').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
+        $('type').value = ''; $('desc').value = ''; renderLinkHint('linkHint', ''); clearPicked(); renderEstimate(); loadPoints(); loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
       }
@@ -1221,15 +1325,29 @@
             actions = '<span class="t-meta">售后未通过' + (t.after_sale_note ? ('：' + escapeHtml(t.after_sale_note)) : '') + '</span>';
           }
         }
+        const linkHtml = t.link
+          ? '<div class="t-meta">链接：' + String(t.link).split('\n').filter(Boolean).map(u =>
+              '<a class="link-chip" href="' + escapeHtml(u) + '" target="_blank" rel="noopener">' + escapeHtml(u) + '</a>').join('') + '</div>'
+          : '';
         return '<div class="task">' +
-          '<div class="t-head">' + badge(t.status) + '<span class="t-meta">' + t.id + '</span></div>' +
+          '<div class="t-head">' + badge(t.status) + '<span class="t-meta hl">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
+          linkHtml +
           imgHtml +
-          (adminMode ? '<div class="t-meta">用户：' + t.uid + ' ｜ 联系方式：' + escapeHtml(t.contact || '—') + '</div>' : '') +
           (adminMode
-            ? '<div class="t-meta">实扣：¥' + Number(t.deduction || 0).toFixed(2) + '（赠送 ¥' + Number(t.pay_gift || 0).toFixed(2) + ' + 可提现 ¥' + Number(t.pay_balance || 0).toFixed(2) + '）｜ 预估 ' + moneyText(t.estimate_amount) + ' ｜ ' + fmtTime(t.created_at) + '</div>'
-            : '<div class="t-meta">金额 ¥' + Number(t.estimate_amount || 0).toFixed(2) + '（提交时不扣费，审核通过后从余额扣除）｜ ' + fmtTime(t.created_at) + '</div>') +
+            ? '<div class="t-kv">' +
+                '<span><i>用户</i><b class="hl">' + escapeHtml(t.uid) + '</b></span>' +
+                '<span><i>联系方式</i><b class="hl">' + escapeHtml(t.contact || '—') + '</b></span>' +
+                '<span><i>实扣</i><b class="hl">¥' + Number(t.deduction || 0).toFixed(2) + '</b>（赠送 ¥' + Number(t.pay_gift || 0).toFixed(2) + ' + 可提现 ¥' + Number(t.pay_balance || 0).toFixed(2) + '）</span>' +
+                '<span><i>预估</i>' + moneyText(t.estimate_amount) + '</span>' +
+                '<span><i>提交</i>' + fmtTime(t.created_at) + '</span>' +
+              '</div>'
+            : '<div class="t-kv">' +
+                '<span><i>金额</i><b class="hl">¥' + Number(t.estimate_amount || 0).toFixed(2) + '</b></span>' +
+                '<span><i>说明</i>提交时不扣费，审核通过后从余额扣除</span>' +
+                '<span><i>提交</i>' + fmtTime(t.created_at) + '</span>' +
+              '</div>') +
           '<div class="progress-track"><div class="progress-fill" style="width:' + (t.progress || 0) + '%"></div></div>' +
           note +
           (actions ? '<div class="actions">' + actions + '</div>' : '') +
@@ -1374,11 +1492,19 @@
       if (!res.ok) { $('msgList').innerHTML = '<div class="empty">加载失败</div>'; return; }
       MSG_UNREAD = 0; renderNav();
       const list = res.messages || [];
+      const unread = list.filter(m => !m.read).length;
+      $('msgSummary').textContent = unread ? ('共 ' + list.length + ' 条，' + unread + ' 条未读') : ('共 ' + list.length + ' 条，已全部读完');
       if (!list.length) { $('msgList').innerHTML = '<div class="empty">暂无消息</div>'; return; }
       $('msgList').innerHTML = list.map(m =>
-        '<div class="task">' +
-          '<div class="t-head"><span class="badge ' + (m.read ? 'b-completed' : 'b-pending_review') + '">' + (m.read ? '已读' : '未读') + '</span><span class="t-meta">' + fmtTime(m.created_at) + '</span></div>' +
-          '<div class="t-desc">' + escapeHtml(m.content) + '</div>' +
+        '<div class="msg-item' + (m.read ? '' : ' unread') + '">' +
+          '<span class="msg-dot"></span>' +
+          '<div class="msg-body">' +
+            '<div class="msg-top">' +
+              '<span class="msg-tag">' + (m.read ? '已读' : '未读') + '</span>' +
+              '<span class="msg-time">' + fmtTime(m.created_at) + '</span>' +
+            '</div>' +
+            '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
+          '</div>' +
         '</div>'
       ).join('');
     }
@@ -1677,6 +1803,7 @@
       if (p.input) { $('omInputWrap').style.display = ''; $('omInputLabel').textContent = p.input + ' *'; }
       else { $('omInputWrap').style.display = 'none'; }
       $('omInput').value = '';
+      renderLinkHint('omLinkHint', '');
       $('omContact').value = PHONE;
       const pts = Math.round(Number(p.price) * SHOP_PPY);
       $('omSummary').innerHTML = '<div>单价：<b>¥' + Number(p.price) + '</b>（≈' + intFmt(pts) + ' 积分）</div>' +
@@ -1694,7 +1821,7 @@
       const msg = $('omMsg'); msg.className = 'msg'; msg.textContent = '';
       if (p.input && !inputValue) { msg.className = 'msg err'; msg.textContent = '请填写「' + p.input + '」'; return; }
       const btn = $('omSubmit'); btn.disabled = true;
-      const res = await api('shop/order', { phone: PHONE, id: p.id, inputValue, contact });
+      const res = await api('shop/order', { phone: PHONE, id: p.id, inputValue, contact, link: extractLinks(inputValue).join('\n') });
       btn.disabled = false;
       if (res.ok) { alert('下单成功，已提交管理员审核（预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '）'); $('orderModal').style.display = 'none'; loadPoints(); loadTasks(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '下单失败'; }
@@ -1882,6 +2009,7 @@
     $('shopList').addEventListener('click', e => { const b = e.target.closest('.sc-buy'); if (b) openOrder(b.closest('.shop-card').dataset.id); });
     $('omClose').addEventListener('click', () => $('orderModal').style.display = 'none');
     $('omSubmit').addEventListener('click', submitOrder);
+    $('omInput').addEventListener('input', () => renderLinkHint('omLinkHint', $('omInput').value));
     $('apSearchBtn').addEventListener('click', () => { AP_KW = $('apSearch').value.trim(); loadApList(true); });
     $('apSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { AP_KW = $('apSearch').value.trim(); loadApList(true); } });
     $('apCat').addEventListener('change', () => { AP_CID = $('apCat').value; loadApList(true); });
@@ -2206,6 +2334,7 @@
       $('setFee').value = (s.withdraw_fee_percent != null ? s.withdraw_fee_percent : 5);
       $('setWdMin').value = (s.withdraw_min != null ? s.withdraw_min : 10);
       $('setWdLimit').value = (s.withdraw_daily_limit != null ? s.withdraw_daily_limit : 3);
+      $('setHlColor').value = (s.highlight_color || '#dc2626');
       $('setNewGift').value = (s.new_user_gift_points != null ? s.new_user_gift_points : 100);
     }
     async function saveSettings() {
@@ -2213,9 +2342,10 @@
       const res = await api('admin/settings/save', {
         checkin_points: $('setCheckin').value, points_per_yuan: $('setPerYuan').value, max_deduct_ratio: $('setRatio').value, invite_points: $('setInvite').value,
         convert_rate: $('setConvert').value, withdraw_fee_percent: $('setFee').value, new_user_gift_points: $('setNewGift').value,
-        withdraw_min: $('setWdMin').value, withdraw_daily_limit: $('setWdLimit').value
+        withdraw_min: $('setWdMin').value, withdraw_daily_limit: $('setWdLimit').value,
+        highlight_color: $('setHlColor').value
       }, true);
-      if (res.ok) { msg.textContent = '已保存'; loadSettings(); } else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
+      if (res.ok) { msg.textContent = '已保存'; HL_COLOR = $('setHlColor').value; document.documentElement.style.setProperty('--hl', HL_COLOR); loadSettings(); } else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
     }
     async function loadRatesAdmin() {
       const box = $('rateList');
