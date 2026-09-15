@@ -186,7 +186,7 @@
                 <span class="msg ok" id="rcMsg"></span>
               </div>
               <div class="t-meta" style="margin-top:10px">
-                提交后管理员核对截图，通过后自动到账，1 元 = <span id="ppY">100</span> 积分。
+                提交后管理员核对截图，通过后自动到账。1 元 = 1 元余额（计入「可提现余额」，可直接下单，满足条件可提现）。
               </div>
             </div>
           </div>
@@ -215,15 +215,15 @@
       <div class="quick" id="quickTypes"></div>
       <div class="row2">
         <div class="field">
-          <label>预估积分 <small>（仅供参考，以审核为准）</small></label>
+          <label>预估金额 <small>（仅供参考，以审核为准）</small></label>
           <div class="estimate pending" id="needPoints">--</div>
         </div>
         <div class="field">
-          <label>预估费用</label>
+          <label>折算积分 <small>（按比例，仅参考）</small></label>
           <div class="estimate pending" id="estimate">待评估</div>
         </div>
       </div>
-      <div class="t-meta" id="payTip" style="margin: -6px 0 14px">提交后由管理员审核并决定实际扣除多少积分，提交时不会扣费。</div>
+      <div class="t-meta" id="payTip" style="margin: -6px 0 14px">提交后由管理员审核并决定实际扣除多少金额（元），提交时不会扣费。</div>
       <div class="field">
         <label>任务描述（选填）</label>
         <textarea id="desc" placeholder="补充说明任务要求…"></textarea>
@@ -474,14 +474,14 @@
 
     <div class="view" id="view-pricing" style="display:none">
       <div class="section-title">价格表</div>
-      <div class="t-meta" style="margin-bottom:12px">以下为我平台的业务渠道与各合作档位单价，按你的账号等级自动计算所需积分（1 元 = <span id="ppY2">100</span> 积分）。具体费用以提交任务后管理员审核为准。</div>
+      <div class="t-meta" style="margin-bottom:12px">以下为我平台的业务渠道与各合作档位单价（元），按你的账号等级自动显示；折算积分按 1 元 = <span id="ppY2">100</span> 积分。具体费用以提交任务后管理员审核为准。</div>
       <div id="pricingTable"><div class="loading">加载中…</div></div>
     </div>
 
     <!-- ---------- 价目表（管理员可编辑） ---------- -->
     <div class="view" id="view-pricingAdmin" style="display:none">
       <div class="section-title">渠道价目表</div>
-      <div class="t-meta" style="margin-bottom:12px">配置各业务渠道与不同合作档位的单价（元/个），用户端提交任务时按自己的等级取价。1 元 = <span id="ppY3">100</span> 积分。</div>
+      <div class="t-meta" style="margin-bottom:12px">配置各业务渠道与不同合作档位的单价（元/个），用户端提交任务时按自己的等级取价。折算积分按 1 元 = <span id="ppY3">100</span> 积分。</div>
       <div id="pricingAdmin"><div class="loading">加载中…</div></div>
     </div>
 
@@ -502,7 +502,7 @@
     <!-- ---------- 商品管理（管理员） ---------- -->
     <div class="view" id="view-products" style="display:none">
       <div class="section-title">商品管理</div>
-      <div class="t-meta" style="margin-bottom:10px">共 <b id="apTotal">0</b> 个商品（可改名称/规格/三档价、上下架、删除、新增）。1 元 = <span id="apPpY">100</span> 积分。</div>
+      <div class="t-meta" style="margin-bottom:10px">共 <b id="apTotal">0</b> 个商品（可改名称/规格/三档价、上下架、删除、新增）。三档价以「元」为单位（1 元 = <span id="apPpY">100</span> 积分仅用于折算展示）。</div>
       <div class="ap-toolbar">
         <select id="apCat"><option value="">全部分类</option></select>
         <input id="apSearch" placeholder="搜索商品名…" />
@@ -582,11 +582,19 @@
 
   <div class="modal" id="userModal" style="display:none">
     <div class="modal-box">
-      <div class="modal-title">给用户调整积分</div>
+      <div class="modal-title">调整用户资产</div>
       <div class="t-meta" id="umPhone"></div>
       <div class="field">
-        <label>积分（正 = 加，负 = 扣）</label>
-        <input id="umDelta" type="number" placeholder="如 100 或 -50" />
+        <label>类型</label>
+        <select id="umKind">
+          <option value="points">积分</option>
+          <option value="balance">可提现余额（元）</option>
+          <option value="gift">赠送余额（元，不可提现）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>数值（正 = 加，负 = 扣）</label>
+        <input id="umDelta" type="number" step="0.01" placeholder="如 100 或 -50" />
       </div>
       <div class="field">
         <label>原因（必填）</label>
@@ -615,7 +623,7 @@
   <!-- 一审实扣积分弹窗 -->
   <div class="modal" id="reviewModal" style="display:none">
     <div class="modal-box">
-      <div class="modal-title">一审通过 · 填写实际扣除积分</div>
+      <div class="modal-title">一审通过 · 填写实际扣除金额</div>
       <div class="t-meta" id="rvId"></div>
       <div class="t-meta" id="rvHint"></div>
       <div class="field">
@@ -623,8 +631,8 @@
         <select id="rvChannel"><option value="">不指定（维持原预估）</option></select>
       </div>
       <div class="field">
-        <label>实际扣除积分（可任意填写，默认 = 预估）</label>
-        <input id="rvPoints" type="number" min="0" placeholder="如 500" />
+        <label>实际扣除金额（元，可任意填写，默认 = 预估）</label>
+        <input id="rvAmount" type="number" min="0" step="0.01" placeholder="如 3.50" />
       </div>
       <div class="msg" id="rvMsg"></div>
       <div class="actions">
@@ -925,7 +933,6 @@
       $('myBalance').textContent = '¥' + (bal + gift).toFixed(2);
       $('myBalanceCash').textContent = bal.toFixed(2);
       $('myBalanceGift').textContent = gift.toFixed(2);
-      $('ppY').textContent = res.pointsPerYuan;
       const btn = $('checkinBtn');
       if (res.checkedToday) {
         btn.disabled = true; btn.textContent = '今日已签到';
@@ -952,7 +959,7 @@
     });
     $('rcAmount').addEventListener('input', () => {
       const a = Number($('rcAmount').value) || 0;
-      $('rcTip').textContent = a > 0 ? ('将到账 ' + intFmt(Math.floor(a * (PTS.pointsPerYuan || 100))) + ' 积分') : '';
+      $('rcTip').textContent = a > 0 ? ('将到账 ¥' + a.toFixed(2) + '（可提现余额）') : '';
     });
     $('rcPickBtn').addEventListener('click', () => $('rcFile').click());
     $('rcFile').addEventListener('change', () => {
@@ -1001,7 +1008,7 @@
           : '<span class="t-meta">未上传截图</span>';
         return '<div class="task">' +
           '<div class="t-head">' + badge + '<span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
-          '<div class="t-type">充值 ¥' + Number(r.amount) + ' → ' + intFmt(r.points) + ' 积分</div>' +
+          '<div class="t-type">充值 ¥' + Number(r.amount) + ' → 到账 ¥' + Number(r.amount).toFixed(2) + '</div>' +
           (r.pay_account ? '<div class="t-meta">付款账号：' + escapeHtml(r.pay_account) + '</div>' : '') +
           (r.proof ? '<div class="thumbs">' + proofHtml + '</div>' : '<div>' + proofHtml + '</div>') +
           (r.note ? '<div class="t-meta">管理员备注：' + escapeHtml(r.note) + '</div>' : '') +
@@ -1052,7 +1059,7 @@
       const el = $('estimate');
       const e = currentEstimate();
       if (e.amount === null) { el.className = 'estimate pending'; el.textContent = '待评估'; }
-      else { el.className = 'estimate'; el.textContent = '¥' + e.amount; }
+      else { el.className = 'estimate'; el.textContent = intFmt(Math.round(e.amount * (PTS.pointsPerYuan || 100))) + ' 积分'; }
       renderPay();
     }
     function renderPay() {
@@ -1064,8 +1071,8 @@
         tip.className = 't-meta'; tip.style.color = ''; return;
       }
       const p = Math.round(e.amount * (PTS.pointsPerYuan || 100));
-      need.className = 'estimate'; need.textContent = intFmt(p) + ' 积分';
-      tip.textContent = '预估 ' + intFmt(p) + ' 积分（≈¥' + e.amount + '），提交后由管理员审核决定实际扣除，提交时不扣费。';
+      need.className = 'estimate'; need.textContent = '¥' + Number(e.amount).toFixed(2);
+      tip.textContent = '预估 ¥' + Number(e.amount).toFixed(2) + '（≈' + intFmt(p) + ' 积分），提交后由管理员审核决定实际扣除金额，提交时不扣费。';
       tip.className = 't-meta'; tip.style.color = '';
     }
     $('type').addEventListener('input', renderEstimate);
@@ -1160,7 +1167,7 @@
       btn.disabled = false;
       if (res.ok) {
         const ep = res.estimate_points || 0;
-        msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ' + intFmt(ep) + ' 积分，等待管理员审核（实际扣除以审核为准）';
+        msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '，等待管理员审核（实际扣除以审核为准）';
         $('type').value = ''; $('desc').value = ''; clearPicked(); renderEstimate(); loadPoints(); loadTasks();
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
@@ -1276,16 +1283,21 @@
     $('umClose').addEventListener('click', closeUserModal);
     $('umSubmit').addEventListener('click', async () => {
       const phone = $('umPhone').textContent.replace('用户：', '').trim();
-      const delta = Math.floor(Number($('umDelta').value));
+      const kind = $('umKind').value || 'points';
+      const raw = Number($('umDelta').value);
+      const delta = kind === 'points' ? Math.floor(raw) : +(raw).toFixed(2);
       const reason = $('umReason').value.trim();
       const msg = $('umMsg'); msg.className = 'msg'; msg.textContent = '';
-      if (!delta || delta === 0) { msg.className = 'msg err'; msg.textContent = '请输入非 0 的积分值'; return; }
+      if (!delta || delta === 0 || isNaN(delta)) { msg.className = 'msg err'; msg.textContent = '请输入非 0 的数值'; return; }
       if (!reason) { msg.className = 'msg err'; msg.textContent = '请填写原因'; return; }
-      const res = await api('admin/user/points', { phone, delta, reason }, true);
+      const res = await api('admin/user/points', { phone, delta, reason, kind }, true);
       if (res.ok) {
-        msg.className = 'msg ok'; msg.textContent = (delta > 0 ? '已加 ' : '已扣 ') + Math.abs(delta) + ' 积分，当前 ' + intFmt(res.points);
+        let txt;
+        if (kind === 'points') txt = (delta > 0 ? '已加 ' : '已扣 ') + Math.abs(delta) + ' 积分，当前 ' + intFmt(res.points) + ' 积分';
+        else txt = (delta > 0 ? '已加 ¥' : '已扣 ¥') + Math.abs(delta).toFixed(2) + '（' + (kind === 'balance' ? '可提现余额' : '赠送余额') + '），当前可提现 ¥' + Number(res.balance || 0).toFixed(2) + ' + 赠送 ¥' + Number(res.gift || 0).toFixed(2);
+        msg.className = 'msg ok'; msg.textContent = txt;
         loadUsers();
-        setTimeout(closeUserModal, 900);
+        setTimeout(closeUserModal, 1200);
       } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
     });
 
@@ -1640,7 +1652,7 @@
       const btn = $('omSubmit'); btn.disabled = true;
       const res = await api('shop/order', { phone: PHONE, id: p.id, inputValue, contact });
       btn.disabled = false;
-      if (res.ok) { alert('下单成功，已提交管理员审核（预估 ' + intFmt(res.estimate_points || 0) + ' 积分）'); $('orderModal').style.display = 'none'; loadPoints(); loadTasks(); }
+      if (res.ok) { alert('下单成功，已提交管理员审核（预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '）'); $('orderModal').style.display = 'none'; loadPoints(); loadTasks(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '下单失败'; }
     }
 
@@ -2073,8 +2085,8 @@
     function openReject(kind, id) {
       rjKind = kind; rjId = id;
       const hint = kind === 'recharge'
-        ? '拒绝这笔充值申请（不会给用户到账积分）'
-        : (kind === 'confirm' ? '拒绝并退回该任务已扣的积分' : '拒绝该任务（提交时未扣费，无积分变动）');
+        ? '拒绝这笔充值申请（不会给用户到账）'
+        : (kind === 'confirm' ? '拒绝并退回该任务已扣的金额（按原扣款来源退回）' : '拒绝该任务（提交时未扣费，无金额变动）');
       $('rjHint').textContent = hint;
       $('rjReason').value = '';
       $('rjMsg').className = 'msg'; $('rjMsg').textContent = '';
@@ -2102,13 +2114,14 @@
       const res = await api('admin/confirm', { id, action }, true);
       if (res.ok) loadAdminTasks(); else alert(res.msg || '操作失败');
     }
-    // 一审通过：填写实际扣除积分（默认=预估，可改任意）
+    // 一审通过：填写实际扣除金额（元，默认=预估，可改任意）
     let RV_TIER = '';
     function openReview(id) {
       const t = ADMIN_TASKS.find(x => x.id === id);
       $('rvId').textContent = '任务：' + id;
       RV_TIER = (t && t.tier) || MY_TIER;
-      $('rvHint').textContent = t ? ('用户等级：' + RV_TIER + '，原预估 ' + intFmt(t.estimate_points) + ' 积分（' + moneyText(t.estimate_amount) + '），选渠道后按等级重算') : '请输入实际扣除积分';
+      const hintBase = t ? ('用户等级：' + RV_TIER + '，原预估 ¥' + Number(t.estimate_amount || 0).toFixed(2) + '，选渠道后按等级重算') : '请输入实际扣除金额（元）';
+      $('rvHint').textContent = hintBase;
       // 渠道下拉（管理员指定）
       const sel = $('rvChannel');
       sel.innerHTML = '<option value="">不指定（维持原预估）</option>' +
@@ -2116,14 +2129,13 @@
       sel.value = '';
       sel.onchange = () => {
         const c = CHANNELS.find(x => x.id === sel.value);
-        if (!c) { $('rvPoints').value = t ? (t.estimate_points || 0) : 0; $('rvHint').textContent = t ? ('用户等级：' + RV_TIER + '，原预估 ' + intFmt(t.estimate_points) + ' 积分（' + moneyText(t.estimate_amount) + '），选渠道后按等级重算') : ''; return; }
+        if (!c) { $('rvAmount').value = t ? Number(t.estimate_amount || 0).toFixed(2) : 0; $('rvHint').textContent = hintBase; return; }
         const rate = (c.rates || []).find(r => (r.tier || '') === RV_TIER);
-        if (!rate) { $('rvHint').textContent = '该用户等级（' + RV_TIER + '）在渠道「' + c.name + '」下暂无价格，请先到价目表补充'; $('rvPoints').value = t ? (t.estimate_points || 0) : 0; return; }
-        const pts = Math.round(Number(rate.unitPrice || 0) * (PTS.pointsPerYuan || 100));
-        $('rvPoints').value = pts;
-        $('rvHint').textContent = '渠道：' + c.name + ' ｜ 等级：' + RV_TIER + ' ｜ 单价 ¥' + rate.unitPrice + ' → 预估 ' + intFmt(pts) + ' 积分（可改）';
+        if (!rate) { $('rvHint').textContent = '该用户等级（' + RV_TIER + '）在渠道「' + c.name + '」下暂无价格，请先到价目表补充'; $('rvAmount').value = t ? Number(t.estimate_amount || 0).toFixed(2) : 0; return; }
+        $('rvAmount').value = Number(rate.unitPrice || 0).toFixed(2);
+        $('rvHint').textContent = '渠道：' + c.name + ' ｜ 等级：' + RV_TIER + ' ｜ 单价 ¥' + rate.unitPrice + ' → 实际扣除 ¥' + Number(rate.unitPrice || 0).toFixed(2) + '（可改）';
       };
-      $('rvPoints').value = t ? (t.estimate_points || 0) : 0;
+      $('rvAmount').value = t ? Number(t.estimate_amount || 0).toFixed(2) : 0;
       $('rvMsg').className = 'msg'; $('rvMsg').textContent = '';
       $('reviewModal').style.display = 'flex';
     }
@@ -2131,11 +2143,11 @@
     $('rvClose').addEventListener('click', closeReview);
     $('rvSubmit').addEventListener('click', async () => {
       const id = $('rvId').textContent.replace('任务：', '').trim();
-      const points = Math.floor(Number($('rvPoints').value));
+      const amount = Number($('rvAmount').value);
       const channel = $('rvChannel').value || '';
       const msg = $('rvMsg'); msg.className = 'msg'; msg.textContent = '';
-      if (isNaN(points) || points < 0) { msg.className = 'msg err'; msg.textContent = '请填写不小于 0 的积分'; return; }
-      const res = await api('admin/review', { id, action: 'approve', points, channel }, true);
+      if (isNaN(amount) || amount < 0) { msg.className = 'msg err'; msg.textContent = '请填写不小于 0 的金额（元）'; return; }
+      const res = await api('admin/review', { id, action: 'approve', amount, channel }, true);
       if (res.ok) { closeReview(); loadAdminTasks(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
     });
