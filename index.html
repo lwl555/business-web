@@ -14,25 +14,17 @@
     <div class="entry-head" style="margin-bottom:22px">
       <div class="logo">业</div>
       <h1>业务网</h1>
-      <p>请选择要进入的平台</p>
+      <p>点击进入平台</p>
     </div>
     <div class="choices">
       <button type="button" class="choice choice-new" id="goNew">
         <div class="ribbon">推荐</div>
-        <div class="c-title">新平台</div>
-        <div class="c-desc">业务网工作台 · 下单 / 充值 / 审核</div>
+        <div class="c-title">进入业务网</div>
+        <div class="c-desc">下单 / 充值 / 审核 · 一站式工作台</div>
         <div class="chips">
           <span class="chip">稳定</span>
           <span class="chip">便宜</span>
           <span class="chip">服务全</span>
-        </div>
-      </button>
-      <button type="button" class="choice choice-old" id="goOld">
-        <div class="c-title">旧平台</div>
-        <div class="chips">
-          <span class="chip">信息多</span>
-          <span class="chip">价格高</span>
-          <span class="chip">不推荐</span>
         </div>
       </button>
     </div>
@@ -100,24 +92,6 @@
     </div>
 
     <div class="back-home"><a href="javascript:void(0)" id="backHome">← 返回平台选择</a></div>
-  </div>
-
-  <!-- ============ 旧平台（内嵌） ============ -->
-  <div class="wrap card" id="oldBox" style="display:none">
-    <div class="topbar">
-      <div class="brandmark">
-        <div class="logo">旧</div>
-        <div>
-          <h1 class="title">旧平台</h1>
-          <div class="subtitle">旧版界面</div>
-        </div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-ghost btn-sm" id="oldBack">← 返回平台选择</button>
-        <a class="btn btn-primary btn-sm" href="https://mirabloom.chuangzaoba.top/" target="_blank" rel="noopener">在新标签打开</a>
-      </div>
-    </div>
-    <iframe id="oldFrame" title="旧平台" style="width:100%;height:76vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
   </div>
 
   <!-- ============ 主界面 ============ -->
@@ -445,6 +419,19 @@
     </div>
 
     <!-- ---------- 公告管理（管理员） ---------- -->
+    <!-- ---------- 旧平台（管理员） ---------- -->
+    <div class="view" id="view-old" style="display:none">
+      <div class="section-title">旧平台</div>
+      <div class="t-meta" style="margin-bottom:10px">
+        旧平台（小林业务网）已停用，仅供管理员查阅历史价格与商品信息。若下方无法显示，请点「在新标签打开旧平台」。
+      </div>
+      <div class="actions" style="margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" id="oldOpenBtn">在新标签打开旧平台</button>
+        <button class="btn btn-ghost btn-sm" id="oldReloadBtn">重新加载</button>
+      </div>
+      <iframe id="oldFrame" title="旧平台" style="width:100%;height:72vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
+    </div>
+
     <div class="view" id="view-ann" style="display:none">
       <div class="section-title" id="annFormTitle">发布公告</div>
       <input type="hidden" id="annId" />
@@ -1023,36 +1010,34 @@
       goHome();
     });
 
-    // ==================== 平台选择（新平台 / 旧平台） ====================
+    // ==================== 平台选择 ====================
     const OLD_PLATFORM_URL = 'https://mirabloom.chuangzaoba.top/';
     function goHome() {
       $('homeBox').style.display = '';
       $('loginBox').style.display = 'none';
       $('appBox').style.display = 'none';
-      $('oldBox').style.display = 'none';
-      $('oldFrame').src = '';
       document.body.classList.add('page-entry');
       document.body.classList.remove('page-viewer');
     }
     function goLogin() {
       $('homeBox').style.display = 'none';
       $('appBox').style.display = 'none';
-      $('oldBox').style.display = 'none';
-      $('oldFrame').src = '';
       $('loginBox').style.display = '';
       document.body.classList.remove('page-entry');
       document.body.classList.remove('page-viewer');
     }
-    function goOld() {
-      // 旧平台已停用：保持显示，点击只提示并置灰，不再打开旧站
-      const el = $('goOld');
-      if (el) el.classList.add('disabled');
-      alert('旧平台已更新为新平台，请在新平台中打开。');
+    // 旧平台入口已移至管理员后台「旧平台」页
+    function loadOldFrame() {
+      const f = $('oldFrame');
+      if (f && !f.getAttribute('src')) f.setAttribute('src', OLD_PLATFORM_URL);
     }
     $('goNew').addEventListener('click', goLogin);
-    $('goOld').addEventListener('click', goOld);
-    $('oldBack').addEventListener('click', goHome);
     $('backHome').addEventListener('click', goHome);
+    $('oldOpenBtn').addEventListener('click', () => window.open(OLD_PLATFORM_URL, '_blank', 'noopener'));
+    $('oldReloadBtn').addEventListener('click', () => {
+      const f = $('oldFrame');
+      if (f) f.setAttribute('src', OLD_PLATFORM_URL);
+    });
 
     // ==================== 应用框架 ====================
     const NAV = [
@@ -1074,8 +1059,9 @@
       { id: 'withdrawals', label: '提现审核', roles: ['admin'] },
       { id: 'aftersales', label: '售后处理', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
+      { id: 'old', label: '旧平台', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
@@ -1117,6 +1103,7 @@
       else if (v === 'tasks') loadAdminTasks();
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
       else if (v === 'ann') loadAnnouncementsAdmin();
+      else if (v === 'old') loadOldFrame();
       else if (v === 'pricing') loadPricing();
       else if (v === 'pricingAdmin') loadPricingAdmin();
       else if (v === 'products') loadAdminProducts();
@@ -1127,8 +1114,7 @@
     function showApp() {
       $('loginBox').style.display = 'none';
       $('homeBox').style.display = 'none';
-      $('oldBox').style.display = 'none';
-      $('oldFrame').src = '';
+      const _of = $('oldFrame'); if (_of) _of.setAttribute('src', '');
       document.body.classList.remove('page-entry');
       document.body.classList.remove('page-viewer');
       $('appBox').style.display = 'block';
@@ -1397,6 +1383,7 @@
     // ==================== 我的任务 ====================
     function badge(status) { return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>'; }
     function renderTasks(tasks, adminMode) {
+      tasks = Array.isArray(tasks) ? tasks : [];
       const box = adminMode ? $('list') : $('taskList');
       if (!tasks.length) { box.innerHTML = '<div class="empty">' + (adminMode ? '暂无相关任务' : '暂无任务，提交后将在此显示进度') + '</div>'; return; }
       box.innerHTML = tasks.map(t => {
