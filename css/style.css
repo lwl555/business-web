@@ -795,6 +795,13 @@ body.page-viewer { padding: 20px 16px; }
 .ap-cat-row { display: grid; grid-template-columns: 1.6fr 1fr auto auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .ap-cat-name { width: 100%; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
 
+/* ---------- 钱包（用户端） ---------- */
+.wallet-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.w-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fff; text-align: center; }
+.w-num { font-size: 19px; font-weight: 700; color: var(--brand); }
+.w-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.card-box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fff; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
@@ -813,4 +820,5 @@ body.page-viewer { padding: 20px 16px; }
   .ap-head { grid-template-columns: 1fr; gap: 6px; }
   .ap-cat-row { grid-template-columns: 1fr; gap: 6px; }
   .ap-prices { gap: 8px; }
+  .wallet-cards { grid-template-columns: 1fr 1fr; }
 }
