@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=18" />
+  <link rel="stylesheet" href="css/style.css?v=19" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -193,7 +193,13 @@
         <div id="rcList" class="task-list"></div>
       </div>
 
-      <div class="section-title">类型任务提交</div>
+      <div class="shop-hint" id="workHint">
+        <b>先看「商品下单」：</b>常见需求都已上架商品（价格按你的等级显示），直接下单更快。
+        <span class="hint-go" id="gotoShop">去商品下单 →</span>
+        <div class="hint-sub">只有在商品列表里找不到你要的，才用下面的「类型任务提交」，由管理员人工报价处理。</div>
+      </div>
+
+      <div class="section-title">类型任务提交（找不到商品时使用）</div>
       <div class="row2">
         <div class="field">
           <label>任务类型 *</label>
@@ -397,7 +403,23 @@
       <div id="annListAdmin" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
-    <!-- ---------- 价格表（用户端） ---------- -->
+    <!-- ---------- 商品下单（用户端） ---------- -->
+    <div class="view" id="view-shop" style="display:none">
+      <div class="section-title">商品下单</div>
+      <div class="t-meta" style="margin-bottom:10px">选择商品直接下单，价格按你的账号等级显示（当前：<b id="shopTier">—</b>）。下单后由管理员审核处理。</div>
+      <div class="shop-toolbar">
+        <input id="shopSearch" placeholder="搜索商品名称，如：抖音 点赞…" />
+        <button class="btn btn-primary btn-sm" id="shopSearchBtn">搜索</button>
+        <button class="btn btn-ghost btn-sm" id="shopClearBtn">清空</button>
+        <span class="t-meta" id="shopCount"></span>
+      </div>
+      <div class="shop-cats" id="shopCats"></div>
+      <div class="shop-list" id="shopList"><div class="loading">加载中…</div></div>
+      <div style="text-align:center;margin-top:12px">
+        <button class="btn btn-ghost btn-sm" id="shopMoreBtn" style="display:none">加载更多</button>
+      </div>
+    </div>
+
     <div class="view" id="view-pricing" style="display:none">
       <div class="section-title">价格表</div>
       <div class="t-meta" style="margin-bottom:12px">以下为我平台的业务渠道与各合作档位单价，按你的账号等级自动计算所需积分（1 元 = <span id="ppY2">100</span> 积分）。具体费用以提交任务后管理员审核为准。</div>
@@ -410,9 +432,74 @@
       <div class="t-meta" style="margin-bottom:12px">配置各业务渠道与不同合作档位的单价（元/个），用户端提交任务时按自己的等级取价。1 元 = <span id="ppY3">100</span> 积分。</div>
       <div id="pricingAdmin"><div class="loading">加载中…</div></div>
     </div>
+
+    <!-- ---------- 商品管理（管理员） ---------- -->
+    <div class="view" id="view-products" style="display:none">
+      <div class="section-title">商品管理</div>
+      <div class="t-meta" style="margin-bottom:10px">共 <b id="apTotal">0</b> 个商品（可改名称/规格/三档价、上下架、删除、新增）。1 元 = <span id="apPpY">100</span> 积分。</div>
+      <div class="ap-toolbar">
+        <select id="apCat"><option value="">全部分类</option></select>
+        <input id="apSearch" placeholder="搜索商品名…" />
+        <button class="btn btn-primary btn-sm" id="apSearchBtn">搜索</button>
+        <button class="btn btn-ghost btn-sm" id="apOnlyActive">仅看在售</button>
+        <button class="btn btn-green btn-sm" id="apAddBtn">+ 新增商品</button>
+      </div>
+      <div class="ap-list" id="apList"><div class="loading">加载中…</div></div>
+      <div class="ap-pager">
+        <button class="btn btn-ghost btn-sm" id="apPrev">上一页</button>
+        <span class="t-meta" id="apPageInfo"></span>
+        <button class="btn btn-ghost btn-sm" id="apNext">下一页</button>
+      </div>
+
+      <div class="section-title" style="margin-top:26px">分类管理</div>
+      <div class="t-meta" style="margin-bottom:10px">改名或停用分类（停用后用户端不显示该分类及其商品）。</div>
+      <div class="ap-cats" id="apCats"><div class="loading">加载中…</div></div>
+    </div>
   </div>
 
   <!-- 加积分弹窗 -->
+  <!-- 商品编辑弹窗（管理员） -->
+  <div class="modal" id="productModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="pmTitle">编辑商品</div>
+      <div class="field"><label>商品名称 *</label><input id="pmName" placeholder="如：抖音点赞 100个" /></div>
+      <div class="row2">
+        <div class="field"><label>分类 *</label><select id="pmCat"></select></div>
+        <div class="field"><label>规格（如 100个）</label><input id="pmSpec" /></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>普通散客档价</label><input id="pmPU" class="num" type="number" step="0.01" min="0" /></div>
+        <div class="field"><label>稳定走量档价</label><input id="pmPA" class="num" type="number" step="0.01" min="0" /></div>
+        <div class="field"><label>大客户底价档价</label><input id="pmPS" class="num" type="number" step="0.01" min="0" /></div>
+      </div>
+      <div class="field"><label>输入项名称（用户下单需填写，如「主页链接」；留空则不需要）</label><input id="pmInput" /></div>
+      <div class="field"><label>商品说明（选填）</label><textarea id="pmDesc"></textarea></div>
+      <div class="field"><label>下单提示（选填，用户下单时展示）</label><input id="pmAlert" /></div>
+      <label class="chk"><input type="checkbox" id="pmActive" checked /> 在售</label>
+      <div class="msg" id="pmMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="pmSave">保存</button>
+        <button class="btn btn-ghost btn-sm" id="pmClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 商品下单弹窗（用户端） -->
+  <div class="modal" id="orderModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="omName">商品下单</div>
+      <div class="t-meta" id="omMeta"></div>
+      <div class="field" id="omInputWrap"><label id="omInputLabel">输入项</label><input id="omInput" /></div>
+      <div class="field"><label>联系方式</label><input id="omContact" placeholder="手机号 / 微信号" /></div>
+      <div class="order-summary" id="omSummary"></div>
+      <div class="msg" id="omMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="omSubmit">提交订单</button>
+        <button class="btn btn-ghost btn-sm" id="omClose">取消</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="userModal" style="display:none">
     <div class="modal-box">
       <div class="modal-title">给用户调整积分</div>
@@ -667,6 +754,7 @@
     // ==================== 应用框架 ====================
     const NAV = [
       { id: 'work', label: '工作台', roles: ['user', 'admin'] },
+      { id: 'shop', label: '商品下单', roles: ['user'] },
       { id: 'invite', label: '邀请好友', roles: ['user'] },
       { id: 'pricing', label: '价格表', roles: ['user'] },
       { id: 'chat', label: '在线客服', roles: ['user'] },
@@ -677,9 +765,10 @@
       { id: 'tasks', label: '任务审核', roles: ['admin'] },
       { id: 'rules', label: '金额规则', roles: ['admin'] },
       { id: 'pricingAdmin', label: '价目表', roles: ['admin'] },
+      { id: 'products', label: '商品管理', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'invite', 'pricing', 'users', 'pay', 'tasks', 'rules', 'pricingAdmin', 'ann', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'shop', 'invite', 'pricing', 'users', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'ann', 'messages', 'chat', 'cs'];
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
@@ -708,6 +797,7 @@
       });
       renderNav();
       if (v === 'work') { loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks(); }
+      else if (v === 'shop') loadShop();
       else if (v === 'invite') loadInvite();
       else if (v === 'chat') loadChat();
       else if (v === 'messages') loadMessages();
@@ -719,6 +809,7 @@
       else if (v === 'ann') loadAnnouncementsAdmin();
       else if (v === 'pricing') loadPricing();
       else if (v === 'pricingAdmin') loadPricingAdmin();
+      else if (v === 'products') loadAdminProducts();
     }
 
     function showApp() {
@@ -1290,6 +1381,230 @@
       const url = location.origin + location.pathname + '?invite=' + encodeURIComponent(INVITE_CODE);
       copyText('注册时填我的邀请码「' + INVITE_CODE + '」即可：\n' + url);
     });
+
+    // ==================== 商品下单（用户端） ====================
+    let SHOP_CATS = [], SHOP_CID = '', SHOP_KW = '', SHOP_PAGE = 1, SHOP_PPY = 100;
+    async function loadShop() {
+      if (!SHOP_CATS.length) await loadShopCats();
+      else renderShopCats();
+      loadShopProducts(true);
+    }
+    async function loadShopCats() {
+      const res = await api('shop/categories', {});
+      if (!res.ok) return;
+      SHOP_CATS = res.categories || [];
+      renderShopCats();
+    }
+    function renderShopCats() {
+      const box = $('shopCats');
+      box.innerHTML = '<button class="shop-cat' + (SHOP_CID === '' ? ' active' : '') + '" data-cid="">全部</button>' +
+        SHOP_CATS.map(c => '<button class="shop-cat' + (SHOP_CID === c.id ? ' active' : '') + '" data-cid="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + ' <i>' + c.count + '</i></button>').join('');
+      box.querySelectorAll('.shop-cat').forEach(b => b.addEventListener('click', () => { SHOP_CID = b.dataset.cid; renderShopCats(); loadShopProducts(true); }));
+    }
+    function productCardHtml(p) {
+      const pts = Math.round(Number(p.price) * SHOP_PPY);
+      return '<div class="shop-card" data-id="' + escapeHtml(p.id) + '">' +
+        (p.image ? '<div class="sc-img"><img loading="lazy" src="' + escapeHtml(p.image) + '" alt="" onerror="this.parentNode.style.display=\'none\'"></div>' : '') +
+        '<div class="sc-body">' +
+          '<div class="sc-name">' + escapeHtml(p.name) + '</div>' +
+          (p.spec ? '<div class="sc-spec">规格：' + escapeHtml(p.spec) + '</div>' : '') +
+          '<div class="sc-price">¥' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span></div>' +
+          '<div class="sc-meta">' + (p.sales ? ('已售 ' + p.sales + ' ｜ ') : '') + (p.input ? ('需填：' + escapeHtml(p.input)) : '无需填写') + '</div>' +
+          '<button class="btn btn-primary btn-sm sc-buy">下单</button>' +
+        '</div>' +
+      '</div>';
+    }
+    async function loadShopProducts(reset) {
+      if (reset) { SHOP_PAGE = 1; $('shopList').innerHTML = '<div class="loading">加载中…</div>'; }
+      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, keyword: SHOP_KW, page: SHOP_PAGE, limit: 24 });
+      if (!res.ok) { if (reset) $('shopList').innerHTML = '<div class="empty">加载失败：' + escapeHtml(res.msg || '') + '</div>'; return; }
+      SHOP_PPY = res.pointsPerYuan || 100;
+      $('shopTier').textContent = res.tier || '';
+      $('shopCount').textContent = '共 ' + intFmt(res.total || 0) + ' 个商品';
+      const list = res.products || [];
+      const html = list.map(productCardHtml).join('');
+      const box = $('shopList');
+      if (reset) box.innerHTML = html || '<div class="empty">没有找到商品，换个关键词，或到「工作台」手动提交需求</div>';
+      else box.insertAdjacentHTML('beforeend', html);
+      const more = list.length >= 24 && (SHOP_PAGE * 24) < (res.total || 0);
+      $('shopMoreBtn').style.display = more ? '' : 'none';
+    }
+    let ORDER_PRODUCT = null;
+    async function openOrder(id) {
+      const res = await api('shop/product', { phone: PHONE, id });
+      if (!res.ok) { alert(res.msg || '加载失败'); return; }
+      ORDER_PRODUCT = res.product; SHOP_PPY = res.pointsPerYuan || 100;
+      const p = res.product;
+      $('omName').textContent = p.name;
+      $('omMeta').textContent = (p.spec ? ('规格：' + p.spec + ' ｜ ') : '') + '你的等级：' + (res.tier || '') + (p.sales ? (' ｜ 已售 ' + p.sales) : '');
+      if (p.input) { $('omInputWrap').style.display = ''; $('omInputLabel').textContent = p.input + ' *'; }
+      else { $('omInputWrap').style.display = 'none'; }
+      $('omInput').value = '';
+      $('omContact').value = PHONE;
+      const pts = Math.round(Number(p.price) * SHOP_PPY);
+      $('omSummary').innerHTML = '<div>单价：<b>¥' + Number(p.price) + '</b>（≈' + intFmt(pts) + ' 积分）</div>' +
+        (p.alert ? '<div class="t-meta">提示：' + escapeHtml(p.alert) + '</div>' : '') +
+        (p.desc ? '<div class="t-meta">说明：' + escapeHtml(String(p.desc)).slice(0, 220) + '</div>' : '') +
+        '<div class="t-meta">提交后由管理员审核处理，<b>审核通过才扣积分</b>。</div>';
+      $('omMsg').className = 'msg'; $('omMsg').textContent = '';
+      $('orderModal').style.display = 'flex';
+    }
+    async function submitOrder() {
+      if (!ORDER_PRODUCT) return;
+      const p = ORDER_PRODUCT;
+      const inputValue = $('omInput').value.trim();
+      const contact = $('omContact').value.trim();
+      const msg = $('omMsg'); msg.className = 'msg'; msg.textContent = '';
+      if (p.input && !inputValue) { msg.className = 'msg err'; msg.textContent = '请填写「' + p.input + '」'; return; }
+      const btn = $('omSubmit'); btn.disabled = true;
+      const res = await api('shop/order', { phone: PHONE, id: p.id, inputValue, contact });
+      btn.disabled = false;
+      if (res.ok) { alert('下单成功，已提交管理员审核（预估 ' + intFmt(res.estimate_points || 0) + ' 积分）'); $('orderModal').style.display = 'none'; loadPoints(); loadTasks(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '下单失败'; }
+    }
+
+    // ==================== 商品管理（管理员） ====================
+    let AP_LIST = [], AP_PAGE = 1, AP_TOTAL = 0, AP_CID = '', AP_KW = '', AP_ONLY_ACTIVE = false, AP_CATS = [], AP_EDIT_ID = '';
+    async function loadAdminProducts() { await loadApCats(); await loadApList(true); }
+    async function loadApCats() {
+      const res = await api('admin/categories', {}, true);
+      if (!res.ok) return;
+      AP_CATS = res.categories || [];
+      $('apPpY').textContent = PTS.pointsPerYuan || 100;
+      $('apCat').innerHTML = '<option value="">全部分类</option>' + AP_CATS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '（在售' + c.activeCount + '/' + c.total + '）</option>').join('');
+      $('apCat').value = AP_CID;
+      $('pmCat').innerHTML = AP_CATS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</option>').join('');
+      $('apCats').innerHTML = AP_CATS.map(c => '<div class="ap-cat-row" data-cid="' + escapeHtml(c.id) + '">' +
+        '<input class="ap-cat-name" value="' + escapeHtml(c.name) + '" />' +
+        '<span class="t-meta">在售 ' + c.activeCount + ' / 共 ' + c.total + '</span>' +
+        '<label class="chk"><input type="checkbox" class="ap-cat-active"' + (c.active ? ' checked' : '') + ' /> 启用</label>' +
+        '<button class="btn btn-primary btn-sm" onclick="saveCategory(\'' + escapeHtml(c.id) + '\',this)">保存</button>' +
+      '</div>').join('');
+    }
+    async function loadApList(reset) {
+      if (reset) AP_PAGE = 1;
+      const box = $('apList');
+      if (reset) box.innerHTML = '<div class="loading">加载中…</div>';
+      const res = await api('admin/products', { cid: AP_CID, keyword: AP_KW, active: AP_ONLY_ACTIVE, page: AP_PAGE, limit: 30 }, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      AP_TOTAL = res.total || 0; AP_LIST = res.products || [];
+      $('apTotal').textContent = intFmt(AP_TOTAL);
+      $('apPageInfo').textContent = '第 ' + AP_PAGE + ' / ' + Math.max(1, Math.ceil(AP_TOTAL / 30)) + ' 页';
+      box.innerHTML = AP_LIST.map(apRowHtml).join('') || '<div class="empty">没有商品</div>';
+    }
+    function apRowHtml(p) {
+      return '<div class="ap-row" data-id="' + escapeHtml(p.id) + '">' +
+        '<div class="ap-head">' +
+          '<input class="ap-name" value="' + escapeHtml(p.name) + '" placeholder="商品名称" />' +
+          '<input class="ap-spec" value="' + escapeHtml(p.spec || '') + '" placeholder="规格" />' +
+          '<input class="ap-input" value="' + escapeHtml(p.input || '') + '" placeholder="输入项(如 主页链接)" />' +
+        '</div>' +
+        '<div class="ap-prices">' +
+          '<label>用户<input class="ap-pu num" type="number" step="0.01" min="0" value="' + Number(p.price_user) + '"></label>' +
+          '<label>代理<input class="ap-pa num" type="number" step="0.01" min="0" value="' + Number(p.price_agent) + '"></label>' +
+          '<label>高级<input class="ap-ps num" type="number" step="0.01" min="0" value="' + Number(p.price_senior) + '"></label>' +
+          '<label class="chk"><input type="checkbox" class="ap-active"' + (p.active ? ' checked' : '') + ' /> 在售</label>' +
+        '</div>' +
+        '<div class="ap-ops">' +
+          '<button class="btn btn-primary btn-sm" onclick="saveProductRow(\'' + escapeHtml(p.id) + '\',this)">保存</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="editProduct(\'' + escapeHtml(p.id) + '\')">详细</button>' +
+          '<button class="btn btn-red btn-sm" onclick="delProduct(\'' + escapeHtml(p.id) + '\',this)">删除</button>' +
+        '</div>' +
+      '</div>';
+    }
+    async function saveProductRow(id, btn) {
+      const row = btn.closest('.ap-row');
+      const body = {
+        id,
+        name: row.querySelector('.ap-name').value.trim(),
+        spec: row.querySelector('.ap-spec').value.trim(),
+        input: row.querySelector('.ap-input').value.trim(),
+        priceUser: Number(row.querySelector('.ap-pu').value) || 0,
+        priceAgent: Number(row.querySelector('.ap-pa').value) || 0,
+        priceSenior: Number(row.querySelector('.ap-ps').value) || 0,
+        active: row.querySelector('.ap-active').checked,
+      };
+      if (!body.name) { alert('商品名称不能为空'); return; }
+      const res = await api('admin/product/save', body, true);
+      if (res.ok) { const t = btn.textContent; btn.textContent = '已保存'; setTimeout(() => btn.textContent = t, 1200); }
+      else alert(res.msg || '保存失败');
+    }
+    async function delProduct(id, btn) {
+      if (!confirm('确认删除这个商品？此操作不可恢复。')) return;
+      const res = await api('admin/product/delete', { id }, true);
+      if (res.ok) { const row = btn.closest('.ap-row'); if (row) row.remove(); const ap = $('apTotal'); }
+      else alert(res.msg || '删除失败');
+    }
+    function editProduct(id) {
+      const p = AP_LIST.find(x => x.id === id);
+      if (!p) return;
+      AP_EDIT_ID = id;
+      $('pmTitle').textContent = '编辑商品';
+      $('pmName').value = p.name; $('pmSpec').value = p.spec || ''; $('pmInput').value = p.input || '';
+      $('pmCat').value = p.cid;
+      $('pmPU').value = Number(p.price_user); $('pmPA').value = Number(p.price_agent); $('pmPS').value = Number(p.price_senior);
+      $('pmDesc').value = p.desc_text || ''; $('pmAlert').value = p.alert || '';
+      $('pmActive').checked = !!p.active;
+      $('pmMsg').className = 'msg'; $('pmMsg').textContent = '';
+      $('productModal').style.display = 'flex';
+    }
+    function openNewProduct() {
+      AP_EDIT_ID = '';
+      $('pmTitle').textContent = '新增商品';
+      ['pmName', 'pmSpec', 'pmInput', 'pmDesc', 'pmAlert'].forEach(i => $(i).value = '');
+      $('pmPU').value = ''; $('pmPA').value = ''; $('pmPS').value = '';
+      $('pmActive').checked = true;
+      if (AP_CATS[0]) $('pmCat').value = AP_CATS[0].id;
+      $('pmMsg').className = 'msg'; $('pmMsg').textContent = '';
+      $('productModal').style.display = 'flex';
+    }
+    async function saveProductModal() {
+      const msg = $('pmMsg'); msg.className = 'msg'; msg.textContent = '';
+      const body = {
+        id: AP_EDIT_ID || undefined,
+        cid: $('pmCat').value,
+        name: $('pmName').value.trim(),
+        spec: $('pmSpec').value.trim(),
+        input: $('pmInput').value.trim(),
+        priceUser: Number($('pmPU').value) || 0,
+        priceAgent: Number($('pmPA').value) || 0,
+        priceSenior: Number($('pmPS').value) || 0,
+        desc: $('pmDesc').value.trim(),
+        alert: $('pmAlert').value.trim(),
+        active: $('pmActive').checked,
+      };
+      if (!body.name) { msg.className = 'msg err'; msg.textContent = '请填写商品名称'; return; }
+      if (!body.cid) { msg.className = 'msg err'; msg.textContent = '请选择分类'; return; }
+      const res = await api('admin/product/save', body, true);
+      if (res.ok) { $('productModal').style.display = 'none'; loadApList(true); loadApCats(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
+    }
+    async function saveCategory(id, btn) {
+      const row = btn.closest('.ap-cat-row');
+      const body = { id, name: row.querySelector('.ap-cat-name').value.trim(), active: row.querySelector('.ap-cat-active').checked };
+      if (!body.name) { alert('分类名称不能为空'); return; }
+      const res = await api('admin/category/save', body, true);
+      if (res.ok) { btn.textContent = '已保存'; setTimeout(() => btn.textContent = '保存', 1200); loadApCats(); }
+      else alert(res.msg || '保存失败');
+    }
+    // 商品相关事件绑定
+    $('gotoShop').addEventListener('click', () => switchView('shop'));
+    $('shopSearchBtn').addEventListener('click', () => { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); });
+    $('shopSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); } });
+    $('shopClearBtn').addEventListener('click', () => { $('shopSearch').value = ''; SHOP_KW = ''; SHOP_CID = ''; renderShopCats(); loadShopProducts(true); });
+    $('shopMoreBtn').addEventListener('click', () => { SHOP_PAGE++; loadShopProducts(false); });
+    $('shopList').addEventListener('click', e => { const b = e.target.closest('.sc-buy'); if (b) openOrder(b.closest('.shop-card').dataset.id); });
+    $('omClose').addEventListener('click', () => $('orderModal').style.display = 'none');
+    $('omSubmit').addEventListener('click', submitOrder);
+    $('apSearchBtn').addEventListener('click', () => { AP_KW = $('apSearch').value.trim(); loadApList(true); });
+    $('apSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { AP_KW = $('apSearch').value.trim(); loadApList(true); } });
+    $('apCat').addEventListener('change', () => { AP_CID = $('apCat').value; loadApList(true); });
+    $('apOnlyActive').addEventListener('click', () => { AP_ONLY_ACTIVE = !AP_ONLY_ACTIVE; $('apOnlyActive').classList.toggle('active', AP_ONLY_ACTIVE); loadApList(true); });
+    $('apAddBtn').addEventListener('click', openNewProduct);
+    $('apPrev').addEventListener('click', () => { if (AP_PAGE > 1) { AP_PAGE--; loadApList(false); } });
+    $('apNext').addEventListener('click', () => { if (AP_PAGE * 30 < AP_TOTAL) { AP_PAGE++; loadApList(false); } });
+    $('pmClose').addEventListener('click', () => $('productModal').style.display = 'none');
+    $('pmSave').addEventListener('click', saveProductModal);
 
     // ==================== 价格表（用户端） ====================
     async function loadPricing() {
