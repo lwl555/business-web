@@ -947,6 +947,90 @@ body.page-viewer { padding: 20px 16px; }
 /* 宽弹窗 */
 .modal-box.wide { max-width: 760px; }
 
+/* ---------- 问候横幅（按时段 + 励志语轮播） ---------- */
+.greet-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: linear-gradient(120deg, var(--brand), var(--brand-700));
+  color: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.greet-hello { font-size: 20px; font-weight: 700; }
+.greet-sub { font-size: 13px; color: rgba(255,255,255,.8); margin-top: 2px; }
+.greet-quote {
+  opacity: 0; transform: translateY(8px); transition: opacity .6s ease, transform .6s ease;
+  font-style: italic; font-size: 14px; color: rgba(255,255,255,.92); text-align: right;
+  max-width: 58%; line-height: 1.5;
+}
+.greet-quote.show { opacity: 1; transform: translateY(0); }
+@media (max-width: 560px) { .greet-quote { max-width: 100%; text-align: left; margin-top: 8px; } .greet-banner { flex-direction: column; align-items: flex-start; } }
+
+/* ---------- 邀请：二维码 / 阶梯 / 排行 ---------- */
+.invite-qr { margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.invite-qr canvas { width: 150px; height: 150px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 6px; }
+.tier-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+.tier-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: #fff; }
+.tier-item.reach { border-color: var(--brand-line); background: var(--brand-50); }
+.tier-item.done { border-color: #bbf7d0; background: #f0fdf4; }
+.tier-info { display: flex; flex-direction: column; gap: 2px; }
+.tier-info b { font-size: 14px; }
+.tier-tag { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tier-item.reach .tier-tag { color: var(--brand); }
+.tier-item.done .tier-tag { color: var(--ok); }
+.rank-list { display: flex; flex-direction: column; gap: 6px; }
+.rank-item { display: flex; align-items: center; gap: 10px; border-bottom: 1px dashed var(--line); padding: 7px 2px; font-size: 13px; }
+.rank-item:last-child { border-bottom: none; }
+.rank-no { width: 22px; height: 22px; border-radius: 50%; background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.rank-item.me { background: var(--brand-50); border-radius: 8px; border-bottom: none; padding: 7px 8px; }
+.rank-item.me .rank-no { background: var(--brand); color: #fff; }
+.rank-phone { flex: 1; }
+.rank-cnt { color: var(--muted); }
+
+/* ---------- 商品搜索：排序 / 筛选 / 热门 / 历史 ---------- */
+.shop-filters { margin-bottom: 10px; }
+.sf-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sf-lbl { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.sf-btn { border: 1px solid var(--line); background: #fff; color: var(--text-2); border-radius: 16px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+.sf-btn:hover { border-color: #c3ccd9; }
+.sf-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.sf-free { border-color: #f0c14b; color: #b8860b; background: #fffaf0; }
+.sf-free.active { background: linear-gradient(120deg, #f5d061, #e8a13a); border-color: #e8a13a; color: #5a3b00; }
+.shop-hot, .shop-history { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.hot-chip { border: 1px solid var(--line); background: #fff; color: var(--text-2); border-radius: 14px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.hot-chip:hover { border-color: var(--brand); color: var(--brand); }
+.hot-chip.hist { background: #f8fafc; }
+.hot-chip.clear { color: var(--danger); border-color: var(--danger-bg); background: var(--danger-bg); }
+
+/* ---------- 免费福利区（金边流光 + 呼吸动画） ---------- */
+.free-zone {
+  border: 2px solid transparent; border-radius: 14px; padding: 14px; margin-bottom: 16px;
+  background: linear-gradient(#fff, #fff) padding-box, linear-gradient(120deg, #f5d061, #e8a13a, #fff3c4, #e8a13a, #f5d061) border-box;
+  background-size: 300% 300%;
+  animation: goldFlow 5s linear infinite, goldBreath 2.4s ease-in-out infinite;
+}
+@keyframes goldFlow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@keyframes goldBreath { 0%, 100% { box-shadow: 0 0 0 0 rgba(232,161,58,.0); } 50% { box-shadow: 0 0 16px 3px rgba(232,161,58,.45); } }
+.free-zone-head { font-size: 15px; font-weight: 700; color: #9a6b00; margin-bottom: 10px; }
+.free-zone-head .t-meta { color: #b8860b; }
+.free-zone-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.free-zone-card { display: flex; gap: 10px; border: 1px solid #f0d99a; border-radius: 10px; background: #fffdf6; padding: 10px; cursor: pointer; transition: transform .15s ease; }
+.free-zone-card:hover { transform: translateY(-2px); }
+.fz-img { width: 64px; height: 64px; flex: 0 0 64px; border-radius: 8px; overflow: hidden; background: #f6f7f9; display: flex; align-items: center; justify-content: center; }
+.fz-img img { width: 100%; height: 100%; object-fit: cover; }
+.fz-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.fz-name { font-size: 13px; font-weight: 600; line-height: 1.35; }
+.fz-spec { font-size: 12px; color: var(--muted); }
+.fz-tag { display: inline-block; align-self: flex-start; font-size: 11px; font-weight: 700; color: #5a3b00; background: linear-gradient(120deg, #f5d061, #e8a13a); border-radius: 10px; padding: 2px 8px; }
+.fz-buy { margin-top: auto; align-self: flex-start; }
+
+/* ---------- 商品卡：免费标识 ---------- */
+.shop-card.free-card { border-color: #f0d99a; background: #fffdf6; position: relative; }
+.free-flag { position: absolute; top: 8px; left: 8px; z-index: 2; background: linear-gradient(120deg, #f5d061, #e8a13a); color: #5a3b00; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 2px 8px; }
+.sc-free { color: #d97706; font-weight: 800; font-size: 16px; }
+
+/* ---------- 订单弹窗：免费高亮 ---------- */
+.modal.free-order .modal-box { border: 2px solid #e8a13a; box-shadow: 0 0 18px rgba(232,161,58,.35); }
+.om-free-tip { color: #b45309; background: #fff7e6; border: 1px solid #fde6b8; border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }

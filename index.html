@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=24" />
+  <link rel="stylesheet" href="css/style.css?v=25" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -115,6 +115,15 @@
     <!-- ---------- 工作台（用户端 / 管理员也能用） ---------- -->
     <div class="view" id="view-work">
       <div class="ann-list" id="annList" style="display:none"></div>
+
+      <!-- 问候横幅：按时段 + 励志语轮播 -->
+      <div class="greet-banner" id="greetBanner">
+        <div class="greet-left">
+          <div class="greet-hello" id="greetHello">你好</div>
+          <div class="greet-sub" id="greetSub">欢迎回来</div>
+        </div>
+        <div class="greet-quote" id="greetQuote"></div>
+      </div>
 
       <div class="points-bar">
         <div class="pb-left">
@@ -260,21 +269,35 @@
 
     <!-- ---------- 邀请好友（用户端） ---------- -->
     <div class="view" id="view-invite" style="display:none">
-      <div class="section-title">邀请好友赚积分</div>
+      <div class="section-title">邀请好友 · 推广赚收益</div>
       <div class="invite-card">
         <div class="t-meta">我的专属邀请码</div>
         <div class="invite-code" id="inviteCode">--</div>
+        <div class="invite-qr">
+          <canvas id="inviteQr" width="150" height="150"></canvas>
+          <div class="t-meta">扫码或长按保存，分享给好友</div>
+        </div>
         <div class="actions" style="margin-top:10px">
           <button class="btn btn-primary btn-sm" id="copyCodeBtn">复制邀请码</button>
           <button class="btn btn-ghost btn-sm" id="copyLinkBtn">复制邀请链接</button>
+          <button class="btn btn-ghost btn-sm" id="copyQrBtn">保存二维码</button>
         </div>
         <div class="t-meta" id="inviteRule" style="margin-top:10px"></div>
+        <div class="t-meta" id="invitePromo" style="margin-top:6px"></div>
       </div>
       <div class="stats" style="margin:16px 0">
         <div class="stat"><div class="s-num brand" id="invitedCount">0</div><div class="s-lbl">已邀请人数</div></div>
-        <div class="stat"><div class="s-num ok" id="inviteEarned">0</div><div class="s-lbl">累计获得积分</div></div>
+        <div class="stat"><div class="s-num ok" id="inviteEarned">0</div><div class="s-lbl">累计邀请积分</div></div>
+        <div class="stat"><div class="s-num warn" id="inviteCommission">¥0.00</div><div class="s-lbl">累计推广佣金</div></div>
       </div>
-      <div class="section-title">已邀请的用户</div>
+
+      <div class="section-title">邀请阶梯奖励</div>
+      <div id="inviteTiers" class="tier-list"></div>
+
+      <div class="section-title">邀请排行榜 <span class="t-meta" id="inviteMyRank"></span></div>
+      <div id="inviteRanking" class="rank-list"></div>
+
+      <div class="section-title">已邀请的用户 <span class="t-meta">（含其消费与给你带来的佣金）</span></div>
       <div id="invitedList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
@@ -505,6 +528,25 @@
         <button class="btn btn-ghost btn-sm" id="shopClearBtn">清空</button>
         <span class="t-meta" id="shopCount"></span>
       </div>
+      <div class="shop-filters">
+        <div class="sf-group">
+          <span class="sf-lbl">排序</span>
+          <button class="sf-btn active" data-sort="default">默认</button>
+          <button class="sf-btn" data-sort="price_asc">价格↑</button>
+          <button class="sf-btn" data-sort="price_desc">价格↓</button>
+          <button class="sf-btn" data-sort="sales">销量↓</button>
+          <button class="sf-btn sf-free" id="shopFreeBtn" data-free="0">🎁 免费福利</button>
+        </div>
+        <div class="shop-hot" id="shopHot"></div>
+      </div>
+      <div class="shop-history" id="shopHistory" style="display:none"></div>
+
+      <!-- 免费福利区（金边流光 + 呼吸动画） -->
+      <div class="free-zone" id="freeZone" style="display:none">
+        <div class="free-zone-head">🎁 免费福利区 <span class="t-meta">0 元即可领，先到先得</span></div>
+        <div class="free-zone-list" id="freeZoneList"></div>
+      </div>
+
       <div class="shop-cats" id="shopCats"></div>
       <div class="shop-list" id="shopList"><div class="loading">加载中…</div></div>
       <div style="text-align:center;margin-top:12px">
@@ -1090,7 +1132,7 @@
         if (el) el.style.display = (id === v) ? '' : 'none';
       });
       renderNav();
-      if (v === 'work') { loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks(); }
+      if (v === 'work') { renderGreeting(); loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks(); }
       else if (v === 'shop') loadShop();
       else if (v === 'wallet') loadWallet();
       else if (v === 'invite') loadInvite();
@@ -1125,6 +1167,63 @@
       loadUiConfig();
       if (!isAdmin) { loadUnread(); loadChatUnread(); }
       else { loadConversations(); loadPresets(); loadAdmMsgUnread(); }
+    }
+
+    // ==================== 问候横幅（按时段 + 励志语轮播） ====================
+    const GREET_QUOTES = [
+      { hi: '早安', sub: '新的一天，新的开始', quotes: [
+        '行动是治愈焦虑的良药，坐等只会让机会溜走。',
+        '今天的小努力，是明天的大不同。',
+        '把简单的事做好，就是不简单；把平凡的事做透，就是不平凡。',
+        '种一棵树最好的时间是十年前，其次是现在。',
+        '别让昨天的疲惫，偷走今天的热情。',
+      ] },
+      { hi: '午安', sub: '忙里偷闲，刚好充个电', quotes: [
+        ' halfway 的坚持，最见一个人的定力。',
+        '休息不是停下，而是为了走得更远。',
+        '把每件事做到极致，机会自然来找你。',
+        '专注当下这一件，胜过焦虑十件。',
+        '成功属于那些在别人放弃时还在坚持的人。',
+      ] },
+      { hi: '晚上好', sub: '辛苦一天，记得犒劳自己', quotes: [
+        '日拱一卒，功不唐捐。',
+        '今天的复盘，是明天的底气。',
+        '慢一点没关系，只要一直在路上。',
+        '愿你的努力，都有回响。',
+        '把心放宽，把事做细，结果会自己说话。',
+      ] },
+      { hi: '夜深了', sub: '注意休息，明天继续加油', quotes: [
+        '真正的强者，是夜深人静时仍在打磨自己的人。',
+        '星光不问赶路人，时光不负有心人。',
+        '每一步都算数，哪怕在深夜。',
+        '安顿好今天，才能更好地迎接明天。',
+        '愿你被这个世界温柔以待，也别忘温柔待己。',
+      ] },
+    ];
+    let GREET_TIMER = null, GREET_QI = 0;
+    function greetSlot(h) {
+      if (h >= 5 && h < 12) return 0;
+      if (h >= 12 && h < 14) return 1;
+      if (h >= 14 && h < 19) return 2;
+      return 3;
+    }
+    function renderGreeting() {
+      const slot = GREET_QUOTES[greetSlot(new Date().getHours())];
+      $('greetHello').textContent = slot.hi + (PHONE ? '，' + maskPhone(PHONE) : '');
+      $('greetSub').textContent = slot.sub;
+      GREET_QI = 0;
+      const tick = () => {
+        const q = slot.quotes[GREET_QI % slot.quotes.length];
+        const el = $('greetQuote');
+        if (!el) return;
+        el.classList.remove('show'); void el.offsetWidth;
+        el.textContent = '“' + q + '”';
+        el.classList.add('show');
+        GREET_QI++;
+      };
+      tick();
+      if (GREET_TIMER) clearInterval(GREET_TIMER);
+      GREET_TIMER = setInterval(tick, 5000);
     }
 
     // ==================== 积分 / 签到 ====================
@@ -1735,23 +1834,67 @@
       }
     }
     let INVITE_CODE = '';
+    let INVITE_LINK = '';
+    function drawInviteQr(text) {
+      const canvas = $('inviteQr'); if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 150, 150);
+      const img = new Image();
+      img.onload = () => { try { ctx.drawImage(img, 0, 0, 150, 150); } catch (e) { drawQrFallback(ctx); } };
+      img.onerror = () => drawQrFallback(ctx);
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(text);
+    }
+    function drawQrFallback(ctx) {
+      ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('二维码加载失败', 75, 70); ctx.fillText('请复制链接分享', 75, 90);
+    }
     async function loadInvite() {
       const res = await api('user/invite', { phone: PHONE });
       if (!res.ok) { $('invitedList').innerHTML = '<div class="empty">加载失败</div>'; return; }
       INVITE_CODE = res.code || '';
+      INVITE_LINK = (res.inviteLink || (location.origin + location.pathname + '?invite=' + encodeURIComponent(INVITE_CODE)));
       $('inviteCode').textContent = INVITE_CODE || '--';
       $('invitedCount').textContent = intFmt(res.invitedCount || 0);
-      $('inviteEarned').textContent = intFmt(res.earned || 0);
+      $('inviteEarned').textContent = '+' + intFmt(res.earned || 0);
+      $('inviteCommission').textContent = '¥' + Number(res.commissionTotal || 0).toFixed(2);
       $('inviteRule').textContent = '每成功邀请 1 位新用户注册，你可得 ' + intFmt(res.invitePoints || 0) + ' 积分（新用户登录时填你的邀请码即可）。';
+      $('invitePromo').textContent = '好友每次消费，你可得 ' + (res.commissionRate || 0) + '% 推广佣金（实时计入' + (res.commissionBucket === 'balance' ? '可提现余额' : '赠送余额') + '）；新用户填你的码注册，双方各得 ' + intFmt(res.newbieBonus || 0) + ' 积分新人福利。';
+      drawInviteQr(INVITE_LINK);
+
+      // 阶梯奖励
+      const tiers = res.tiers || [];
+      $('inviteTiers').innerHTML = tiers.length
+        ? tiers.map(t => '<div class="tier-item' + (t.reached ? (t.paid ? ' done' : ' reach') : '') + '">' +
+            '<div class="tier-info"><b>邀请满 ' + t.count + ' 人</b><span class="t-meta">奖励 ' + intFmt(t.points) + ' 积分</span></div>' +
+            '<div class="tier-tag">' + (t.reached ? (t.paid ? '已发放 ✓' : '已达成，待发放') : '未达成') + '</div>' +
+          '</div>').join('')
+        : '<div class="empty">暂未配置阶梯奖励</div>';
+
+      // 排行榜
+      const rank = res.ranking || [];
+      const meIdx = rank.findIndex((x) => x.me);
+      $('inviteMyRank').textContent = res.myRank ? ('我的排名：第 ' + res.myRank + ' 名 / 共 ' + rank.length + ' 人') : '';
+      $('inviteRanking').innerHTML = rank.length
+        ? rank.map(r => '<div class="rank-item' + (r.me ? ' me' : '') + '"><span class="rank-no">' + r.rank + '</span>' +
+            '<span class="rank-phone">' + r.phone + '</span><span class="rank-cnt">' + r.count + ' 人</span></div>').join('')
+        : '<div class="empty">暂无排行榜数据</div>';
+
+      // 已邀请明细
       const list = res.invited || [];
       $('invitedList').innerHTML = list.length
-        ? list.map(r => '<div class="task"><div class="t-head"><span class="t-type">' + maskPhone(r.phone) + '</span><span class="t-meta">' + fmtTime(r.at) + '</span></div></div>').join('')
+        ? list.map(r => '<div class="task"><div class="t-head"><span class="t-type">' + maskPhone(r.phone) + '</span><span class="t-meta">' + fmtTime(r.at) + '</span></div>' +
+            '<div class="t-meta">累计消费 ¥' + Number(r.spend || 0).toFixed(2) + ' ｜ 为你带来佣金 ¥' + Number(r.commission || 0).toFixed(2) + '</div></div>').join('')
         : '<div class="empty">还没有邀请记录，快去把邀请码分享给好友吧</div>';
     }
     $('copyCodeBtn').addEventListener('click', () => copyText(INVITE_CODE));
     $('copyLinkBtn').addEventListener('click', () => {
-      const url = location.origin + location.pathname + '?invite=' + encodeURIComponent(INVITE_CODE);
-      copyText('注册时填我的邀请码「' + INVITE_CODE + '」即可：\n' + url);
+      copyText('注册时填我的邀请码「' + INVITE_CODE + '」即可：\n' + INVITE_LINK);
+    });
+    $('copyQrBtn').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(INVITE_LINK);
+      a.download = 'invite-qr.png';
+      document.body.appendChild(a); a.click(); a.remove();
     });
 
     // ==================== 售后（用户端） ====================
@@ -1889,10 +2032,15 @@
 
     // ==================== 商品下单（用户端） ====================
     let SHOP_CATS = [], SHOP_CID = '', SHOP_KW = '', SHOP_PAGE = 1, SHOP_PPY = 100;
+    let SHOP_SORT = 'default', SHOP_FREE = false;
+    const SHOP_HOT = ['抖音', '快手', '小红书', '会员', '粉丝', '点赞', '直播间', '播放量'];
     async function loadShop() {
       if (!SHOP_CATS.length) await loadShopCats();
       else renderShopCats();
       loadShopProducts(true);
+      loadFreeZone();
+      renderShopHot();
+      renderShopHistory();
     }
     async function loadShopCats() {
       const res = await api('shop/categories', {});
@@ -1907,21 +2055,44 @@
       box.querySelectorAll('.shop-cat').forEach(b => b.addEventListener('click', () => { SHOP_CID = b.dataset.cid; renderShopCats(); loadShopProducts(true); }));
     }
     function productCardHtml(p) {
-      const pts = Math.round(Number(p.price) * SHOP_PPY);
-      return '<div class="shop-card" data-id="' + escapeHtml(p.id) + '">' +
+      const isFree = Number(p.price) <= 0;
+      const pts = isFree ? 0 : Math.round(Number(p.price) * SHOP_PPY);
+      return '<div class="shop-card' + (isFree ? ' free-card' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
+        (isFree ? '<div class="free-flag">免费</div>' : '') +
         (p.image ? '<div class="sc-img"><img loading="lazy" src="' + escapeHtml(p.image) + '" alt="" onerror="this.parentNode.style.display=\'none\'"></div>' : '') +
         '<div class="sc-body">' +
           '<div class="sc-name">' + escapeHtml(p.name) + '</div>' +
           (p.spec ? '<div class="sc-spec">规格：' + escapeHtml(p.spec) + '</div>' : '') +
-          '<div class="sc-price">¥' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span></div>' +
+          '<div class="sc-price">' + (isFree ? '<span class="sc-free">免费</span>' : ('¥' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span>')) + '</div>' +
           '<div class="sc-meta">' + (p.sales ? ('已售 ' + p.sales + ' ｜ ') : '') + (p.input ? ('需填：' + escapeHtml(p.input)) : '无需填写') + '</div>' +
           '<button class="btn btn-primary btn-sm sc-buy">下单</button>' +
         '</div>' +
       '</div>';
     }
+    function freeCardHtml(p) {
+      return '<div class="free-zone-card" data-id="' + escapeHtml(p.id) + '">' +
+        (p.image ? '<div class="fz-img"><img loading="lazy" src="' + escapeHtml(p.image) + '" alt="" onerror="this.parentNode.style.display=\'none\'"></div>' : '') +
+        '<div class="fz-body">' +
+          '<div class="fz-name">' + escapeHtml(p.name) + '</div>' +
+          (p.spec ? '<div class="fz-spec">' + escapeHtml(p.spec) + '</div>' : '') +
+          '<div class="fz-tag">0 元免费领</div>' +
+          '<button class="btn btn-primary btn-sm fz-buy">立即领取</button>' +
+        '</div>' +
+      '</div>';
+    }
+    async function loadFreeZone() {
+      const box = $('freeZone'); if (!box) return;
+      const res = await api('shop/products', { phone: PHONE, free: '1', limit: 12 });
+      if (!res.ok) { box.style.display = 'none'; return; }
+      const list = res.products || [];
+      if (!list.length) { box.style.display = 'none'; return; }
+      box.style.display = '';
+      $('freeZoneList').innerHTML = list.map(freeCardHtml).join('');
+      $('freeZoneList').querySelectorAll('.free-zone-card').forEach(c => c.addEventListener('click', () => openOrder(c.dataset.id)));
+    }
     async function loadShopProducts(reset) {
       if (reset) { SHOP_PAGE = 1; $('shopList').innerHTML = '<div class="loading">加载中…</div>'; }
-      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, keyword: SHOP_KW, page: SHOP_PAGE, limit: 24 });
+      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, keyword: SHOP_KW, sort: SHOP_SORT, free: SHOP_FREE ? '1' : '', page: SHOP_PAGE, limit: 24 });
       if (!res.ok) { if (reset) $('shopList').innerHTML = '<div class="empty">加载失败：' + escapeHtml(res.msg || '') + '</div>'; return; }
       SHOP_PPY = res.pointsPerYuan || 100;
       $('shopTier').textContent = res.tier || '';
@@ -1948,7 +2119,11 @@
       renderLinkHint('omLinkHint', '');
       $('omContact').value = PHONE;
       const pts = Math.round(Number(p.price) * SHOP_PPY);
-      $('omSummary').innerHTML = '<div>单价：<b>¥' + Number(p.price) + '</b>（≈' + intFmt(pts) + ' 积分）</div>' +
+      const isFree = Number(p.price) <= 0;
+      $('orderModal').classList.toggle('free-order', isFree);
+      $('omSubmit').textContent = isFree ? '免费领取' : '提交订单';
+      $('omSummary').innerHTML = '<div>单价：<b>' + (isFree ? '免费' : ('¥' + Number(p.price) + '（≈' + intFmt(pts) + ' 积分）')) + '</b></div>' +
+        (isFree ? '<div class="om-free-tip">🎁 这是免费福利商品，提交后由管理员审核发放，不扣任何费用。</div>' : '') +
         (p.alert ? '<div class="t-meta">提示：' + escapeHtml(p.alert) + '</div>' : '') +
         (p.desc ? '<div class="t-meta">说明：' + escapeHtml(String(p.desc)).slice(0, 220) + '</div>' : '') +
         '<div class="t-meta">提交后由管理员审核处理，<b>审核通过后从你的余额扣款（先扣赠送余额）</b>。</div>';
@@ -2305,9 +2480,39 @@
     }
     // 商品相关事件绑定
     $('gotoShop').addEventListener('click', () => switchView('shop'));
-    $('shopSearchBtn').addEventListener('click', () => { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); });
-    $('shopSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); } });
-    $('shopClearBtn').addEventListener('click', () => { $('shopSearch').value = ''; SHOP_KW = ''; SHOP_CID = ''; renderShopCats(); loadShopProducts(true); });
+    function getShopHistory() {
+      try { return JSON.parse(localStorage.getItem('biz_shop_history') || '[]'); } catch (e) { return []; }
+    }
+    function pushShopHistory(kw) {
+      if (!kw) return;
+      let h = getShopHistory().filter(x => x !== kw);
+      h.unshift(kw); h = h.slice(0, 8);
+      try { localStorage.setItem('biz_shop_history', JSON.stringify(h)); } catch (e) {}
+      renderShopHistory();
+    }
+    function renderShopHot() {
+      const box = $('shopHot');
+      box.innerHTML = '<span class="sf-lbl">热门</span>' + SHOP_HOT.map(k => '<button class="hot-chip" data-kw="' + escapeHtml(k) + '">' + escapeHtml(k) + '</button>').join('');
+      box.querySelectorAll('.hot-chip').forEach(b => b.addEventListener('click', () => { SHOP_KW = b.dataset.kw; $('shopSearch').value = SHOP_KW; loadShopProducts(true); pushShopHistory(SHOP_KW); }));
+    }
+    function renderShopHistory() {
+      const h = getShopHistory();
+      const box = $('shopHistory');
+      if (!h.length) { box.style.display = 'none'; return; }
+      box.style.display = '';
+      box.innerHTML = '<span class="sf-lbl">历史</span>' + h.map(k => '<button class="hot-chip hist" data-kw="' + escapeHtml(k) + '">' + escapeHtml(k) + '</button>').join('') + '<button class="hot-chip clear" id="shopHistClear">清空</button>';
+      box.querySelectorAll('.hot-chip[data-kw]').forEach(b => b.addEventListener('click', () => { SHOP_KW = b.dataset.kw; $('shopSearch').value = SHOP_KW; loadShopProducts(true); }));
+      $('shopHistClear').addEventListener('click', () => { try { localStorage.removeItem('biz_shop_history'); } catch (e) {} renderShopHistory(); });
+    }
+    function syncShopFilterUI() {
+      document.querySelectorAll('.sf-btn[data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === SHOP_SORT));
+      $('shopFreeBtn').classList.toggle('active', SHOP_FREE);
+    }
+    $('shopSearchBtn').addEventListener('click', () => { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); pushShopHistory(SHOP_KW); });
+    $('shopSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); pushShopHistory(SHOP_KW); } });
+    $('shopClearBtn').addEventListener('click', () => { $('shopSearch').value = ''; SHOP_KW = ''; SHOP_CID = ''; SHOP_SORT = 'default'; SHOP_FREE = false; syncShopFilterUI(); renderShopCats(); loadShopProducts(true); });
+    document.querySelectorAll('.sf-btn[data-sort]').forEach(b => b.addEventListener('click', () => { SHOP_SORT = b.dataset.sort; syncShopFilterUI(); loadShopProducts(true); }));
+    $('shopFreeBtn').addEventListener('click', () => { SHOP_FREE = !SHOP_FREE; syncShopFilterUI(); loadShopProducts(true); });
     $('shopMoreBtn').addEventListener('click', () => { SHOP_PAGE++; loadShopProducts(false); });
     $('shopList').addEventListener('click', e => { const b = e.target.closest('.sc-buy'); if (b) openOrder(b.closest('.shop-card').dataset.id); });
     $('omClose').addEventListener('click', () => $('orderModal').style.display = 'none');
