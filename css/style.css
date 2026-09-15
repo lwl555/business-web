@@ -877,6 +877,56 @@ body.page-viewer { padding: 20px 16px; }
 .t-kv span { display: inline-flex; align-items: baseline; gap: 6px; }
 .t-kv i { font-style: normal; color: var(--muted-2); font-size: 12px; }
 
+/* ---------- 售后工单时间线 ---------- */
+.asl-timeline {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fcfdff;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.asl-item { display: flex; gap: 10px; padding: 7px 0; }
+.asl-dot {
+  flex: 0 0 auto;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #c7d2e0;
+  margin-top: 7px;
+}
+.asl-item.them .asl-dot { background: #6366f1; }
+.asl-item.me .asl-dot { background: #16a34a; }
+.asl-item.internal .asl-dot { background: #f59e0b; }
+.asl-body { flex: 1; min-width: 0; }
+.asl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.asl-role { font-size: 12px; color: var(--muted); font-weight: 600; }
+.asl-item.internal .asl-role { color: #b45309; }
+.asl-time { font-size: 12px; color: var(--muted-2); }
+.asl-note { font-size: 13px; line-height: 1.7; color: var(--text-2); white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+.asl-item.internal {
+  background: rgba(245, 158, 11, .07);
+  border-radius: 6px;
+  padding-left: 8px; padding-right: 8px;
+}
+.asl-item.internal .asl-note { color: #92400e; }
+
+/* ---------- 售后统计 ---------- */
+.as-stat { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.as-stat-item {
+  font-size: 12px;
+  color: var(--muted);
+  background: #f4f6fa;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.as-stat-item b { color: var(--text-2); }
+.as-stat-item.hot { background: rgba(220, 38, 38, .1); border-color: rgba(220, 38, 38, .3); color: var(--hl, #dc2626); }
+.as-stat-item.hot b { color: var(--hl, #dc2626); }
+
+/* 宽弹窗 */
+.modal-box.wide { max-width: 760px; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }

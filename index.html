@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=22" />
+  <link rel="stylesheet" href="css/style.css?v=23" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -524,7 +524,20 @@
     <!-- ---------- 售后处理（管理员） ---------- -->
     <div class="view" id="view-aftersales" style="display:none">
       <div class="section-title">售后处理</div>
-      <div class="t-meta" style="margin-bottom:10px">用户售后申请。同意=按原扣款来源退款（赠送/可提现各回各位）；拒绝=仅记录原因。</div>
+      <div class="t-meta" style="margin-bottom:8px">用户售后工单。可先记录处理进度并回复用户，再选最终处理方式（补单/重做、部分退款、全额退款、驳回）。</div>
+      <div class="as-stat" id="asStat"></div>
+      <div class="ap-toolbar">
+        <select id="asFilter">
+          <option value="all">全部状态</option>
+          <option value="pending">待处理</option>
+          <option value="processing">处理中</option>
+          <option value="waiting">待用户补充</option>
+          <option value="resolved">已解决（补单）</option>
+          <option value="refunded">已退款</option>
+          <option value="rejected">已驳回</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="asRefresh">刷新</button>
+      </div>
       <div id="asListAdmin" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
@@ -563,6 +576,61 @@
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="asSubmit">提交申请</button>
         <button class="btn btn-ghost btn-sm" id="asClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 售后处理进度弹窗（用户端） -->
+  <div class="modal" id="asDetailModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">售后处理进度</div>
+      <div class="t-meta" id="asdMeta"></div>
+      <div class="asl-timeline" id="asdTimeline"><div class="loading">加载中…</div></div>
+      <div class="actions"><button class="btn btn-ghost btn-sm" id="asdClose">关闭</button></div>
+    </div>
+  </div>
+
+  <!-- 售后处理工作台弹窗（管理员） -->
+  <div class="modal" id="asAdminModal" style="display:none">
+    <div class="modal-box wide">
+      <div class="modal-title">售后处理</div>
+      <div class="t-meta" id="asaMeta"></div>
+      <div class="t-kv" id="asaInfo"></div>
+
+      <div class="sub-title" style="margin:14px 0 6px">处理时间线</div>
+      <div class="asl-timeline" id="asaTimeline"></div>
+
+      <div class="sub-title" style="margin:16px 0 6px">① 记录处理进度（可多次提交）</div>
+      <div class="row3">
+        <div class="field"><label>状态</label>
+          <select id="asaStatus">
+            <option value="">不变更</option>
+            <option value="processing">处理中</option>
+            <option value="waiting">待用户补充信息</option>
+          </select>
+        </div>
+        <div class="field"><label>回复用户（用户可见）</label><input id="asaNote" placeholder="如：已联系上家，预计 2 小时内处理" /></div>
+        <div class="field"><label>内部备注（仅管理员可见）</label><input id="asaInternal" placeholder="如：上家成本 ¥1.5，同意补做" /></div>
+      </div>
+      <div class="actions"><button class="btn btn-primary btn-sm" id="asaSaveProgress">保存进度</button></div>
+
+      <div class="sub-title" style="margin:16px 0 6px">② 最终处理（处理后该售后单结束）</div>
+      <div class="row3">
+        <div class="field"><label>处理方式</label>
+          <select id="asaAction">
+            <option value="">请选择</option>
+            <option value="redeliver">补单 / 重做（不退款）</option>
+            <option value="refund">退款（可部分退款）</option>
+            <option value="reject">驳回（必须填原因）</option>
+          </select>
+        </div>
+        <div class="field"><label>退款金额（元，留空=全额）</label><input id="asaAmount" class="num" type="number" min="0" step="0.01" /></div>
+        <div class="field"><label>结论说明（用户可见）</label><input id="asaResolveNote" placeholder="如：按实际交付比例退一半" /></div>
+      </div>
+      <div class="msg" id="asaMsg"></div>
+      <div class="actions">
+        <button class="btn btn-green btn-sm" id="asaResolveBtn">确认处理</button>
+        <button class="btn btn-ghost btn-sm" id="asaClose">关闭</button>
       </div>
     </div>
   </div>
@@ -782,6 +850,14 @@
       }
       return out;
     }
+
+    // 售后状态文案（用户端 / 管理端共用）
+    const AS_STATUS_TEXT = {
+      pending: '待处理', processing: '处理中', waiting: '待用户补充信息',
+      resolved: '已解决（已补单/重做）', refunded: '已退款', approved: '已退款', rejected: '已驳回',
+    };
+    const AS_ACTIVE = ['pending', 'processing', 'waiting'];
+    const AS_TYPE_TEXT = { redeliver: '补单/重做', refund_full: '全额退款', refund_part: '部分退款', reject: '驳回' };
 
     // 在指定容器里渲染"已识别链接"提示
     function renderLinkHint(boxId, text) {
@@ -1312,17 +1388,22 @@
           const baseAt = revArr.length ? ((revArr[revArr.length - 1] || {}).at || t.created_at) : t.created_at;
           const dl = baseAt ? new Date(new Date(baseAt).getTime() + days * 86400000) : null;
           const expired = dl ? Date.now() > dl.getTime() : false;
-          if ((t.status === 'approved' || t.status === 'completed') && !t.after_sale_status) {
-            actions = expired
-              ? '<span class="t-meta">售后已过期（受理后 ' + days + ' 天内可申请）</span>'
-              : '<span class="t-meta">售后可申请至 ' + (dl ? fmtTime(dl).slice(0, 10) : '—') + '</span>' +
-                '<button class="btn btn-ghost btn-sm" onclick="openAfterSale(\'' + t.id + '\')">申请售后</button>';
-          } else if (t.after_sale_status === 'pending') {
-            actions = '<span class="t-meta">售后处理中…</span>';
-          } else if (t.after_sale_status === 'approved') {
-            actions = '<span class="t-meta">售后已通过，已退款</span>';
-          } else if (t.after_sale_status === 'rejected') {
-            actions = '<span class="t-meta">售后未通过' + (t.after_sale_note ? ('：' + escapeHtml(t.after_sale_note)) : '') + '</span>';
+          if (!t.after_sale_status) {
+            if (t.status === 'approved' || t.status === 'completed') {
+              actions = expired
+                ? '<span class="t-meta">售后已过期（受理后 ' + days + ' 天内可申请）</span>'
+                : '<span class="t-meta">售后可申请至 ' + (dl ? fmtTime(dl).slice(0, 10) : '—') + '</span>' +
+                  '<button class="btn btn-ghost btn-sm" onclick="openAfterSale(\'' + t.id + '\')">申请售后</button>';
+            }
+          } else {
+            const stTxt = AS_STATUS_TEXT[t.after_sale_status] || t.after_sale_status;
+            const extra = (t.after_sale_status === 'rejected' && t.after_sale_note)
+              ? ('：' + escapeHtml(t.after_sale_note))
+              : (Number(t.after_sale_refund) > 0 ? ('：已退 ¥' + Number(t.after_sale_refund).toFixed(2)) : '');
+            actions = '<span class="t-meta">售后' + stTxt + extra + '</span>' +
+              '<button class="btn btn-ghost btn-sm" onclick="openAsDetail(\'' + t.id + '\')">查看进度</button>' +
+              ((t.after_sale_status === 'rejected' && !expired)
+                ? '<button class="btn btn-ghost btn-sm" onclick="openAfterSale(\'' + t.id + '\')">重新申请</button>' : '');
           }
         }
         const linkHtml = t.link
@@ -1654,9 +1735,36 @@
       const reason = $('asReason').value.trim();
       if (!reason) { msg.className = 'msg err'; msg.textContent = '请填写售后原因'; return; }
       const res = await api('after-sale/submit', { phone: PHONE, id: AS_ID, reason });
-      if (res.ok) { alert('售后申请已提交，等待管理员处理'); $('afterSaleModal').style.display = 'none'; loadTasks(); }
+      if (res.ok) { alert('售后申请已提交，管理员会尽快处理，可在订单里查看进度'); $('afterSaleModal').style.display = 'none'; loadTasks(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '提交失败'; }
     });
+
+    // ==================== 售后处理进度（用户端） ====================
+    async function openAsDetail(id) {
+      $('asdMeta').textContent = '订单：' + id;
+      $('asdTimeline').innerHTML = '<div class="loading">加载中…</div>';
+      $('asDetailModal').style.display = 'flex';
+      const res = await api('after-sale/detail', { phone: PHONE, id });
+      if (!res.ok) { $('asdTimeline').innerHTML = '<div class="empty">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
+      const t = res.task || {};
+      const st = AS_STATUS_TEXT[t.after_sale_status] || t.after_sale_status || '—';
+      $('asdMeta').innerHTML = escapeHtml(t.product_name || t.type || '') +
+        ' ｜ 状态：<b class="hl">' + escapeHtml(st) + '</b>' +
+        (Number(t.after_sale_refund) > 0 ? (' ｜ 已退 <b class="hl">¥' + Number(t.after_sale_refund).toFixed(2) + '</b>') : '');
+      const logs = res.logs || [];
+      if (!logs.length) { $('asdTimeline').innerHTML = '<div class="empty">暂无处理记录</div>'; return; }
+      $('asdTimeline').innerHTML = logs.map(l =>
+        '<div class="asl-item ' + (l.role === 'user' ? 'me' : 'them') + '">' +
+          '<span class="asl-dot"></span>' +
+          '<div class="asl-body">' +
+            '<div class="asl-top"><span class="asl-role">' + (l.role === 'user' ? '我' : '客服') + '</span>' +
+              '<span class="asl-time">' + fmtTime(l.created_at) + '</span></div>' +
+            '<div class="asl-note">' + escapeHtml(l.note) + '</div>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+    $('asdClose').addEventListener('click', () => $('asDetailModal').style.display = 'none');
 
     // ==================== 钱包（用户端） ====================
     let W_RATE = 100, W_FEE = 5, W_MIN = 0, W_LIMIT = 0;
@@ -1851,28 +1959,124 @@
       const res = await api('admin/withdraw/review', { id, action, note }, true);
       if (res.ok) loadAdminWithdrawals(); else alert(res.msg || '操作失败');
     }
+    // ==================== 售后处理（管理员工作台） ====================
+    let AS_ADMIN_LIST = [], AS_ADMIN_ID = '';
     async function loadAdminAfterSales() {
       const box = $('asListAdmin');
-      const res = await api('admin/after-sales', {}, true);
+      const status = $('asFilter') ? $('asFilter').value : 'all';
+      const res = await api('admin/after-sales', { status }, true);
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
-      const list = res.tasks || [];
-      if (!list.length) { box.innerHTML = '<div class="empty">暂无售后申请</div>'; return; }
-      const st = { pending: '待处理', approved: '已通过', rejected: '已拒绝' };
-      box.innerHTML = list.map(t => '<div class="task">' +
-        '<div class="t-head"><span class="badge b-approved">' + (st[t.after_sale_status] || t.after_sale_status) + '</span><span class="t-meta">' + fmtTime(t.after_sale_at || t.created_at) + '</span></div>' +
-        '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
-        '<div class="t-meta">用户 ' + escapeHtml(t.uid) + '（' + escapeHtml(t.tier || '') + '）｜ 已扣 ¥' + Number(t.deduction || 0).toFixed(2) + '（赠送 ¥' + Number(t.pay_gift || 0).toFixed(2) + ' + 可提现 ¥' + Number(t.pay_balance || 0).toFixed(2) + '）</div>' +
-        '<div class="note">售后原因：' + escapeHtml(t.after_sale_reason || '') + (t.after_sale_note ? ('<br>处理备注：' + escapeHtml(t.after_sale_note)) : '') + '</div>' +
-        (t.after_sale_status === 'pending' ? '<div class="actions"><button class="btn btn-green btn-sm" onclick="reviewAfterSale(\'' + t.id + '\',\'approve\')">同意并退款</button><button class="btn btn-red btn-sm" onclick="reviewAfterSale(\'' + t.id + '\',\'reject\')">拒绝</button></div>' : '') +
-      '</div>').join('');
+      AS_ADMIN_LIST = res.tasks || [];
+      const stat = res.stat || {};
+      if ($('asStat')) {
+        const items = [
+          ['pending', '待处理'], ['processing', '处理中'], ['waiting', '待用户补充'],
+          ['resolved', '已解决'], ['refunded', '已退款'], ['rejected', '已驳回'],
+        ];
+        $('asStat').innerHTML = items.map(([k, label]) =>
+          '<span class="as-stat-item' + (k === 'pending' && stat[k] ? ' hot' : '') + '">' + label + ' <b>' + (stat[k] || 0) + '</b></span>'
+        ).join('');
+      }
+      if (!AS_ADMIN_LIST.length) { box.innerHTML = '<div class="empty">暂无售后工单</div>'; return; }
+      box.innerHTML = AS_ADMIN_LIST.map(t => {
+        const st = AS_STATUS_TEXT[t.after_sale_status] || t.after_sale_status;
+        const live = AS_ACTIVE.indexOf(t.after_sale_status) !== -1;
+        const visLogs = (t.logs || []).filter(l => l.visible !== false);
+        const last = visLogs.length ? visLogs[visLogs.length - 1] : null;
+        return '<div class="task">' +
+          '<div class="t-head"><span class="badge ' + (live ? 'b-pending_review' : 'b-approved') + '">' + escapeHtml(st) + '</span><span class="t-meta hl">' + t.id + '</span></div>' +
+          '<div class="t-type">' + escapeHtml(t.product_name || t.type) + '</div>' +
+          '<div class="t-kv">' +
+            '<span><i>用户</i><b class="hl">' + escapeHtml(t.uid) + '</b>（' + escapeHtml(t.tier || '') + '）</span>' +
+            '<span><i>实扣</i><b class="hl">¥' + Number(t.deduction || 0).toFixed(2) + '</b></span>' +
+            (Number(t.after_sale_refund) > 0 ? '<span><i>已退</i><b class="hl">¥' + Number(t.after_sale_refund).toFixed(2) + '</b></span>' : '') +
+            (t.after_sale_type ? '<span><i>方式</i>' + (AS_TYPE_TEXT[t.after_sale_type] || t.after_sale_type) + '</span>' : '') +
+            '<span><i>申请</i>' + fmtTime(t.after_sale_at || t.created_at) + '</span>' +
+          '</div>' +
+          '<div class="note">售后原因：' + escapeHtml(t.after_sale_reason || '—') + '</div>' +
+          (last ? '<div class="t-meta">最新进度：' + escapeHtml(last.note) + '（' + fmtTime(last.created_at) + '）</div>' : '') +
+          '<div class="actions"><button class="btn btn-primary btn-sm" onclick="openAsAdmin(\'' + t.id + '\')">' + (live ? '处理' : '查看') + '</button></div>' +
+        '</div>';
+      }).join('');
     }
-    async function reviewAfterSale(id, action) {
-      let note = '';
-      if (action === 'reject') note = prompt('拒绝原因（会告知用户，可选）：') || '';
-      if (action === 'approve' && !confirm('同意售后并按原扣款来源退款？')) return;
-      const res = await api('admin/after-sale/review', { id, action, note }, true);
-      if (res.ok) loadAdminAfterSales(); else alert(res.msg || '操作失败');
+
+    function openAsAdmin(id) {
+      const t = AS_ADMIN_LIST.find(x => x.id === id);
+      if (!t) return;
+      AS_ADMIN_ID = id;
+      $('asaMeta').textContent = '订单：' + id;
+      $('asaInfo').innerHTML =
+        '<span><i>用户</i><b class="hl">' + escapeHtml(t.uid) + '</b></span>' +
+        '<span><i>商品/类型</i>' + escapeHtml(t.product_name || t.type) + '</span>' +
+        '<span><i>实扣</i><b class="hl">¥' + Number(t.deduction || 0).toFixed(2) + '</b>（赠送 ¥' + Number(t.pay_gift || 0).toFixed(2) + ' + 可提现 ¥' + Number(t.pay_balance || 0).toFixed(2) + '）</span>' +
+        '<span><i>联系方式</i><b class="hl">' + escapeHtml(t.contact || '—') + '</b></span>' +
+        '<span><i>用户原因</i>' + escapeHtml(t.after_sale_reason || '—') + '</span>';
+      $('asaStatus').value = '';
+      $('asaNote').value = ''; $('asaInternal').value = '';
+      $('asaAction').value = ''; $('asaAmount').value = ''; $('asaResolveNote').value = '';
+      $('asaMsg').className = 'msg'; $('asaMsg').textContent = '';
+      renderAsTimeline(t.logs || []);
+      $('asAdminModal').style.display = 'flex';
     }
+
+    function renderAsTimeline(logs) {
+      const box = $('asaTimeline');
+      if (!logs.length) { box.innerHTML = '<div class="empty">暂无记录</div>'; return; }
+      box.innerHTML = logs.map(l =>
+        '<div class="asl-item ' + (l.role === 'user' ? 'me' : 'them') + (l.visible === false ? ' internal' : '') + '">' +
+          '<span class="asl-dot"></span>' +
+          '<div class="asl-body">' +
+            '<div class="asl-top"><span class="asl-role">' + (l.role === 'user' ? '用户' : '管理员') + (l.visible === false ? ' · 内部' : '') + '</span>' +
+              '<span class="asl-time">' + fmtTime(l.created_at) + '</span></div>' +
+            '<div class="asl-note">' + escapeHtml(l.note) + '</div>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    async function refreshAsAdmin(id) {
+      const res = await api('admin/after-sales', { status: 'all' }, true);
+      if (res.ok) {
+        AS_ADMIN_LIST = res.tasks || [];
+        const t = AS_ADMIN_LIST.find(x => x.id === id);
+        if (t) renderAsTimeline(t.logs || []);
+      }
+      loadAdminAfterSales();
+    }
+
+    $('asaClose').addEventListener('click', () => $('asAdminModal').style.display = 'none');
+    $('asaSaveProgress').addEventListener('click', async () => {
+      const msg = $('asaMsg'); msg.className = 'msg'; msg.textContent = '';
+      const status = $('asaStatus').value;
+      const note = $('asaNote').value.trim();
+      const internal = $('asaInternal').value.trim();
+      if (!status && !note && !internal) { msg.className = 'msg err'; msg.textContent = '请填写回复内容、内部备注或选择状态'; return; }
+      const btn = $('asaSaveProgress'); btn.disabled = true;
+      const res = await api('admin/after-sale/update', { id: AS_ADMIN_ID, status, note, internal }, true);
+      btn.disabled = false;
+      if (res.ok) {
+        msg.className = 'msg ok'; msg.textContent = '已保存';
+        $('asaNote').value = ''; $('asaInternal').value = ''; $('asaStatus').value = '';
+        await refreshAsAdmin(AS_ADMIN_ID);
+      } else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
+    });
+    $('asaResolveBtn').addEventListener('click', async () => {
+      const msg = $('asaMsg'); msg.className = 'msg'; msg.textContent = '';
+      const action = $('asaAction').value;
+      if (!action) { msg.className = 'msg err'; msg.textContent = '请选择处理方式'; return; }
+      const note = $('asaResolveNote').value.trim();
+      const internal = $('asaInternal').value.trim();
+      const amount = $('asaAmount').value;
+      const label = action === 'redeliver' ? '补单/重做（不退款）' : (action === 'refund' ? ('退款 ¥' + (amount || '全额')) : '驳回');
+      if (!confirm('确认按「' + label + '」处理该售后单？处理后本单结束。')) return;
+      const btn = $('asaResolveBtn'); btn.disabled = true;
+      const res = await api('admin/after-sale/resolve', { id: AS_ADMIN_ID, action, amount, note, internal }, true);
+      btn.disabled = false;
+      if (res.ok) { $('asAdminModal').style.display = 'none'; loadAdminAfterSales(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '处理失败'; }
+    });
+    $('asFilter').addEventListener('change', loadAdminAfterSales);
+    $('asRefresh').addEventListener('click', loadAdminAfterSales);
 
     // ==================== 商品管理（管理员） ====================
     let AP_LIST = [], AP_PAGE = 1, AP_TOTAL = 0, AP_CID = '', AP_KW = '', AP_ONLY_ACTIVE = false, AP_CATS = [], AP_EDIT_ID = '';
