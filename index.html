@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=17" />
+  <link rel="stylesheet" href="css/style.css?v=18" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -654,13 +654,10 @@
       document.body.classList.remove('page-viewer');
     }
     function goOld() {
-      $('homeBox').style.display = 'none';
-      $('loginBox').style.display = 'none';
-      $('appBox').style.display = 'none';
-      $('oldBox').style.display = '';
-      $('oldFrame').src = OLD_PLATFORM_URL;
-      document.body.classList.remove('page-entry');
-      document.body.classList.add('page-viewer');
+      // 旧平台已停用：保持显示，点击只提示并置灰，不再打开旧站
+      const el = $('goOld');
+      if (el) el.classList.add('disabled');
+      alert('旧平台已更新为新平台，请在新平台中打开。');
     }
     $('goNew').addEventListener('click', goLogin);
     $('goOld').addEventListener('click', goOld);
