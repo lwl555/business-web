@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=30" />
+  <link rel="stylesheet" href="css/style.css?v=31" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -434,13 +434,22 @@
           <span>（订单号/金额/链接/联系方式）</span>
         </label>
         <div class="free-rule-title">免费福利规则</div>
+        <div class="t-meta" style="margin:0 0 10px">「全站每日名额」是实际限额（领完即止）；「名额显示」只改前台看到的数字（可造势），不影响实际发放数量。造势建议适度，别与实际差太远。</div>
         <label class="chk inline-field"><input type="checkbox" id="setFreePaid" /> 仅充值/付费过的用户可领（推荐）</label>
         <label class="inline-field">最低充值 ¥<input id="setFreeMin" class="num" type="number" min="0" step="0.01" /></label>
         <label class="inline-field">每人每天限领<input id="setFreePerDay" class="num" type="number" min="0" /><span>个</span></label>
         <label class="inline-field">未付费用户每周<input id="setFreePerWeek" class="num" type="number" min="0" /><span>次</span></label>
         <label class="inline-field">付费用户每周<input id="setFreePaidWeek" class="num" type="number" min="0" /><span>次（0=不限）</span></label>
         <label class="inline-field">每人每月上限<input id="setFreeMonth" class="num" type="number" min="0" /><span>个</span></label>
-        <label class="inline-field">全站每日名额<input id="setFreeQuota" class="num" type="number" min="0" /><span>个（0=不限）</span></label>
+        <label class="inline-field">全站每日名额<input id="setFreeQuota" class="num" type="number" min="0" /><span>个（0=不限，实际限额）</span></label>
+        <label class="inline-field">名额显示
+          <select id="setQuotaMode">
+            <option value="real">真实（按实际剩余）</option>
+            <option value="custom">自定义（前台造势）</option>
+          </select>
+        </label>
+        <label class="inline-field">显示总名额<input id="setQuotaShowTotal" class="num" type="number" min="0" /><span>个</span></label>
+        <label class="inline-field">显示剩余<input id="setQuotaShowLeft" class="num" type="number" min="0" /><span>个（留 0 = 按总名额自动递减）</span></label>
         <button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存</button>
         <span class="msg ok" id="setMsg"></span>
       </div>
@@ -2266,7 +2275,9 @@
       else if (!res.isPaidUser && res.perWeek > 0) parts.push('未充值用户每周 ' + res.perWeek + ' 次');
       else if (res.isPaidUser) parts.push('付费用户福利');
       if (res.perDay > 0) parts.push('每天限领 ' + res.perDay + ' 个');
-      if (res.dailyQuota > 0) parts.push('今日剩余 ' + Math.max(0, res.quotaLeft) + '/' + res.dailyQuota + ' 个名额');
+      const dTotal = (res.displayTotal != null ? res.displayTotal : res.dailyQuota);
+      const dLeft = (res.displayLeft != null ? res.displayLeft : res.quotaLeft);
+      if (dTotal > 0) parts.push('今日剩余 ' + Math.max(0, dLeft) + '/' + dTotal + ' 个名额');
       ruleEl.textContent = parts.join(' · ') || '每天限量领取，先到先得';
       // 状态提示条
       noteEl.style.display = '';
@@ -2290,7 +2301,7 @@
         noteEl.className = 'free-zone-note ok';
         noteEl.innerHTML = '✅ ' + (res.isPaidUser ? '付费用户' : '新人体验') + '　今日还可领 <b>' + res.perDayLeft + '</b> 个' +
           (res.perWeekLeft > 0 ? '　本周剩余 <b>' + res.perWeekLeft + '</b> 次' : '') +
-          (res.dailyQuota > 0 ? '　全站今日剩余 ' + Math.max(0, res.quotaLeft) + ' 个' : '');
+          (dTotal > 0 ? '　全站今日剩余 ' + Math.max(0, dLeft) + ' 个' : '');
       }
     }
     // 免费福利解锁弹窗
@@ -3427,6 +3438,9 @@
         $('setFreePaidWeek').value = (s.free_paid_per_week != null ? s.free_paid_per_week : 0);
         $('setFreeMonth').value = (s.free_month_max != null ? s.free_month_max : 30);
         $('setFreeQuota').value = (s.free_daily_quota != null ? s.free_daily_quota : 0);
+        if ($('setQuotaMode')) $('setQuotaMode').value = (s.free_quota_mode === 'custom' ? 'custom' : 'real');
+        if ($('setQuotaShowTotal')) $('setQuotaShowTotal').value = (s.free_quota_show_total != null ? s.free_quota_show_total : 0);
+        if ($('setQuotaShowLeft')) $('setQuotaShowLeft').value = (s.free_quota_show_left != null ? s.free_quota_show_left : 0);
       }
       $('setCheckin').value = s.checkin_points; $('setPerYuan').value = s.points_per_yuan; $('setRatio').value = Math.round(s.max_deduct_ratio * 100); $('setInvite').value = (s.invite_points != null ? s.invite_points : 50);
       $('setConvert').value = (s.convert_rate != null ? s.convert_rate : 100);
@@ -3447,6 +3461,9 @@
         freePaidPerWeek: $('setFreePaidWeek') ? $('setFreePaidWeek').value : undefined,
         freeMonthMax: $('setFreeMonth') ? $('setFreeMonth').value : undefined,
         freeDailyQuota: $('setFreeQuota') ? $('setFreeQuota').value : undefined,
+        freeQuotaMode: $('setQuotaMode') ? $('setQuotaMode').value : undefined,
+        freeQuotaShowTotal: $('setQuotaShowTotal') ? $('setQuotaShowTotal').value : undefined,
+        freeQuotaShowLeft: $('setQuotaShowLeft') ? $('setQuotaShowLeft').value : undefined,
         convert_rate: $('setConvert').value, withdraw_fee_percent: $('setFee').value, new_user_gift_points: $('setNewGift').value,
         withdraw_min: $('setWdMin').value, withdraw_daily_limit: $('setWdLimit').value,
         highlight_color: $('setHlColor').value
