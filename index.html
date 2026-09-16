@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=25" />
+  <link rel="stylesheet" href="css/style.css?v=26" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -548,7 +548,7 @@
 
       <!-- 免费福利区（金边流光 + 呼吸动画） -->
       <div class="free-zone" id="freeZone" style="display:none">
-        <div class="free-zone-head">🎁 免费福利区 <span class="t-meta">0 元即可领，先到先得</span></div>
+        <div class="free-zone-head">🎁 免费福利区 <span class="t-meta">0 元即可领 · 每天限领 1 个，先到先得</span></div>
         <div class="free-zone-list" id="freeZoneList"></div>
       </div>
 
@@ -609,6 +609,13 @@
         <button class="btn btn-primary btn-sm" id="apSearchBtn">搜索</button>
         <button class="btn btn-ghost btn-sm" id="apOnlyActive">仅看在售</button>
         <button class="btn btn-green btn-sm" id="apAddBtn">+ 新增商品</button>
+        <button class="btn btn-ghost btn-sm" id="apBatchBtn">批量改价</button>
+        <button class="btn btn-ghost btn-sm" id="apAiBtn">🤖 AI 定价分析</button>
+      </div>
+      <div class="ap-select-bar" id="apSelectBar" style="display:none">
+        <label class="chk"><input type="checkbox" id="apSelAll" /> 全选本页</label>
+        <span class="t-meta">已选 <b id="apSelCount">0</b> 个</span>
+        <button class="btn btn-primary btn-sm" id="apBatchSelBtn">对所选批量改价</button>
       </div>
       <div class="ap-list" id="apList"><div class="loading">加载中…</div></div>
       <div class="ap-pager">
@@ -715,6 +722,56 @@
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="pmSave">保存</button>
         <button class="btn btn-ghost btn-sm" id="pmClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量改价弹窗（管理员） -->
+  <div class="modal" id="batchPriceModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">批量改价</div>
+      <div class="t-meta" id="bpScope"></div>
+      <div class="row2">
+        <div class="field"><label>调整档位</label>
+          <select id="bpWhich">
+            <option value="all">三档价全部</option>
+            <option value="user">仅普通散客档</option>
+            <option value="agent">仅稳定走量档</option>
+            <option value="senior">仅大客户底价档</option>
+          </select>
+        </div>
+        <div class="field"><label>调整方式</label>
+          <select id="bpMode">
+            <option value="pct">按百分比 ± 调整</option>
+            <option value="set">统一设为固定价</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field" id="bpPctWrap"><label>调整百分比（正加负减，如 10 或 -15）</label><input id="bpPct" class="num" type="number" step="0.1" placeholder="如 -5 表示降价 5%" /></div>
+        <div class="field" id="bpSetWrap" style="display:none"><label>统一价格（元，三档一起设时三档同价）</label><input id="bpSet" class="num" type="number" step="0.01" min="0" placeholder="如 9.9" /></div>
+      </div>
+      <div class="t-meta">⚠️ 批量改价立即生效且影响在售商品，请确认后再执行。</div>
+      <div class="msg" id="bpMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="bpRun">执行批量改价</button>
+        <button class="btn btn-ghost btn-sm" id="bpClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 定价分析弹窗（管理员） -->
+  <div class="modal" id="aiPriceModal" style="display:none">
+    <div class="modal-box wide">
+      <div class="modal-title">🤖 AI 智能定价分析</div>
+      <div class="t-meta" id="aiMeta">基于同分类商品价格分布（P25 / 中位数 / P75）与销量表现，对每个商品给出建议价位与偏离判定。</div>
+      <div class="t-meta" id="aiSummary" style="margin:8px 0"></div>
+      <div class="ai-list" id="aiList"><div class="loading">点击下方按钮开始分析…</div></div>
+      <div class="msg" id="aiMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="aiRun">开始分析</button>
+        <button class="btn btn-green btn-sm" id="aiAdoptAll" style="display:none">采纳本页全部偏离项建议价</button>
+        <button class="btn btn-ghost btn-sm" id="aiClose">关闭</button>
       </div>
     </div>
   </div>
@@ -2129,7 +2186,7 @@
       $('orderModal').classList.toggle('free-order', isFree);
       $('omSubmit').textContent = isFree ? '免费领取' : '提交订单';
       $('omSummary').innerHTML = '<div>单价：<b>' + (isFree ? '免费' : ('¥' + Number(p.price) + '（≈' + intFmt(pts) + ' 积分）')) + '</b></div>' +
-        (isFree ? '<div class="om-free-tip">🎁 这是免费福利商品，提交后由管理员审核发放，不扣任何费用。</div>' : '') +
+        (isFree ? '<div class="om-free-tip">🎁 这是免费福利商品，提交后由管理员审核发放，不扣任何费用。<b>每天限领 1 个</b>，领过今天就不能再领啦。</div>' : '') +
         (p.alert ? '<div class="t-meta">提示：' + escapeHtml(p.alert) + '</div>' : '') +
         (p.desc ? '<div class="t-meta">说明：' + escapeHtml(String(p.desc)).slice(0, 220) + '</div>' : '') +
         '<div class="t-meta">提交后由管理员审核处理，<b>审核通过后从你的余额扣款（先扣赠送余额）</b>。</div>';
@@ -2390,6 +2447,7 @@
     function apRowHtml(p) {
       return '<div class="ap-row" data-id="' + escapeHtml(p.id) + '">' +
         '<div class="ap-head">' +
+          '<label class="chk ap-sel"><input type="checkbox" class="ap-chk" data-id="' + escapeHtml(p.id) + '" /> 选</label>' +
           '<input class="ap-name" value="' + escapeHtml(p.name) + '" placeholder="商品名称" />' +
           '<input class="ap-spec" value="' + escapeHtml(p.spec || '') + '" placeholder="规格" />' +
           '<input class="ap-input" value="' + escapeHtml(p.input || '') + '" placeholder="输入项(如 主页链接)" />' +
@@ -2484,6 +2542,100 @@
       if (res.ok) { btn.textContent = '已保存'; setTimeout(() => btn.textContent = '保存', 1200); loadApCats(); }
       else alert(res.msg || '保存失败');
     }
+    // ==================== 批量改价 / AI 定价分析 ====================
+    function getSelIds() {
+      return Array.from(document.querySelectorAll('.ap-chk:checked')).map(c => c.dataset.id);
+    }
+    function updateSelCount() {
+      $('apSelCount').textContent = getSelIds().length;
+    }
+    let BP_SCOPE = null; // null = 用勾选的 ids；否则 { cid, kw, active }
+    function openBatchPrice(scope) {
+      BP_SCOPE = scope || null;
+      const ids = getSelIds();
+      if (!BP_SCOPE && !ids.length) { alert('请先勾选要改价的商品；若要对当前筛选全部生效，请点工具栏的「批量改价」。'); return; }
+      $('bpScope').textContent = BP_SCOPE
+        ? '作用范围：当前筛选的全部 ' + intFmt(AP_TOTAL) + ' 个商品（分类：' + (AP_CID || '全部') + (AP_KW ? ' / 关键词：' + AP_KW : '') + (AP_ONLY_ACTIVE ? ' / 仅在售' : '') + '）'
+        : '作用范围：已勾选的 ' + ids.length + ' 个商品';
+      $('bpMsg').className = 'msg'; $('bpMsg').textContent = '';
+      $('batchPriceModal').style.display = 'flex';
+    }
+    async function runBatchPrice() {
+      const msg = $('bpMsg'); msg.className = 'msg'; msg.textContent = '';
+      const mode = $('bpMode').value;
+      const body = { which: $('bpWhich').value, mode };
+      if (BP_SCOPE) body.scope = BP_SCOPE; else body.ids = getSelIds();
+      if (mode === 'set') body.value = Number($('bpSet').value);
+      else body.pct = Number($('bpPct').value);
+      if (mode === 'set' && (!(body.value >= 0))) { msg.className = 'msg err'; msg.textContent = '请填写统一价格'; return; }
+      if (mode === 'pct' && (!isFinite(body.pct) || body.pct === 0)) { msg.className = 'msg err'; msg.textContent = '请填写调整百分比（正加负减）'; return; }
+      if (!confirm('确认执行批量改价？该操作立即生效。')) return;
+      const res = await api('admin/products/batch', body, true);
+      if (res.ok) {
+        alert('批量改价完成，共更新 ' + (res.updated || 0) + ' 个商品');
+        $('batchPriceModal').style.display = 'none';
+        loadApList(true);
+      } else { msg.className = 'msg err'; msg.textContent = res.msg || '执行失败'; }
+    }
+
+    let AI_ITEMS = [];
+    async function runAiPrice() {
+      const box = $('aiList'); box.innerHTML = '<div class="loading">🤖 AI 分析中，正在比对同分类价格分布与销量…</div>';
+      $('aiSummary').textContent = ''; $('aiAdoptAll').style.display = 'none';
+      const res = await api('admin/products/ai-price', { cid: AP_CID }, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">' + escapeHtml(res.msg || '分析失败') + '</div>'; return; }
+      AI_ITEMS = res.items || [];
+      const bad = AI_ITEMS.filter(x => x.level === 'bad').length;
+      const warn = AI_ITEMS.filter(x => x.level === 'warn').length;
+      $('aiSummary').innerHTML = '共分析 <b>' + intFmt(AI_ITEMS.length) + '</b> 个商品' + (AP_CID ? '（当前分类）' : '（全站在售）') +
+        ' · 三档平均比例：代理 ×' + res.ratioAgent + '、高级 ×' + res.ratioSenior +
+        ' · <b class="ai-bad">' + bad + '</b> 个明显偏离、<b class="ai-warn">' + warn + '</b> 个轻度偏离（偏离项已排在最前）';
+      renderAiItems();
+      $('aiAdoptAll').style.display = (bad + warn) > 0 ? '' : 'none';
+    }
+    function aiRowHtml(x, idx) {
+      const lvCls = ({ bad: 'ai-bad', warn: 'ai-warn', ok: 'ai-ok', info: 'ai-info' })[x.level] || 'ai-ok';
+      return '<div class="ai-row ' + lvCls + '">' +
+        '<div class="ai-name">' + escapeHtml(x.name) + (x.sales ? ' <span class="t-meta">已售 ' + intFmt(x.sales) + '</span>' : '') + '</div>' +
+        '<div class="ai-nums">' +
+          '<span>当前 <b>¥' + x.priceUser + '</b></span>' +
+          '<span>同类中位 ¥' + x.catMedian + '</span>' +
+          '<span>合理区间 ¥' + x.rangeLow + ' ~ ' + x.rangeHigh + '</span>' +
+          '<span>建议 <b>¥' + x.suggest + '</b>（代理 ¥' + x.suggestAgent + ' / 高级 ¥' + x.suggestSenior + '）</span>' +
+          '<span class="ai-verdict">' + escapeHtml(x.verdict) + '</span>' +
+        '</div>' +
+        '<div class="ai-ops">' +
+          ((x.level === 'ok' || x.level === 'info') ? '' : '<button class="btn btn-primary btn-sm" onclick="adoptAi(' + idx + ',this)">采纳建议价</button>') +
+        '</div>' +
+      '</div>';
+    }
+    function renderAiItems() {
+      $('aiList').innerHTML = AI_ITEMS.length ? AI_ITEMS.map(aiRowHtml).join('') : '<div class="empty">没有商品</div>';
+    }
+    async function adoptAi(idx, btn) {
+      const x = AI_ITEMS[idx];
+      if (!x || !x.adopt) return;
+      const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior }, true);
+      if (res.ok) {
+        x.priceUser = x.suggest; x.level = 'ok'; x.verdict = '已采纳建议价';
+        const row = btn.closest('.ai-row');
+        if (row) { row.className = 'ai-row ai-ok'; btn.remove(); const v = row.querySelector('.ai-verdict'); if (v) v.textContent = '已采纳建议价'; }
+        loadApList(false);
+      } else alert(res.msg || '采纳失败');
+    }
+    async function adoptAiAll() {
+      const targets = AI_ITEMS.filter(x => x.level === 'bad' || x.level === 'warn');
+      if (!targets.length) return;
+      if (!confirm('将按 AI 建议价更新 ' + targets.length + ' 个商品的三档价格（规格/说明等保持不变），确认执行？')) return;
+      let done = 0, fail = 0;
+      for (const x of targets) {
+        const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior }, true);
+        if (res.ok) done++; else fail++;
+      }
+      alert('采纳完成：成功 ' + done + ' 个' + (fail ? '，失败 ' + fail + ' 个' : ''));
+      runAiPrice();
+      loadApList(true);
+    }
     // 商品相关事件绑定
     $('gotoShop').addEventListener('click', () => switchView('shop'));
     function getShopHistory() {
@@ -2533,6 +2685,23 @@
     $('apNext').addEventListener('click', () => { if (AP_PAGE * 30 < AP_TOTAL) { AP_PAGE++; loadApList(false); } });
     $('pmClose').addEventListener('click', () => $('productModal').style.display = 'none');
     $('pmSave').addEventListener('click', saveProductModal);
+    // 批量改价 / AI 分析 事件
+    $('apSelectBar').style.display = '';
+    $('apSelAll').addEventListener('change', e => { document.querySelectorAll('.ap-chk').forEach(c => { c.checked = e.target.checked; }); updateSelCount(); });
+    $('apList').addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('ap-chk')) { if (!e.target.checked) $('apSelAll').checked = false; updateSelCount(); } });
+    $('apBatchBtn').addEventListener('click', () => openBatchPrice({ cid: AP_CID, kw: AP_KW, active: AP_ONLY_ACTIVE ? true : null }));
+    $('apBatchSelBtn').addEventListener('click', () => openBatchPrice(null));
+    $('bpMode').addEventListener('change', () => {
+      const isSet = $('bpMode').value === 'set';
+      $('bpSetWrap').style.display = isSet ? '' : 'none';
+      $('bpPctWrap').style.display = isSet ? 'none' : '';
+    });
+    $('bpRun').addEventListener('click', runBatchPrice);
+    $('bpClose').addEventListener('click', () => $('batchPriceModal').style.display = 'none');
+    $('apAiBtn').addEventListener('click', () => { $('aiPriceModal').style.display = 'flex'; });
+    $('aiRun').addEventListener('click', runAiPrice);
+    $('aiAdoptAll').addEventListener('click', adoptAiAll);
+    $('aiClose').addEventListener('click', () => $('aiPriceModal').style.display = 'none');
 
     // ==================== 价格表（用户端） ====================
     async function loadPricing() {

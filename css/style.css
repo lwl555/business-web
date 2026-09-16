@@ -1031,6 +1031,29 @@ body.page-viewer { padding: 20px 16px; }
 .modal.free-order .modal-box { border: 2px solid #e8a13a; box-shadow: 0 0 18px rgba(232,161,58,.35); }
 .om-free-tip { color: #b45309; background: #fff7e6; border: 1px solid #fde6b8; border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
 
+/* ---------- 批量改价 / AI 定价分析 ---------- */
+.ap-head { grid-template-columns: auto 2fr 1fr 1.2fr; }
+.ap-sel { white-space: nowrap; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.ap-select-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 8px; background: #fafbfc; flex-wrap: wrap; }
+.ai-list { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto; padding-right: 4px; }
+.ai-row { border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px; padding: 8px 12px; background: #fff; }
+.ai-row.ai-bad { border-left-color: #ef4444; background: #fef7f7; }
+.ai-row.ai-warn { border-left-color: #f59e0b; background: #fffcf3; }
+.ai-row.ai-ok { border-left-color: #10b981; }
+.ai-row.ai-info { border-left-color: #6366f1; background: #f8f8ff; }
+.ai-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.ai-nums { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); align-items: center; }
+.ai-nums b { color: var(--text); }
+.ai-verdict { font-size: 12px; padding: 2px 8px; border-radius: 20px; background: #f1f3f6; }
+.ai-bad .ai-verdict { background: #fee2e2; color: #b91c1c; }
+.ai-warn .ai-verdict { background: #fef3c7; color: #92400e; }
+.ai-ok .ai-verdict { background: #d1fae5; color: #047857; }
+.ai-info .ai-verdict { background: #e0e7ff; color: #4338ca; }
+.ai-ops { margin-top: 6px; display: flex; gap: 8px; }
+span.ai-bad { color: #b91c1c; }
+span.ai-warn { color: #92400e; }
+#aiList .empty, #aiList .loading { padding: 20px 0; text-align: center; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
