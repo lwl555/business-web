@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=26" />
+  <link rel="stylesheet" href="css/style.css?v=27" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -383,7 +383,9 @@
 
     <!-- ---------- 任务审核（管理员） ---------- -->
     <div class="view" id="view-tasks" style="display:none">
-      <div class="stats" id="stats"></div>
+      <div class="section-title">任务审核</div>
+      <div class="t-meta" style="margin-bottom:10px">点下方分类筛选：<b>待审核</b>（一审）→ <b>待完成</b>（二审）→ <b>已完成</b> / <b>已拒绝</b>。卡片内显示商品信息与用户余额是否够扣。</div>
+      <div class="stats stats-click" id="stats"></div>
       <div id="list" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
@@ -817,6 +819,19 @@
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="umSubmit">确定</button>
         <button class="btn btn-ghost btn-sm" id="umClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 余额不足提醒（用户端：提交订单后即时资金检测） -->
+  <div class="modal" id="lackModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">⚠️ 余额不足提醒</div>
+      <div class="lack-box" id="lackInfo"></div>
+      <div class="t-meta">订单已提交，管理员审核时会从你的余额扣款（先扣赠送余额，再扣可提现余额）。余额不足会导致审核无法通过、任务无法进行，建议先充值。</div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="lackGoCharge">去充值</button>
+        <button class="btn btn-ghost btn-sm" id="lackClose">稍后再说</button>
       </div>
     </div>
   </div>
@@ -1537,6 +1552,8 @@
         const ep = res.estimate_points || 0;
         msg.className = 'msg ok'; msg.textContent = '提交成功，预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '，等待管理员审核（实际扣除以审核为准）';
         $('type').value = ''; $('desc').value = ''; renderLinkHint('linkHint', ''); clearPicked(); renderEstimate(); loadPoints(); loadTasks();
+        // 提交后即时资金检测：不够则提醒充值
+        showLackWallet(res.wallet);
       } else {
         msg.className = 'msg err'; msg.textContent = res.msg || '提交失败';
       }
@@ -1547,7 +1564,16 @@
     function renderTasks(tasks, adminMode) {
       tasks = Array.isArray(tasks) ? tasks : [];
       const box = adminMode ? $('list') : $('taskList');
-      if (!tasks.length) { box.innerHTML = '<div class="empty">' + (adminMode ? '暂无相关任务' : '暂无任务，提交后将在此显示进度') + '</div>'; return; }
+      if (adminMode && ADMIN_TASK_FILTER && ADMIN_TASK_FILTER !== 'all') {
+        tasks = tasks.filter(t => t.status === ADMIN_TASK_FILTER);
+      }
+      if (!tasks.length) {
+        const tip = adminMode
+          ? ('当前分类（' + (({ pending_review: '待审核', approved: '待完成', completed: '已完成', rejected: '已拒绝' })[ADMIN_TASK_FILTER] || '全部') + '）下暂无任务')
+          : '暂无任务，提交后将在此显示进度';
+        box.innerHTML = '<div class="empty">' + tip + '</div>';
+        return;
+      }
       box.innerHTML = tasks.map(t => {
         const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         const imgs = Array.isArray(t.images) ? t.images : [];
@@ -1587,9 +1613,28 @@
           ? '<div class="t-meta">链接：' + String(t.link).split('\n').filter(Boolean).map(u =>
               '<a class="link-chip" href="' + escapeHtml(u) + '" target="_blank" rel="noopener">' + escapeHtml(u) + '</a>').join('') + '</div>'
           : '';
+        // 商品下单信息（用户端与管理端都展示，方便区分商品单）
+        const isProduct = t.order_kind === 'product' || !!t.product_name;
+        const productHtml = isProduct
+          ? '<div class="t-kv prod-kv">' +
+              '<span><i>商品</i><b class="hl">' + escapeHtml(t.product_name || t.type) + '</b></span>' +
+              (t.product_spec ? '<span><i>规格</i>' + escapeHtml(t.product_spec) + '</span>' : '') +
+              '<span><i>单价</i>¥' + Number(t.unit_price || 0).toFixed(2) + '</span>' +
+              (t.input_value ? '<span><i>用户填写</i><b class="hl">' + escapeHtml(t.input_value) + '</b></span>' : '') +
+            '</div>'
+          : '';
+        // 管理员视角：该用户余额是否够扣本单
+        const estNeed = Number(t.estimate_amount || 0);
+        const uTotal = Number(t.uTotal || 0);
+        const balEnough = uTotal + 1e-9 >= estNeed;
+        const balHtml = adminMode
+          ? '<span><i>用户余额</i><b class="' + (balEnough ? 'hl' : 'err-txt') + '">¥' + uTotal.toFixed(2) + '</b>（可提现 ¥' + Number(t.uBalance || 0).toFixed(2) + ' + 赠送 ¥' + Number(t.uGift || 0).toFixed(2) + '）' +
+            (balEnough ? '' : ' <b class="err-txt">⚠ 不足，还差 ¥' + Math.max(0, estNeed - uTotal).toFixed(2) + '</b>') + '</span>'
+          : '';
         return '<div class="task">' +
           '<div class="t-head">' + badge(t.status) + '<span class="t-meta hl">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
+          productHtml +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
           linkHtml +
           imgHtml +
@@ -1597,6 +1642,7 @@
             ? '<div class="t-kv">' +
                 '<span><i>用户</i><b class="hl">' + escapeHtml(t.uid) + '</b></span>' +
                 '<span><i>联系方式</i><b class="hl">' + escapeHtml(t.contact || '—') + '</b></span>' +
+                balHtml +
                 '<span><i>实扣</i><b class="hl">¥' + Number(t.deduction || 0).toFixed(2) + '</b>（赠送 ¥' + Number(t.pay_gift || 0).toFixed(2) + ' + 可提现 ¥' + Number(t.pay_balance || 0).toFixed(2) + '）</span>' +
                 '<span><i>预估</i>' + moneyText(t.estimate_amount) + '</span>' +
                 '<span><i>提交</i>' + fmtTime(t.created_at) + '</span>' +
@@ -2203,9 +2249,40 @@
       const btn = $('omSubmit'); btn.disabled = true;
       const res = await api('shop/order', { phone: PHONE, id: p.id, inputValue, contact, link: extractLinks(inputValue).join('\n') });
       btn.disabled = false;
-      if (res.ok) { alert('下单成功，已提交管理员审核（预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '）'); $('orderModal').style.display = 'none'; loadPoints(); loadTasks(); }
+      if (res.ok) {
+        $('orderModal').style.display = 'none'; loadPoints(); loadTasks();
+        // 提交后即时做资金检测：不够则弹窗提醒充值
+        if (!showLackWallet(res.wallet)) alert('下单成功，已提交管理员审核（预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '）');
+      }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '下单失败'; }
     }
+
+    // ==================== 余额不足提醒（提交后即时资金检测） ====================
+    let LACK_NEED = 0;
+    function showLackWallet(w) {
+      if (!w || w.enough) return false;
+      LACK_NEED = Number(w.shortage || 0);
+      $('lackInfo').innerHTML =
+        '<div class="lack-row"><span>本单预估</span><b>¥' + Number(w.need || 0).toFixed(2) + '</b></div>' +
+        '<div class="lack-row"><span>可提现余额</span><b>¥' + Number(w.balance || 0).toFixed(2) + '</b></div>' +
+        '<div class="lack-row"><span>赠送余额</span><b>¥' + Number(w.gift || 0).toFixed(2) + '</b></div>' +
+        '<div class="lack-row total"><span>合计可用</span><b>¥' + Number(w.total || 0).toFixed(2) + '</b></div>' +
+        '<div class="lack-row short"><span>还差</span><b>¥' + LACK_NEED.toFixed(2) + '</b></div>';
+      $('lackModal').style.display = 'flex';
+      return true;
+    }
+    $('lackClose').addEventListener('click', () => { $('lackModal').style.display = 'none'; });
+    $('lackGoCharge').addEventListener('click', () => {
+      $('lackModal').style.display = 'none';
+      switchView('work');
+      setTimeout(() => {
+        const el = $('rcAmount');
+        if (!el) return;
+        if (LACK_NEED > 0) el.value = LACK_NEED.toFixed(2);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.focus();
+      }, 260);
+    });
 
     // ==================== 提现审核 / 售后处理（管理员） ====================
     async function loadAdminWithdrawals() {
@@ -2912,14 +2989,31 @@
     }
 
     // ==================== 任务审核（管理员） ====================
+    let ADMIN_TASK_FILTER = 'pending_review';
     function renderStats(tasks) {
-      const c = { pending_review: 0, approved: 0, completed: 0 };
+      const c = { pending_review: 0, approved: 0, completed: 0, rejected: 0 };
       tasks.forEach(t => { if (c[t.status] !== undefined) c[t.status]++; });
-      $('stats').innerHTML =
-        '<div class="stat"><div class="s-num warn">' + c.pending_review + '</div><div class="s-lbl">待审核</div></div>' +
-        '<div class="stat"><div class="s-num brand">' + c.approved + '</div><div class="s-lbl">待完成</div></div>' +
-        '<div class="stat"><div class="s-num ok">' + c.completed + '</div><div class="s-lbl">已完成</div></div>';
+      const items = [
+        { k: 'pending_review', n: c.pending_review, lbl: '待审核', cls: 'warn' },
+        { k: 'approved', n: c.approved, lbl: '待完成', cls: 'brand' },
+        { k: 'completed', n: c.completed, lbl: '已完成', cls: 'ok' },
+        { k: 'rejected', n: c.rejected, lbl: '已拒绝', cls: 'err' },
+        { k: 'all', n: tasks.length, lbl: '全部', cls: '' },
+      ];
+      $('stats').innerHTML = items.map(x =>
+        '<div class="stat stat-clk' + (ADMIN_TASK_FILTER === x.k ? ' active' : '') + '" data-k="' + x.k + '">' +
+        '<div class="s-num ' + x.cls + '">' + x.n + '</div><div class="s-lbl">' + x.lbl + '</div></div>').join('');
     }
+    function renderAdminTaskList() {
+      renderTasks(ADMIN_TASKS, true);
+    }
+    $('stats').addEventListener('click', e => {
+      const d = e.target.closest('.stat-clk');
+      if (!d) return;
+      ADMIN_TASK_FILTER = d.dataset.k;
+      renderStats(ADMIN_TASKS);
+      renderAdminTaskList();
+    });
     async function loadAdminTasks() {
       // 预加载渠道价目表（供一审选渠道）与每元积分
       loadChannels();
@@ -2929,7 +3023,7 @@
       if (res.ok) {
         ADMIN_TASKS = res.tasks || [];
         renderStats(ADMIN_TASKS);
-        renderTasks(ADMIN_TASKS, true);
+        renderAdminTaskList();
         // 图片签名仅用于缩略图，失败也不影响列表渲染
         ensureSigned((ADMIN_TASKS).flatMap(t => Array.isArray(t.images) ? t.images : [])).catch(() => {});
       }
@@ -2975,7 +3069,10 @@
       const t = ADMIN_TASKS.find(x => x.id === id);
       $('rvId').textContent = '任务：' + id;
       RV_TIER = (t && t.tier) || MY_TIER;
-      const hintBase = t ? ('用户等级：' + RV_TIER + '，原预估 ¥' + Number(t.estimate_amount || 0).toFixed(2) + '，选渠道后按等级重算') : '请输入实际扣除金额（元）';
+      const balTxt = t
+        ? ('｜ 用户可用余额 ¥' + Number(t.uTotal || 0).toFixed(2) + '（可提现 ¥' + Number(t.uBalance || 0).toFixed(2) + ' + 赠送 ¥' + Number(t.uGift || 0).toFixed(2) + '）')
+        : '';
+      const hintBase = t ? ('用户等级：' + RV_TIER + '，原预估 ¥' + Number(t.estimate_amount || 0).toFixed(2) + '，选渠道后按等级重算' + balTxt) : '请输入实际扣除金额（元）';
       $('rvHint').textContent = hintBase;
       // 渠道下拉（管理员指定）
       const sel = $('rvChannel');
@@ -3004,7 +3101,20 @@
       if (isNaN(amount) || amount < 0) { msg.className = 'msg err'; msg.textContent = '请填写不小于 0 的金额（元）'; return; }
       const res = await api('admin/review', { id, action: 'approve', amount, channel }, true);
       if (res.ok) { closeReview(); loadAdminTasks(); }
-      else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+      else {
+        msg.className = 'msg err'; msg.textContent = res.msg || '操作失败';
+        // 余额不足时：提示管理员并可一键发消息通知用户充值
+        if (/余额不足/.test(res.msg || '')) {
+          const t = ADMIN_TASKS.find(x => x.id === id);
+          if (t && confirm('用户余额不足，本单无法扣款受理。\n\n是否发送站内消息提醒该用户充值？\n（用户：' + t.uid + '，本单需扣 ¥' + amount.toFixed(2) + '，当前可用 ¥' + Number(t.uTotal || 0).toFixed(2) + '）')) {
+            const content = '你的订单「' + (t.product_name || t.type) + '」需扣除 ¥' + amount.toFixed(2) +
+              '，当前账户可用余额 ¥' + Number(t.uTotal || 0).toFixed(2) + ' 不足，请先充值后我们会继续处理该订单。';
+            const sr = await api('admin/message/send', { phone: t.uid, content }, true);
+            if (sr.ok) { msg.className = 'msg ok'; msg.textContent = '已发送充值提醒给用户 ' + t.uid; }
+            else { msg.className = 'msg err'; msg.textContent = (res.msg || '') + '（充值提醒发送失败：' + (sr.msg || '') + '）'; }
+          }
+        }
+      }
     });
 
     // ==================== 金额规则（管理员） ====================

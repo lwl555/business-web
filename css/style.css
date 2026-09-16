@@ -1054,6 +1054,22 @@ span.ai-bad { color: #b91c1c; }
 span.ai-warn { color: #92400e; }
 #aiList .empty, #aiList .loading { padding: 20px 0; text-align: center; }
 
+/* ---------- 任务审核：状态筛选 / 商品信息 / 余额提醒 ---------- */
+.stats-click { grid-template-columns: repeat(5, 1fr); }
+.stat-clk { cursor: pointer; border: 2px solid transparent; transition: border-color .15s, background .15s; }
+.stat-clk:hover { border-color: var(--line); }
+.stat-clk.active { border-color: var(--brand); background: #f2f7ff; }
+.s-num.err { color: #dc2626; }
+.err-txt { color: #dc2626 !important; }
+.prod-kv { background: #f8fafc; border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
+.lack-box { margin: 12px 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lack-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; border-bottom: 1px dashed var(--line); }
+.lack-row:last-child { border-bottom: 0; }
+.lack-row span { color: var(--muted); }
+.lack-row.total { background: #f8fafc; }
+.lack-row.short { background: #fef2f2; }
+.lack-row.short b { color: #dc2626; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
@@ -1061,6 +1077,7 @@ span.ai-warn { color: #92400e; }
   .card.tight { padding: 26px 20px; }
   .row2 { grid-template-columns: 1fr; gap: 0; }
   .stats { grid-template-columns: 1fr; gap: 10px; }
+  .stats-click { grid-template-columns: repeat(2, 1fr); }
   .tabs { overflow-x: auto; }
   .user-table { overflow-x: auto; }
   .ut-head, .ut-row { min-width: 880px; }
