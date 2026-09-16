@@ -27,6 +27,11 @@
           <span class="chip">服务全</span>
         </div>
       </button>
+      <button type="button" class="choice choice-old disabled" id="goOld" aria-disabled="true">
+        <div class="ribbon">已停用</div>
+        <div class="c-title">旧平台 · 小林业务网</div>
+        <div class="c-desc">已更新为新平台，请使用上方入口</div>
+      </button>
     </div>
   </div>
 
@@ -1068,7 +1073,8 @@
       document.body.classList.remove('page-entry');
       document.body.classList.remove('page-viewer');
     }
-    // 旧平台入口已移至管理员后台「旧平台」页
+    // 旧平台入口已移至管理员后台「旧平台」页；首页按钮保留展示但不可点进
+    $('goOld').addEventListener('click', () => alert('旧平台已停用，业务已更新为新平台，请使用上方「进入业务网」入口。'));
     function loadOldFrame() {
       const f = $('oldFrame');
       if (f && !f.getAttribute('src')) f.setAttribute('src', OLD_PLATFORM_URL);
