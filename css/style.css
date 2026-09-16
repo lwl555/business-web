@@ -1085,6 +1085,14 @@ span.ai-warn { color: #92400e; }
 .sync-bar.err { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
 .sync-bar .chk { margin-left: 4px; }
 
+
+/* ---------- 免费福利：规则提示 / 解锁引导 ---------- */
+.free-zone-note { margin: 0 0 12px; padding: 9px 12px; border-radius: 8px; font-size: 13px; line-height: 1.7; background: #f8fafc; border: 1px dashed var(--line); }
+.free-zone-note.locked { background: #fffaf0; border-color: #fcd9a5; color: #92400e; }
+.free-zone-note.ok { background: #f0fdf6; border-color: #a7f3d0; color: #046c4e; }
+.unlock-steps { margin: 12px 0; padding: 12px; border-radius: 8px; background: #f8fafc; font-size: 13px; line-height: 2; }
+.free-rule-title { margin: 18px 0 8px; font-size: 13px; font-weight: 600; color: var(--text); border-top: 1px dashed var(--line); padding-top: 14px; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }

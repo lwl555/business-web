@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=28" />
+  <link rel="stylesheet" href="css/style.css?v=29" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -145,7 +145,7 @@
       </div>
 
       <div class="recharge-box" id="rechargeBox" style="display:none">
-        <div class="section-title">账户充值</div>
+        <div class="section-title" style="margin-top:26px">账户充值</div>
         <div class="pay-steps">
           <div class="pay-step">
             <span class="step-no">1</span>
@@ -433,6 +433,12 @@
           <input id="setHlColor" type="color" style="width:44px;height:30px;padding:2px" />
           <span>（订单号/金额/链接/联系方式）</span>
         </label>
+        <div class="free-rule-title">免费福利规则</div>
+        <label class="chk inline-field"><input type="checkbox" id="setFreePaid" /> 仅充值/付费过的用户可领（推荐）</label>
+        <label class="inline-field">最低充值 ¥<input id="setFreeMin" class="num" type="number" min="0" step="0.01" /></label>
+        <label class="inline-field">每人每天限领<input id="setFreePerDay" class="num" type="number" min="0" /><span>个</span></label>
+        <label class="inline-field">每人每月上限<input id="setFreeMonth" class="num" type="number" min="0" /><span>个</span></label>
+        <label class="inline-field">全站每日名额<input id="setFreeQuota" class="num" type="number" min="0" /><span>个（0=不限）</span></label>
         <button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存</button>
         <span class="msg ok" id="setMsg"></span>
       </div>
@@ -550,7 +556,8 @@
 
       <!-- 免费福利区（金边流光 + 呼吸动画） -->
       <div class="free-zone" id="freeZone" style="display:none">
-        <div class="free-zone-head">🎁 免费福利区 <span class="t-meta">0 元即可领 · 每天限领 1 个，先到先得</span></div>
+        <div class="free-zone-head">🎁 免费福利区 <span class="t-meta" id="freeZoneRule">加载中…</span></div>
+        <div class="free-zone-note" id="freeZoneNote" style="display:none"></div>
         <div class="free-zone-list" id="freeZoneList"></div>
       </div>
 
@@ -842,6 +849,23 @@
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="umSubmit">确定</button>
         <button class="btn btn-ghost btn-sm" id="umClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 免费福利解锁提示（付费用户专享） -->
+  <div class="modal" id="unlockModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">🔒 免费福利为付费用户专享</div>
+      <div class="t-meta" id="unlockRule"></div>
+      <div class="unlock-steps">
+        <div>1️⃣ 充值任意金额，或完成一笔付费订单</div>
+        <div>2️⃣ 立即解锁「免费福利区」，每天限量领取</div>
+      </div>
+      <div class="t-meta">免费福利是真金白银的服务，仅向支持过平台的用户开放，感谢理解 🙏</div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="unlockGoCharge">去充值解锁</button>
+        <button class="btn btn-ghost btn-sm" id="unlockBrowse">看看付费商品</button>
       </div>
     </div>
   </div>
@@ -2212,6 +2236,7 @@
         '</div>' +
       '</div>';
     }
+    let FREE_INFO = null;
     async function loadFreeZone() {
       const box = $('freeZone'); if (!box) return;
       const res = await api('shop/products', { phone: PHONE, free: '1', limit: 12 });
@@ -2220,7 +2245,49 @@
       if (!list.length) { box.style.display = 'none'; return; }
       box.style.display = '';
       $('freeZoneList').innerHTML = list.map(freeCardHtml).join('');
-      $('freeZoneList').querySelectorAll('.free-zone-card').forEach(c => c.addEventListener('click', () => openOrder(c.dataset.id)));
+      $('freeZoneList').querySelectorAll('.free-zone-card').forEach(c => c.addEventListener('click', () => {
+        if (FREE_INFO && !FREE_INFO.qualified) { showUnlockFree(FREE_INFO.minRecharge); return; }
+        if (FREE_INFO && FREE_INFO.perDayLeft === 0) { alert('今天的免费福利已经领过啦，明天再来～'); return; }
+        openOrder(c.dataset.id);
+      }));
+      renderFreeRule();
+    }
+    async function renderFreeRule() {
+      const ruleEl = $('freeZoneRule'), noteEl = $('freeZoneNote');
+      if (!ruleEl) return;
+      const res = await api('shop/freeinfo', { phone: PHONE });
+      if (!res.ok) { ruleEl.textContent = '每天限量领取，先到先得'; return; }
+      FREE_INFO = res;
+      const parts = [];
+      if (res.requirePaid) parts.push('付费用户专享');
+      if (res.perDay > 0) parts.push('每人每天限领 ' + res.perDay + ' 个');
+      if (res.dailyQuota > 0) parts.push('今日剩余 ' + Math.max(0, res.quotaLeft) + '/' + res.dailyQuota + ' 个名额');
+      ruleEl.textContent = parts.join(' · ') || '每天限量领取，先到先得';
+      // 状态提示条：未解锁 → 引导充值；已解锁 → 今日剩余可领数
+      noteEl.style.display = '';
+      if (!res.qualified) {
+        noteEl.className = 'free-zone-note locked';
+        noteEl.innerHTML = '🔒 ' + escapeHtml(res.reason || '需充值后领取') +
+          '　<button class="btn btn-primary btn-sm" id="freeUnlockBtn">立即充值解锁</button>';
+        const btn = $('freeUnlockBtn');
+        if (btn) btn.addEventListener('click', () => showUnlockFree(res.minRecharge));
+      } else if (res.perDayLeft === 0) {
+        noteEl.className = 'free-zone-note';
+        noteEl.innerHTML = '✅ 今天的免费福利已经领过啦，明天再来（每人每天 ' + res.perDay + ' 个）';
+      } else {
+        noteEl.className = 'free-zone-note ok';
+        noteEl.innerHTML = '✅ 已解锁免费福利　今日还可领 <b>' + res.perDayLeft + '</b> 个' +
+          (res.dailyQuota > 0 ? '（全站今日剩余 ' + Math.max(0, res.quotaLeft) + ' 个）' : '');
+      }
+    }
+    // 免费福利解锁弹窗
+    let UNLOCK_MIN = 0;
+    function showUnlockFree(minRecharge) {
+      UNLOCK_MIN = Number(minRecharge || 0);
+      $('unlockRule').textContent = UNLOCK_MIN > 0
+        ? ('累计充值满 ¥' + UNLOCK_MIN + '（或有过付费订单）后即可领取免费福利')
+        : '充值任意金额（或有过付费订单）后即可领取免费福利';
+      $('unlockModal').style.display = 'flex';
     }
     async function loadShopProducts(reset) {
       if (reset) { SHOP_PAGE = 1; $('shopList').innerHTML = '<div class="loading">加载中…</div>'; }
@@ -2255,7 +2322,11 @@
       $('orderModal').classList.toggle('free-order', isFree);
       $('omSubmit').textContent = isFree ? '免费领取' : '提交订单';
       $('omSummary').innerHTML = '<div>单价：<b>' + (isFree ? '免费' : ('¥' + Number(p.price) + '（≈' + intFmt(pts) + ' 积分）')) + '</b></div>' +
-        (isFree ? '<div class="om-free-tip">🎁 这是免费福利商品，提交后由管理员审核发放，不扣任何费用。<b>每天限领 1 个</b>，领过今天就不能再领啦。</div>' : '') +
+        (isFree ? ('<div class="om-free-tip">🎁 这是免费福利商品，提交后由管理员审核发放，不扣任何费用。' +
+          (FREE_INFO && FREE_INFO.requirePaid ? '<b>付费用户专享</b>；' : '') +
+          '每人每天限领 <b>' + ((FREE_INFO && FREE_INFO.perDay) || 1) + ' 个</b>' +
+          (FREE_INFO && FREE_INFO.dailyQuota > 0 ? '，全站今日剩余 <b>' + Math.max(0, FREE_INFO.quotaLeft) + '</b> 个名额' : '') +
+          '。</div>') : '') +
         (p.alert ? '<div class="t-meta">提示：' + escapeHtml(p.alert) + '</div>' : '') +
         (p.desc ? '<div class="t-meta">说明：' + escapeHtml(String(p.desc)).slice(0, 220) + '</div>' : '') +
         '<div class="t-meta">提交后由管理员审核处理，<b>审核通过后从你的余额扣款（先扣赠送余额）</b>。</div>';
@@ -2277,6 +2348,10 @@
         // 提交后即时做资金检测：不够则弹窗提醒充值
         if (!showLackWallet(res.wallet)) alert('下单成功，已提交管理员审核（预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '）');
       }
+      else if (res.needsRecharge) {
+        $('orderModal').style.display = 'none';
+        showUnlockFree(res.minRecharge);
+      }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '下单失败'; }
     }
 
@@ -2295,6 +2370,22 @@
       return true;
     }
     $('lackClose').addEventListener('click', () => { $('lackModal').style.display = 'none'; });
+    $('unlockGoCharge').addEventListener('click', () => {
+      $('unlockModal').style.display = 'none';
+      switchView('work');
+      setTimeout(() => {
+        const el = $('rcAmount');
+        if (!el) return;
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.focus();
+      }, 260);
+    });
+    $('unlockBrowse').addEventListener('click', () => {
+      $('unlockModal').style.display = 'none';
+      SHOP_FREE = false; syncShopFilterUI();
+      switchView('shop');
+      loadShopProducts(true);
+    });
     $('lackGoCharge').addEventListener('click', () => {
       $('lackModal').style.display = 'none';
       switchView('work');
@@ -3311,6 +3402,13 @@
       const res = await api('admin/settings', {}, true);
       if (!res.ok) return;
       const s = res.settings;
+      if ($('setFreePaid')) {
+        $('setFreePaid').checked = s.free_require_paid !== false;
+        $('setFreeMin').value = (s.free_min_recharge != null ? s.free_min_recharge : 0);
+        $('setFreePerDay').value = (s.free_per_day != null ? s.free_per_day : 1);
+        $('setFreeMonth').value = (s.free_month_max != null ? s.free_month_max : 30);
+        $('setFreeQuota').value = (s.free_daily_quota != null ? s.free_daily_quota : 0);
+      }
       $('setCheckin').value = s.checkin_points; $('setPerYuan').value = s.points_per_yuan; $('setRatio').value = Math.round(s.max_deduct_ratio * 100); $('setInvite').value = (s.invite_points != null ? s.invite_points : 50);
       $('setConvert').value = (s.convert_rate != null ? s.convert_rate : 100);
       $('setFee').value = (s.withdraw_fee_percent != null ? s.withdraw_fee_percent : 5);
@@ -3323,6 +3421,11 @@
       const msg = $('setMsg'); msg.className = 'msg ok'; msg.textContent = '';
       const res = await api('admin/settings/save', {
         checkin_points: $('setCheckin').value, points_per_yuan: $('setPerYuan').value, max_deduct_ratio: $('setRatio').value, invite_points: $('setInvite').value,
+        freeRequirePaid: $('setFreePaid') ? ($('setFreePaid').checked ? '1' : '0') : undefined,
+        freeMinRecharge: $('setFreeMin') ? $('setFreeMin').value : undefined,
+        freePerDay: $('setFreePerDay') ? $('setFreePerDay').value : undefined,
+        freeMonthMax: $('setFreeMonth') ? $('setFreeMonth').value : undefined,
+        freeDailyQuota: $('setFreeQuota') ? $('setFreeQuota').value : undefined,
         convert_rate: $('setConvert').value, withdraw_fee_percent: $('setFee').value, new_user_gift_points: $('setNewGift').value,
         withdraw_min: $('setWdMin').value, withdraw_daily_limit: $('setWdLimit').value,
         highlight_color: $('setHlColor').value
