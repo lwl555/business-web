@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=27" />
+  <link rel="stylesheet" href="css/style.css?v=28" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -612,13 +612,17 @@
         <button class="btn btn-ghost btn-sm" id="apOnlyActive">仅看在售</button>
         <button class="btn btn-green btn-sm" id="apAddBtn">+ 新增商品</button>
         <button class="btn btn-ghost btn-sm" id="apBatchBtn">批量改价</button>
+        <button class="btn btn-ghost btn-sm" id="apMoveBtn">批量移动分类</button>
         <button class="btn btn-ghost btn-sm" id="apAiBtn">🤖 AI 定价分析</button>
+        <button class="btn btn-ghost btn-sm" id="apSyncBtn">🔄 同步旧平台商品</button>
       </div>
       <div class="ap-select-bar" id="apSelectBar" style="display:none">
         <label class="chk"><input type="checkbox" id="apSelAll" /> 全选本页</label>
         <span class="t-meta">已选 <b id="apSelCount">0</b> 个</span>
         <button class="btn btn-primary btn-sm" id="apBatchSelBtn">对所选批量改价</button>
+        <button class="btn btn-ghost btn-sm" id="apMoveSelBtn">移动所选到分类</button>
       </div>
+      <div class="sync-bar" id="syncBar" style="display:none"></div>
       <div class="ap-list" id="apList"><div class="loading">加载中…</div></div>
       <div class="ap-pager">
         <button class="btn btn-ghost btn-sm" id="apPrev">上一页</button>
@@ -627,8 +631,27 @@
       </div>
 
       <div class="section-title" style="margin-top:26px">分类管理</div>
-      <div class="t-meta" style="margin-bottom:10px">改名或停用分类（停用后用户端不显示该分类及其商品）。</div>
+      <div class="t-meta" style="margin-bottom:10px">可改名、改排序、启用/停用（停用后用户端不显示该分类及其商品）、删除空分类。点击分类行的「查看商品」可按该分类筛选商品。</div>
+      <div class="ap-cats-toolbar">
+        <button class="btn btn-green btn-sm" id="apAddCatBtn">+ 新增分类</button>
+        <span class="t-meta">共 <b id="apCatCount">0</b> 个分类</span>
+      </div>
       <div class="ap-cats" id="apCats"><div class="loading">加载中…</div></div>
+    </div>
+  </div>
+
+  <!-- 批量移动分类弹窗（管理员） -->
+  <div class="modal" id="moveModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">批量移动商品到其他分类</div>
+      <div class="t-meta" id="mvScope"></div>
+      <div class="field"><label>目标分类</label><select id="mvTarget"></select></div>
+      <div class="t-meta">⚠️ 移动会立即改变用户端的分类归属，请确认目标分类正确。</div>
+      <div class="msg" id="mvMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="mvRun">确认移动</button>
+        <button class="btn btn-ghost btn-sm" id="mvClose">取消</button>
+      </div>
     </div>
   </div>
 
@@ -2494,21 +2517,68 @@
 
     // ==================== 商品管理（管理员） ====================
     let AP_LIST = [], AP_PAGE = 1, AP_TOTAL = 0, AP_CID = '', AP_KW = '', AP_ONLY_ACTIVE = false, AP_CATS = [], AP_EDIT_ID = '';
-    async function loadAdminProducts() { await loadApCats(); await loadApList(true); }
+    async function loadAdminProducts() { await loadApCats(); await loadApList(true); loadSyncInfo(); }
+    async function loadSyncInfo() {
+      const res = await api('admin/shop/syncinfo', {}, true);
+      if (!res.ok) return;
+      const b = $('syncBar');
+      b.style.display = '';
+      b.className = 'sync-bar';
+      b.innerHTML =
+        '🔗 旧平台：<b>' + escapeHtml(res.shopBase) + '</b>' +
+        ' ｜ 商品 ' + intFmt(res.total) + ' 个（旧平台来源 ' + intFmt(res.fromOld) + '，🔒 锁价 ' + intFmt(res.priceLocked) + '）' +
+        ' ｜ 上次同步：' + (res.lastSync ? fmtTime(res.lastSync) : '从未同步') +
+        (res.syncRunning ? (' ｜ <b>同步进行中（第 ' + res.syncPage + ' 页）</b>') : '') +
+        ' ｜ <label class="chk"><input type="checkbox" id="autoSyncChk"' + (res.autoSync ? ' checked' : '') + ' /> 每天自动同步（凌晨 3 点）</label>';
+      const chk = $('autoSyncChk');
+      if (chk) chk.addEventListener('change', async e => {
+        const r = await api('admin/settings/save', { autoSync: e.target.checked ? '1' : '0' }, true);
+        if (!r.ok) { alert(r.msg || '保存失败'); e.target.checked = !e.target.checked; }
+        else loadSyncInfo();
+      });
+    }
     async function loadApCats() {
       const res = await api('admin/categories', {}, true);
       if (!res.ok) return;
       AP_CATS = res.categories || [];
       $('apPpY').textContent = PTS.pointsPerYuan || 100;
+      $('apCatCount').textContent = AP_CATS.length;
       $('apCat').innerHTML = '<option value="">全部分类</option>' + AP_CATS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '（在售' + c.activeCount + '/' + c.total + '）</option>').join('');
       $('apCat').value = AP_CID;
       $('pmCat').innerHTML = AP_CATS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</option>').join('');
+      $('mvTarget').innerHTML = AP_CATS.map(c => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '（' + c.total + ' 个商品）</option>').join('');
       $('apCats').innerHTML = AP_CATS.map(c => '<div class="ap-cat-row" data-cid="' + escapeHtml(c.id) + '">' +
-        '<input class="ap-cat-name" value="' + escapeHtml(c.name) + '" />' +
-        '<span class="t-meta">在售 ' + c.activeCount + ' / 共 ' + c.total + '</span>' +
+        '<div class="ap-cat-main">' +
+          '<span class="ap-cat-id">' + escapeHtml(c.id) + '</span>' +
+          '<input class="ap-cat-name" value="' + escapeHtml(c.name) + '" />' +
+        '</div>' +
+        '<label class="inline-field ap-cat-sort">排序<input class="ap-cat-sortnum num" type="number" value="' + Number(c.sort || 0) + '" /></label>' +
+        '<span class="t-meta">在售 <b>' + c.activeCount + '</b> ｜ 下架 ' + (c.downCount || 0) + ' ｜ 共 ' + c.total +
+          (c.oldCount ? ' ｜ 旧平台 ' + c.oldCount : '') + (c.lockedCount ? ' ｜ 锁价 ' + c.lockedCount : '') + '</span>' +
         '<label class="chk"><input type="checkbox" class="ap-cat-active"' + (c.active ? ' checked' : '') + ' /> 启用</label>' +
         '<button class="btn btn-primary btn-sm" onclick="saveCategory(\'' + escapeHtml(c.id) + '\',this)">保存</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="viewCatProducts(\'' + escapeHtml(c.id) + '\')">查看商品</button>' +
+        (c.total === 0 ? '<button class="btn btn-red btn-sm" onclick="delCategory(\'' + escapeHtml(c.id) + '\',\'' + escapeHtml(c.name).replace(/'/g, '') + '\')">删除</button>' : '') +
       '</div>').join('');
+    }
+    function viewCatProducts(cid) {
+      AP_CID = cid; AP_PAGE = 1;
+      $('apCat').value = cid;
+      loadApList(true);
+      $('apList').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    async function delCategory(cid, name) {
+      if (!confirm('确认删除分类「' + name + '」？\n（仅空分类可删除）')) return;
+      const res = await api('admin/category/delete', { id: cid }, true);
+      if (res.ok) { loadApCats(); }
+      else alert(res.msg || '删除失败');
+    }
+    function openAddCategory() {
+      const nm = prompt('请输入新分类名称：');
+      if (!nm || !nm.trim()) return;
+      const sortStr = prompt('排序值（数字越小越靠前，可留空）：', '999');
+      api('admin/category/save', { name: nm.trim(), sort: sortStr === null || sortStr === '' ? 999 : Number(sortStr) }, true)
+        .then(res => { if (res.ok) loadApCats(); else alert(res.msg || '新增失败'); });
     }
     async function loadApList(reset) {
       if (reset) AP_PAGE = 1;
@@ -2522,6 +2592,8 @@
       box.innerHTML = AP_LIST.map(apRowHtml).join('') || '<div class="empty">没有商品</div>';
     }
     function apRowHtml(p) {
+      const catName = (AP_CATS.find(c => c.id === p.cid) || {}).name || p.cid;
+      const fromOld = !!p.source_tid;
       return '<div class="ap-row" data-id="' + escapeHtml(p.id) + '">' +
         '<div class="ap-head">' +
           '<label class="chk ap-sel"><input type="checkbox" class="ap-chk" data-id="' + escapeHtml(p.id) + '" /> 选</label>' +
@@ -2536,6 +2608,14 @@
           '<label>售后<input class="ap-asdays num" type="number" min="0" value="' + Number(p.after_sale_days == null ? 7 : p.after_sale_days) + '"></label>' +
           '<label class="chk"><input type="checkbox" class="ap-active"' + (p.active ? ' checked' : '') + ' /> 在售</label>' +
         '</div>' +
+        '<div class="ap-meta-row">' +
+          '<span class="t-meta">ID <b class="hl">' + escapeHtml(p.id) + '</b></span>' +
+          '<span class="t-meta">分类 <b class="hl">' + escapeHtml(catName) + '</b></span>' +
+          '<span class="t-meta">' + (fromOld ? ('🔗 旧平台 #' + escapeHtml(p.source_tid)) : '✍️ 本平台新增') + '</span>' +
+          '<span class="t-meta">' + (p.price_locked ? '<b class="lock-tag">🔒 已锁价</b>' : '跟随旧平台价') + '</span>' +
+          (fromOld ? '' : '') +
+          '<button class="btn btn-ghost btn-xs" onclick="togglePriceLock(\'' + escapeHtml(p.id) + '\',' + (p.price_locked ? 'false' : 'true') + ',this)">' + (p.price_locked ? '解除锁价' : '锁定价格') + '</button>' +
+        '</div>' +
         '<div class="ap-ops">' +
           '<button class="btn btn-primary btn-sm" onclick="saveProductRow(\'' + escapeHtml(p.id) + '\',this)">保存</button>' +
           '<button class="btn btn-ghost btn-sm" onclick="editProduct(\'' + escapeHtml(p.id) + '\')">详细</button>' +
@@ -2543,8 +2623,14 @@
         '</div>' +
       '</div>';
     }
+    async function togglePriceLock(id, lock, btn) {
+      const res = await api('admin/product/save', { id, lockPrice: lock, lockOnly: true }, true);
+      if (res.ok) { loadApList(false); }
+      else alert(res.msg || '操作失败');
+    }
     async function saveProductRow(id, btn) {
       const row = btn.closest('.ap-row');
+      const old = AP_LIST.find(x => x.id === id) || {};
       const body = {
         id,
         name: row.querySelector('.ap-name').value.trim(),
@@ -2557,8 +2643,17 @@
         afterSaleDays: Number(row.querySelector('.ap-asdays').value) || 0,
       };
       if (!body.name) { alert('商品名称不能为空'); return; }
+      // 手工改了价格 → 自动锁价（旧平台同步时不再覆盖）
+      const priceChanged = Math.abs(body.priceUser - Number(old.price_user || 0)) > 1e-9 ||
+        Math.abs(body.priceAgent - Number(old.price_agent || 0)) > 1e-9 ||
+        Math.abs(body.priceSenior - Number(old.price_senior || 0)) > 1e-9;
+      if (priceChanged) body.lockPrice = true;
       const res = await api('admin/product/save', body, true);
-      if (res.ok) { const t = btn.textContent; btn.textContent = '已保存'; setTimeout(() => btn.textContent = t, 1200); }
+      if (res.ok) {
+        const t = btn.textContent; btn.textContent = priceChanged ? '已保存（已锁价）' : '已保存';
+        if (priceChanged) loadApList(false);
+        setTimeout(() => btn.textContent = t, 1400);
+      }
       else alert(res.msg || '保存失败');
     }
     async function delProduct(id, btn) {
@@ -2607,13 +2702,26 @@
       };
       if (!body.name) { msg.className = 'msg err'; msg.textContent = '请填写商品名称'; return; }
       if (!body.cid) { msg.className = 'msg err'; msg.textContent = '请选择分类'; return; }
+      // 编辑已有商品且改了三档价 → 自动锁价
+      if (AP_EDIT_ID) {
+        const old = AP_LIST.find(x => x.id === AP_EDIT_ID) || {};
+        const changed = Math.abs(body.priceUser - Number(old.price_user || 0)) > 1e-9 ||
+          Math.abs(body.priceAgent - Number(old.price_agent || 0)) > 1e-9 ||
+          Math.abs(body.priceSenior - Number(old.price_senior || 0)) > 1e-9;
+        if (changed) body.lockPrice = true;
+      }
       const res = await api('admin/product/save', body, true);
       if (res.ok) { $('productModal').style.display = 'none'; loadApList(true); loadApCats(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
     }
     async function saveCategory(id, btn) {
       const row = btn.closest('.ap-cat-row');
-      const body = { id, name: row.querySelector('.ap-cat-name').value.trim(), active: row.querySelector('.ap-cat-active').checked };
+      const body = {
+        id,
+        name: row.querySelector('.ap-cat-name').value.trim(),
+        active: row.querySelector('.ap-cat-active').checked,
+        sort: Number((row.querySelector('.ap-cat-sortnum') || {}).value || 0),
+      };
       if (!body.name) { alert('分类名称不能为空'); return; }
       const res = await api('admin/category/save', body, true);
       if (res.ok) { btn.textContent = '已保存'; setTimeout(() => btn.textContent = '保存', 1200); loadApCats(); }
@@ -2692,7 +2800,7 @@
     async function adoptAi(idx, btn) {
       const x = AI_ITEMS[idx];
       if (!x || !x.adopt) return;
-      const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior }, true);
+      const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior, lockPrice: true }, true);
       if (res.ok) {
         x.priceUser = x.suggest; x.level = 'ok'; x.verdict = '已采纳建议价';
         const row = btn.closest('.ai-row');
@@ -2706,13 +2814,88 @@
       if (!confirm('将按 AI 建议价更新 ' + targets.length + ' 个商品的三档价格（规格/说明等保持不变），确认执行？')) return;
       let done = 0, fail = 0;
       for (const x of targets) {
-        const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior }, true);
+        const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior, lockPrice: true }, true);
         if (res.ok) done++; else fail++;
       }
       alert('采纳完成：成功 ' + done + ' 个' + (fail ? '，失败 ' + fail + ' 个' : ''));
       runAiPrice();
       loadApList(true);
     }
+
+    // ==================== 批量移动分类 ====================
+    let MV_SCOPE = null;
+    function openMove(scope) {
+      MV_SCOPE = scope || null;
+      const ids = getSelIds();
+      if (!MV_SCOPE && !ids.length) { alert('请先勾选商品；若要对当前筛选全部生效，请点工具栏的「批量移动分类」。'); return; }
+      $('mvScope').textContent = MV_SCOPE
+        ? '作用范围：当前筛选的全部 ' + intFmt(AP_TOTAL) + ' 个商品（分类：' + (AP_CID || '全部') + (AP_KW ? ' / 关键词：' + AP_KW : '') + '）'
+        : '作用范围：已勾选的 ' + ids.length + ' 个商品';
+      $('mvMsg').className = 'msg'; $('mvMsg').textContent = '';
+      if (AP_CID) $('mvTarget').value = AP_CID;
+      $('moveModal').style.display = 'flex';
+    }
+    async function runMove() {
+      const target = $('mvTarget').value;
+      const msg = $('mvMsg'); msg.className = 'msg'; msg.textContent = '';
+      if (!target) { msg.className = 'msg err'; msg.textContent = '请选择目标分类'; return; }
+      const body = { targetCid: target };
+      if (MV_SCOPE) body.scope = MV_SCOPE; else body.ids = getSelIds();
+      if (!confirm('确认把这些商品移动到「' + ((AP_CATS.find(c => c.id === target) || {}).name || target) + '」？')) return;
+      const res = await api('admin/products/move', body, true);
+      if (res.ok) { $('moveModal').style.display = 'none'; alert('移动完成'); loadApList(true); loadApCats(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '移动失败'; }
+    }
+
+    // ==================== 旧平台商品同步 ====================
+    let SYNCING = false;
+    function renderSyncBar(html, cls) {
+      const b = $('syncBar');
+      b.style.display = '';
+      b.className = 'sync-bar' + (cls ? ' ' + cls : '');
+      b.innerHTML = html;
+    }
+    async function runShopSync() {
+      if (SYNCING) return;
+      if (!confirm('从旧平台同步商品？\n\n· 新增旧平台上新上架的商品\n· 更新已有商品的名称/规格/状态/销量\n· 你手工定价过（🔒 锁价）的商品，价格不会被覆盖\n\n确认开始？')) return;
+      SYNCING = true;
+      const btn = $('apSyncBtn'); btn.disabled = true;
+      let totalCreated = 0, totalChanged = 0, totalDown = 0, totalRemoved = 0, totalLocked = 0, lastErr = '';
+      let totalPages = 0, seen = 0, rounds = 0, interrupted = false;
+      renderSyncBar('🔄 正在同步，请稍候…（旧平台商品较多，自动分轮进行）');
+      try {
+        for (let i = 0; i < 12; i++) {
+          rounds++;
+          const res = await api('admin/shop/sync', { pages: 12, deadlineMs: 110000 }, true);
+          if (!res.ok) { lastErr = res.msg || '同步失败'; break; }
+          totalCreated += res.created || 0;
+          totalChanged += res.priceChanged || 0;
+          totalDown += res.downCount || 0;
+          totalRemoved += res.removed || 0;
+          totalLocked += res.lockedDiff || 0;
+          seen += res.listed || 0;
+          totalPages = res.totalPages || totalPages;
+          const pgTo = (res.pages || [])[1] || 0;
+          renderSyncBar('🔄 同步中（第 ' + rounds + ' 轮，已到第 ' + pgTo + ' / 共 ' + totalPages + ' 页）· 本次读取 ' + intFmt(seen) +
+            ' 个商品 · 新增 ' + totalCreated + ' · 价格更新 ' + totalChanged + ' · 下架 ' + totalDown +
+            (res.autoDownSkipped ? ' · <b>未做自动下架（数据不完整，已跳过）</b>' : ''));
+          if (res.done) break;
+          if (i === 11) interrupted = true;
+        }
+        if (lastErr) renderSyncBar('❌ 同步失败：' + escapeHtml(lastErr), 'err');
+        else if (interrupted) renderSyncBar('⏳ 已完成 ' + rounds + ' 轮（读到第 ' + ((totalPages && seen) ? '约 ' + intFmt(seen) + ' 个商品' : '') + '）：新增 <b>' + totalCreated + '</b>、价格更新 <b>' + totalChanged + '</b>、下架 ' + totalDown +
+          '。<b>剩余部分会在后台自动继续（每 2 分钟一轮）</b>，也可再次点击「同步旧平台商品」加快。', 'ok');
+        else renderSyncBar('✅ 同步完成（' + rounds + ' 轮 / 共 ' + totalPages + ' 页，读取 ' + intFmt(seen) + ' 个商品）：新增 <b>' + totalCreated + '</b> 个、' +
+          '价格更新 <b>' + totalChanged + '</b> 个、下架 ' + totalDown + ' 个、自动下架 ' + totalRemoved + ' 个' +
+          (totalLocked ? ('、<b>' + totalLocked + '</b> 个锁价商品与旧平台价格不同（已保留你的定价）') : '') + '（🔒 锁价商品价格保持不变）', 'ok');
+        loadApList(true); loadApCats();
+      } catch (e) {
+        renderSyncBar('❌ 同步异常：' + escapeHtml(e.message || String(e)), 'err');
+      } finally {
+        SYNCING = false; btn.disabled = false;
+      }
+    }
+
     // 商品相关事件绑定
     $('gotoShop').addEventListener('click', () => switchView('shop'));
     function getShopHistory() {
@@ -2768,6 +2951,12 @@
     $('apList').addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('ap-chk')) { if (!e.target.checked) $('apSelAll').checked = false; updateSelCount(); } });
     $('apBatchBtn').addEventListener('click', () => openBatchPrice({ cid: AP_CID, kw: AP_KW, active: AP_ONLY_ACTIVE ? true : null }));
     $('apBatchSelBtn').addEventListener('click', () => openBatchPrice(null));
+    $('apMoveBtn').addEventListener('click', () => openMove({ cid: AP_CID, kw: AP_KW, active: AP_ONLY_ACTIVE ? true : null }));
+    $('apMoveSelBtn').addEventListener('click', () => openMove(null));
+    $('mvRun').addEventListener('click', runMove);
+    $('mvClose').addEventListener('click', () => $('moveModal').style.display = 'none');
+    $('apSyncBtn').addEventListener('click', runShopSync);
+    $('apAddCatBtn').addEventListener('click', openAddCategory);
     $('bpMode').addEventListener('change', () => {
       const isSet = $('bpMode').value === 'set';
       $('bpSetWrap').style.display = isSet ? '' : 'none';
