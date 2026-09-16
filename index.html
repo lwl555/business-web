@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=31" />
+  <link rel="stylesheet" href="css/style.css?v=32" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -200,7 +200,8 @@
         <div class="hint-sub">只有在商品列表里找不到你要的，才用下面的「类型任务提交」，由管理员人工报价处理。</div>
       </div>
 
-      <div class="section-title">类型任务提交（找不到商品时使用）</div>
+      <div class="section-title" id="manualSubmitTitle">📝 手动提交需求（商品列表里没有的，填在这里）</div>
+      <div class="t-meta" style="margin:-4px 0 10px">填写你需要的任务类型、要求和联系方式，管理员会为你人工报价后再处理。</div>
       <div class="row2">
         <div class="field">
           <label>任务类型 *</label>
@@ -563,6 +564,10 @@
         </div>
         <div class="shop-hot" id="shopHot"></div>
       </div>
+      <div class="cant-find-bar" id="cantFindBar">
+        <span>🔍 没找到想要的商品？平台有 1900+ 商品，若有遗漏可手动提交需求，管理员人工报价处理</span>
+        <button class="btn btn-primary btn-sm" id="cantFindTopBtn">手动提交需求</button>
+      </div>
       <div class="shop-history" id="shopHistory" style="display:none"></div>
 
       <!-- 免费福利区（金边流光 + 呼吸动画） -->
@@ -860,6 +865,23 @@
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="umSubmit">确定</button>
         <button class="btn btn-ghost btn-sm" id="umClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 找不到商品 → 引导手动提交 -->
+  <div class="modal" id="cantFindModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">🔍 翻了这么多，还是没找到？</div>
+      <div class="t-meta">平台商品有 1900+ 个，如果确实没有你要的，可以<b>手动提交需求</b>：写清楚任务类型和要求，管理员会人工报价、单独为你处理。</div>
+      <div class="unlock-steps">
+        <div>1️⃣ 填写任务类型（如：某平台涨粉 1000）</div>
+        <div>2️⃣ 补充说明和联系方式</div>
+        <div>3️⃣ 管理员报价后处理，可在「工作台」看进度</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="cfSubmit">手动提交需求</button>
+        <button class="btn btn-ghost btn-sm" id="cfLater">我再找找</button>
       </div>
     </div>
   </div>
@@ -2202,6 +2224,7 @@
     let SHOP_SORT = 'default', SHOP_FREE = false;
     const SHOP_HOT = ['抖音', '快手', '小红书', '会员', '粉丝', '点赞', '直播间', '播放量'];
     async function loadShop() {
+      markShopEnter(); // 重置「找不到商品」引导的计时与滚动统计
       if (!SHOP_CATS.length) await loadShopCats();
       else renderShopCats();
       loadShopProducts(true);
@@ -2327,7 +2350,7 @@
       const list = res.products || [];
       const html = list.map(productCardHtml).join('');
       const box = $('shopList');
-      if (reset) box.innerHTML = html || '<div class="empty">没有找到商品，换个关键词，或到「工作台」手动提交需求</div>';
+      if (reset) box.innerHTML = html || ('<div class="empty">没有找到商品，换个关键词试试<br /><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="goManualSubmit()">📝 手动提交需求</button></div>');
       else box.insertAdjacentHTML('beforeend', html);
       const more = list.length >= 24 && (SHOP_PAGE * 24) < (res.total || 0);
       $('shopMoreBtn').style.display = more ? '' : 'none';
@@ -2382,6 +2405,50 @@
       }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '下单失败'; }
     }
+
+    // ==================== 「找不到商品」滚动引导 ====================
+    let CF_ENTER_TS = 0, CF_MAX_SCROLL = 0, CF_SHOWN = false, CF_LAST_CHECK = 0;
+    function cfToday() { return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10); }
+    function markShopEnter() {
+      CF_ENTER_TS = Date.now(); CF_MAX_SCROLL = 0;
+      CF_SHOWN = localStorage.getItem('cantFindShownDate') === cfToday();
+    }
+    function openCantFind() { $('cantFindModal').style.display = 'flex'; }
+    function goManualSubmit() {
+      $('cantFindModal').style.display = 'none';
+      switchView('work');
+      setTimeout(() => {
+        const el = $('manualSubmitTitle');
+        if (el) {
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          el.classList.add('cf-flash');
+          setTimeout(() => el.classList.remove('cf-flash'), 2600);
+        }
+        const t = $('type');
+        if (t) setTimeout(() => t.focus(), 480);
+      }, 300);
+    }
+    // 滚动监测：浏览较深 + 停留一会儿，且当天没弹过 → 弹一次引导
+    window.addEventListener('scroll', () => {
+      if (CF_SHOWN || currentView !== 'shop') return;
+      const now = Date.now();
+      if (now - CF_LAST_CHECK < 400) return; // 节流
+      CF_LAST_CHECK = now;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      if (y > CF_MAX_SCROLL) CF_MAX_SCROLL = y;
+      const deep = CF_MAX_SCROLL > window.innerHeight * 2.5;      // 翻了 2.5 屏以上
+      const manyLoaded = (SHOP_PAGE * 24) >= 72;                  // 或已加载 72+ 商品
+      const stayed = (now - CF_ENTER_TS) > 15000;                 // 停留 15 秒以上
+      if ((deep || manyLoaded) && stayed) {
+        CF_SHOWN = true;
+        localStorage.setItem('cantFindShownDate', cfToday());
+        openCantFind();
+      }
+    }, { passive: true });
+    $('cfSubmit').addEventListener('click', goManualSubmit);
+    $('cfLater').addEventListener('click', () => { $('cantFindModal').style.display = 'none'; });
+    $('cantFindTopBtn').addEventListener('click', goManualSubmit);
+    window.goManualSubmit = goManualSubmit; // 供搜索空结果处的按钮调用
 
     // ==================== 余额不足提醒（提交后即时资金检测） ====================
     let LACK_NEED = 0;
