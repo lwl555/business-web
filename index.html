@@ -1967,7 +1967,7 @@
       $('inviteEarned').textContent = '+' + intFmt(res.earned || 0);
       $('inviteCommission').textContent = '¥' + Number(res.commissionTotal || 0).toFixed(2);
       $('inviteRule').textContent = '每成功邀请 1 位新用户注册，你可得 ' + intFmt(res.invitePoints || 0) + ' 积分（新用户登录时填你的邀请码即可）。';
-      $('invitePromo').textContent = '好友每次消费，你可得 ' + (res.commissionRate || 0) + '% 推广佣金（实时计入' + (res.commissionBucket === 'balance' ? '可提现余额' : '赠送余额') + '）；新用户填你的码注册，双方各得 ' + intFmt(res.newbieBonus || 0) + ' 积分新人福利。';
+      $('invitePromo').textContent = '好友订单完成（管理员审核通过）后，你可得 ' + (res.commissionRate || 0) + '% 推广佣金，实时计入' + (res.commissionBucket === 'balance' ? '可提现余额' : '赠送余额') + '；新用户填你的码注册，双方各得 ' + intFmt(res.newbieBonus || 0) + ' 积分新人福利。';
       drawInviteQr(INVITE_LINK);
 
       // 阶梯奖励
