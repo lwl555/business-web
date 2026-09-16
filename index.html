@@ -2034,7 +2034,7 @@
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败</div>'; return; }
       const list = res.logs || [];
       if (!list.length) { box.innerHTML = '<div class="empty">暂无余额记录</div>'; return; }
-      const label = { recharge: '充值', withdraw: '提现', withdraw_refund: '提现退回', order: '订单', after_sale: '售后', convert: '积分兑换', fund: '人工调整' };
+      const label = { recharge: '充值', withdraw: '提现', withdraw_refund: '提现退回', order: '订单', after_sale: '售后', convert: '积分兑换', fund: '人工调整', commission: '推广佣金', commission_revoke: '佣金回收' };
       box.innerHTML = list.map(x => {
         const amt = Number(x.amount || 0);
         const cls = amt > 0 ? 'ok' : (amt < 0 ? 'err' : '');
