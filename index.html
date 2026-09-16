@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=32" />
+  <link rel="stylesheet" href="css/style.css?v=33" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -636,6 +636,7 @@
         <button class="btn btn-green btn-sm" id="apAddBtn">+ 新增商品</button>
         <button class="btn btn-ghost btn-sm" id="apBatchBtn">批量改价</button>
         <button class="btn btn-ghost btn-sm" id="apMoveBtn">批量移动分类</button>
+        <button class="btn btn-ghost btn-sm" id="apLockBtn">🔒 批量锁价</button>
         <button class="btn btn-ghost btn-sm" id="apAiBtn">🤖 AI 定价分析</button>
         <button class="btn btn-ghost btn-sm" id="apSyncBtn">🔄 同步旧平台商品</button>
       </div>
@@ -644,6 +645,7 @@
         <span class="t-meta">已选 <b id="apSelCount">0</b> 个</span>
         <button class="btn btn-primary btn-sm" id="apBatchSelBtn">对所选批量改价</button>
         <button class="btn btn-ghost btn-sm" id="apMoveSelBtn">移动所选到分类</button>
+        <button class="btn btn-ghost btn-sm" id="apLockSelBtn">🔒 锁定所选价格</button>
       </div>
       <div class="sync-bar" id="syncBar" style="display:none"></div>
       <div class="ap-list" id="apList"><div class="loading">加载中…</div></div>
@@ -660,6 +662,42 @@
         <span class="t-meta">共 <b id="apCatCount">0</b> 个分类</span>
       </div>
       <div class="ap-cats" id="apCats"><div class="loading">加载中…</div></div>
+    </div>
+  </div>
+
+  <!-- 批量锁定/解锁价格弹窗（管理员） -->
+  <div class="modal" id="lockModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">🔒 批量锁定 / 解除锁定价格</div>
+      <div class="t-meta" id="lkScope"></div>
+      <div class="field">
+        <label>作用范围</label>
+        <select id="lkScopeSel">
+          <option value="scope">当前筛选范围内的商品</option>
+          <option value="all">整个店铺全部商品（忽略筛选）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>操作</label>
+        <select id="lkAction">
+          <option value="lock">🔒 锁定价格（旧平台同步时不再覆盖这些商品的价格）</option>
+          <option value="unlock">🔓 解除锁定（恢复为跟随旧平台价格）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>只处理</label>
+        <select id="lkOnly">
+          <option value="">全部商品</option>
+          <option value="unlocked">仅未锁定的（避免重复操作）</option>
+          <option value="locked">仅已锁定的</option>
+        </select>
+      </div>
+      <div class="t-meta">说明：锁定后，旧平台同步不会修改这些商品的价格（名称/销量/状态仍会同步）。你手工改过价的商品已自动锁定。</div>
+      <div class="msg" id="lkMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="lkRun">确认执行</button>
+        <button class="btn btn-ghost btn-sm" id="lkClose">取消</button>
+      </div>
     </div>
   </div>
 
@@ -3032,6 +3070,50 @@
       if (res.ok) { $('moveModal').style.display = 'none'; alert('移动完成'); loadApList(true); loadApCats(); }
       else { msg.className = 'msg err'; msg.textContent = res.msg || '移动失败'; }
     }
+
+    // ==================== 批量锁定 / 解锁价格 ====================
+    let LK_SEL_MODE = false; // true = 对勾选的商品操作
+    function openLock(selMode) {
+      LK_SEL_MODE = !!selMode;
+      const ids = getSelIds();
+      if (selMode && !ids.length) { alert('请先勾选商品'); return; }
+      $('lkScope').textContent = selMode
+        ? ('作用范围：已勾选的 ' + ids.length + ' 个商品')
+        : ('当前筛选：' + (AP_CID ? ((AP_CATS.find(c => c.id === AP_CID) || {}).name || AP_CID) : '全部分类') +
+           (AP_KW ? ' / 关键词：' + AP_KW : '') + (AP_ONLY_ACTIVE ? ' / 仅在售' : '') + '，共 ' + intFmt(AP_TOTAL) + ' 个');
+      $('lkScopeSel').disabled = !!selMode;
+      $('lkScopeSel').value = 'scope';
+      $('lkAction').value = selMode ? 'lock' : 'lock';
+      $('lkOnly').value = selMode ? '' : 'unlocked';
+      $('lkMsg').className = 'msg'; $('lkMsg').textContent = '';
+      $('lockModal').style.display = 'flex';
+    }
+    async function runLock() {
+      const action = $('lkAction').value;
+      const only = $('lkOnly').value;
+      const scopeMode = $('lkScopeSel').value;
+      const lock = action === 'lock';
+      const msg = $('lkMsg'); msg.className = 'msg'; msg.textContent = '正在处理…';
+      const body = { lock, only };
+      if (LK_SEL_MODE) body.ids = getSelIds();
+      else if (scopeMode === 'all') body.all = true;
+      else body.scope = { cid: AP_CID, kw: AP_KW, active: AP_ONLY_ACTIVE ? true : null };
+      const tip = (lock ? '锁定' : '解除锁定') + '价格：' +
+        (LK_SEL_MODE ? ('已勾选的 ' + (body.ids || []).length + ' 个商品') : (scopeMode === 'all' ? '整个店铺全部商品' : '当前筛选范围内的商品')) +
+        String.fromCharCode(10, 10) + '确认执行？';
+      if (!confirm(tip)) { msg.textContent = ''; return; }
+      const res = await api('admin/products/lock', body, true);
+      if (res.ok) {
+        msg.className = 'msg ok';
+        msg.textContent = '完成：' + intFmt(res.count || 0) + ' 个商品已' + (lock ? '锁定价格' : '解除锁定');
+        setTimeout(() => { $('lockModal').style.display = 'none'; }, 900);
+        loadApList(true); loadApCats();
+      } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+    }
+    $('apLockBtn').addEventListener('click', () => openLock(false));
+    $('apLockSelBtn').addEventListener('click', () => openLock(true));
+    $('lkRun').addEventListener('click', runLock);
+    $('lkClose').addEventListener('click', () => { $('lockModal').style.display = 'none'; });
 
     // ==================== 旧平台商品同步 ====================
     let SYNCING = false;
