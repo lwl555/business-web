@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=33" />
+  <link rel="stylesheet" href="css/style.css?v=34" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -547,6 +547,7 @@
     <div class="view" id="view-shop" style="display:none">
       <div class="section-title">商品下单</div>
       <div class="t-meta" style="margin-bottom:10px">选择商品直接下单，价格按你的账号等级显示（当前：<b id="shopTier">—</b>）。下单后由管理员审核处理。</div>
+      <div class="shop-sources" id="shopSources"></div>
       <div class="shop-toolbar">
         <input id="shopSearch" placeholder="搜索商品名称，如：抖音 点赞…" />
         <button class="btn btn-primary btn-sm" id="shopSearchBtn">搜索</button>
@@ -629,6 +630,11 @@
       <div class="section-title">商品管理</div>
       <div class="t-meta" style="margin-bottom:10px">共 <b id="apTotal">0</b> 个商品（可改名称/规格/三档价、上下架、删除、新增）。三档价以「元」为单位（1 元 = <span id="apPpY">100</span> 积分仅用于折算展示）。</div>
       <div class="ap-toolbar">
+        <select id="apSrc">
+          <option value="">全部来源</option>
+          <option value="old">本平台精选（旧平台）</option>
+          <option value="xyq">聚惠星选</option>
+        </select>
         <select id="apCat"><option value="">全部分类</option></select>
         <input id="apSearch" placeholder="搜索商品名…" />
         <button class="btn btn-primary btn-sm" id="apSearchBtn">搜索</button>
@@ -2258,11 +2264,12 @@
     $('walletBtn').addEventListener('click', () => switchView('wallet'));
 
     // ==================== 商品下单（用户端） ====================
-    let SHOP_CATS = [], SHOP_CID = '', SHOP_KW = '', SHOP_PAGE = 1, SHOP_PPY = 100;
+    let SHOP_CATS = [], SHOP_CID = '', SHOP_KW = '', SHOP_PAGE = 1, SHOP_PPY = 100, SHOP_SOURCES = [];
     let SHOP_SORT = 'default', SHOP_FREE = false;
     const SHOP_HOT = ['抖音', '快手', '小红书', '会员', '粉丝', '点赞', '直播间', '播放量'];
     async function loadShop() {
       markShopEnter(); // 重置「找不到商品」引导的计时与滚动统计
+      await loadShopSources();
       if (!SHOP_CATS.length) await loadShopCats();
       else renderShopCats();
       loadShopProducts(true);
@@ -2270,8 +2277,30 @@
       renderShopHot();
       renderShopHistory();
     }
+    let SHOP_SOURCE = 'old';
+    async function loadShopSources() {
+      const res = await api('shop/sources', {});
+      const box = $('shopSources'); if (!box) return;
+      const list = (res.ok && res.sources) || [{ key: 'old', name: '本平台精选', count: 0 }];
+      SHOP_SOURCES = list;
+      box.innerHTML = list.map(x => '<button class="shop-src' + (SHOP_SOURCE === x.key ? ' active' : '') + '" data-src="' + escapeHtml(x.key) + '">' +
+        escapeHtml(x.name) + ' <i>' + intFmt(x.count) + '</i></button>').join('');
+      box.querySelectorAll('.shop-src').forEach(b => b.addEventListener('click', () => switchShopSource(b.dataset.src)));
+    }
+    function switchShopSource(src) {
+      if (SHOP_SOURCE === src) return;
+      SHOP_SOURCE = src;
+      SHOP_CID = ''; SHOP_KW = ''; SHOP_FREE = false;
+      const si = $('shopSearch'); if (si) si.value = '';
+      SHOP_CATS = [];
+      loadShopSources(); loadShopCats(); loadShopProducts(true);
+      // 免费福利区只在本平台精选下展示
+      const fz = $('freeZone');
+      if (fz) fz.style.display = (src === 'old') ? '' : 'none';
+      if (src === 'old') loadFreeZone();
+    }
     async function loadShopCats() {
-      const res = await api('shop/categories', {});
+      const res = await api('shop/categories', { source: SHOP_SOURCE });
       if (!res.ok) return;
       SHOP_CATS = res.categories || [];
       renderShopCats();
@@ -2283,7 +2312,7 @@
       box.querySelectorAll('.shop-cat').forEach(b => b.addEventListener('click', () => { SHOP_CID = b.dataset.cid; renderShopCats(); loadShopProducts(true); }));
     }
     function productCardHtml(p) {
-      const isFree = Number(p.price) <= 0;
+      const isFree = Number(p.price) <= 0 && SHOP_SOURCE === 'old';
       const pts = isFree ? 0 : Math.round(Number(p.price) * SHOP_PPY);
       return '<div class="shop-card' + (isFree ? ' free-card' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
         (isFree ? '<div class="free-flag">免费</div>' : '') +
@@ -2380,7 +2409,7 @@
     }
     async function loadShopProducts(reset) {
       if (reset) { SHOP_PAGE = 1; $('shopList').innerHTML = '<div class="loading">加载中…</div>'; }
-      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, keyword: SHOP_KW, sort: SHOP_SORT, free: SHOP_FREE ? '1' : '', page: SHOP_PAGE, limit: 24 });
+      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, keyword: SHOP_KW, sort: SHOP_SORT, free: SHOP_FREE ? '1' : '', source: SHOP_SOURCE, page: SHOP_PAGE, limit: 24 });
       if (!res.ok) { if (reset) $('shopList').innerHTML = '<div class="empty">加载失败：' + escapeHtml(res.msg || '') + '</div>'; return; }
       SHOP_PPY = res.pointsPerYuan || 100;
       $('shopTier').textContent = res.tier || '';
@@ -2761,8 +2790,9 @@
         else loadSyncInfo();
       });
     }
+    let AP_SOURCE = '';
     async function loadApCats() {
-      const res = await api('admin/categories', {}, true);
+      const res = await api('admin/categories', { source: AP_SOURCE }, true);
       if (!res.ok) return;
       AP_CATS = res.categories || [];
       $('apPpY').textContent = PTS.pointsPerYuan || 100;
@@ -2808,7 +2838,7 @@
       if (reset) AP_PAGE = 1;
       const box = $('apList');
       if (reset) box.innerHTML = '<div class="loading">加载中…</div>';
-      const res = await api('admin/products', { cid: AP_CID, keyword: AP_KW, active: AP_ONLY_ACTIVE, page: AP_PAGE, limit: 30 }, true);
+      const res = await api('admin/products', { cid: AP_CID, keyword: AP_KW, active: AP_ONLY_ACTIVE, source: AP_SOURCE, page: AP_PAGE, limit: 30 }, true);
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
       AP_TOTAL = res.total || 0; AP_LIST = res.products || [];
       $('apTotal').textContent = intFmt(AP_TOTAL);
@@ -3110,6 +3140,7 @@
         loadApList(true); loadApCats();
       } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
     }
+    $('apSrc').addEventListener('change', () => { AP_SOURCE = $('apSrc').value; AP_CID = ''; loadApCats(); loadApList(true); });
     $('apLockBtn').addEventListener('click', () => openLock(false));
     $('apLockSelBtn').addEventListener('click', () => openLock(true));
     $('lkRun').addEventListener('click', runLock);
