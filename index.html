@@ -566,7 +566,7 @@
         <div class="shop-hot" id="shopHot"></div>
       </div>
       <div class="cant-find-bar" id="cantFindBar">
-        <span>🔍 没找到想要的商品？平台有 1900+ 商品，若有遗漏可手动提交需求，管理员人工报价处理</span>
+        <span>🔍 没找到想要的商品？平台有 7000+ 商品，若有遗漏可手动提交需求，管理员人工报价处理</span>
         <button class="btn btn-primary btn-sm" id="cantFindTopBtn">手动提交需求</button>
       </div>
       <div class="shop-history" id="shopHistory" style="display:none"></div>
@@ -631,11 +631,8 @@
       <div class="section-title">商品管理</div>
       <div class="t-meta" style="margin-bottom:10px">共 <b id="apTotal">0</b> 个商品（可改名称/规格/三档价、上下架、删除、新增）。三档价以「元」为单位（1 元 = <span id="apPpY">100</span> 积分仅用于折算展示）。</div>
       <div class="ap-toolbar">
-        <select id="apSrc">
-          <option value="">全部来源</option>
-          <option value="old">本平台精选（旧平台）</option>
-          <option value="xyq">聚惠星选</option>
-        </select>
+        <select id="apSrc"><option value="">全部来源</option></select>
+        <button class="btn btn-ghost btn-xs" id="srcNameBtn" title="修改用户端显示的分区名称">改分区名</button>
         <select id="apCat"><option value="">全部分类</option></select>
         <input id="apSearch" placeholder="搜索商品名…" />
         <button class="btn btn-primary btn-sm" id="apSearchBtn">搜索</button>
@@ -952,7 +949,7 @@
   <div class="modal" id="cantFindModal" style="display:none">
     <div class="modal-box">
       <div class="modal-title">🔍 翻了这么多，还是没找到？</div>
-      <div class="t-meta">平台商品有 1900+ 个，如果确实没有你要的，可以<b>手动提交需求</b>：写清楚任务类型和要求，管理员会人工报价、单独为你处理。</div>
+      <div class="t-meta">平台商品有 7000+ 个，如果确实没有你要的，可以<b>手动提交需求</b>：写清楚任务类型和要求，管理员会人工报价、单独为你处理。</div>
       <div class="unlock-steps">
         <div>1️⃣ 填写任务类型（如：某平台涨粉 1000）</div>
         <div>2️⃣ 补充说明和联系方式</div>
@@ -2823,7 +2820,15 @@
 
     // ==================== 商品管理（管理员） ====================
     let AP_LIST = [], AP_PAGE = 1, AP_TOTAL = 0, AP_CID = '', AP_KW = '', AP_ONLY_ACTIVE = false, AP_CATS = [], AP_EDIT_ID = '';
-    async function loadAdminProducts() { await loadApCats(); await loadApList(true); loadSyncInfo(); loadXyqInfo(); }
+    async function loadAdminProducts() { await loadAdminSources(); await loadApCats(); await loadApList(true); loadSyncInfo(); loadXyqInfo(); }
+    async function loadAdminSources() {
+      const res = await api('shop/sources', {});
+      const sel = $('apSrc'); if (!sel) return;
+      const list = (res.ok && res.sources) || [];
+      sel.innerHTML = '<option value="">全部来源</option>' +
+        list.map(x => '<option value="' + escapeHtml(x.key) + '">' + escapeHtml(x.name) + '（' + intFmt(x.count) + '）</option>').join('');
+      sel.value = AP_SOURCE;
+    }
     async function loadSyncInfo() {
       const res = await api('admin/shop/syncinfo', {}, true);
       if (!res.ok) return;
@@ -3194,6 +3199,23 @@
       } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
     }
     $('apSrc').addEventListener('change', () => { AP_SOURCE = $('apSrc').value; AP_CID = ''; loadApCats(); loadApList(true); });
+    $('srcNameBtn').addEventListener('click', async () => {
+      const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
+      const res = await api('shop/sources', {});
+      const list = (res.ok && res.sources) || [];
+      const cur = {}; list.forEach(x => cur[x.key] = x.name);
+      const a = prompt('① 用户端第一个分区的名称（本单位业务商品）' + nl + '当前：' + (cur.old || '热门业务'), cur.old || '热门业务');
+      if (a === null) return;
+      const b = prompt('② 用户端第二个分区的名称（生活权益/卡券类商品）' + nl + '当前：' + (cur.xyq || '生活权益'), cur.xyq || '生活权益');
+      if (b === null) return;
+      const body = {};
+      if (String(a).trim()) body.sourceNameOld = String(a).trim();
+      if (String(b).trim()) body.sourceNameXyq = String(b).trim();
+      if (!Object.keys(body).length) return;
+      const r = await api('admin/settings/save', body, true);
+      if (r.ok) { alert('已更新，用户端立即生效'); loadAdminSources(); loadShopSources(); }
+      else alert(r.msg || '保存失败');
+    });
     $('apLockBtn').addEventListener('click', () => openLock(false));
     $('apLockSelBtn').addEventListener('click', () => openLock(true));
     $('lkRun').addEventListener('click', runLock);
