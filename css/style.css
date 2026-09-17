@@ -1117,6 +1117,17 @@ span.ai-warn { color: #92400e; }
 .shop-src.active i { color: var(--primary); }
 @media (max-width: 640px) { .shop-src { min-width: 0; padding: 9px 12px; font-size: 13px; } }
 
+
+/* ---------- 二级分类 ---------- */
+.shop-subcats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 10px;
+  background: #f8fafc; border: 1px dashed var(--line); max-height: 132px; overflow-y: auto; }
+.shop-subcat { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff;
+  font-size: 13px; color: var(--text); cursor: pointer; transition: .15s; white-space: nowrap; }
+.shop-subcat i { font-style: normal; font-size: 11px; color: var(--muted); margin-left: 3px; }
+.shop-subcat:hover { border-color: var(--primary); color: var(--primary); }
+.shop-subcat.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.shop-subcat.active i { color: rgba(255,255,255,.85); }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=34" />
+  <link rel="stylesheet" href="css/style.css?v=35" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -578,7 +578,8 @@
         <div class="free-zone-list" id="freeZoneList"></div>
       </div>
 
-      <div class="shop-cats" id="shopCats"></div>
+        <div class="shop-cats" id="shopCats"></div>
+        <div class="shop-subcats" id="shopSubCats" style="display:none"></div>
       <div class="shop-list" id="shopList"><div class="loading">加载中…</div></div>
       <div style="text-align:center;margin-top:12px">
         <button class="btn btn-ghost btn-sm" id="shopMoreBtn" style="display:none">加载更多</button>
@@ -643,6 +644,7 @@
         <button class="btn btn-ghost btn-sm" id="apBatchBtn">批量改价</button>
         <button class="btn btn-ghost btn-sm" id="apMoveBtn">批量移动分类</button>
         <button class="btn btn-ghost btn-sm" id="apLockBtn">🔒 批量锁价</button>
+        <button class="btn btn-ghost btn-sm" id="apToggleBtn">批量上下架</button>
         <button class="btn btn-ghost btn-sm" id="apAiBtn">🤖 AI 定价分析</button>
         <button class="btn btn-ghost btn-sm" id="apSyncBtn">🔄 同步旧平台商品</button>
       </div>
@@ -652,8 +654,13 @@
         <button class="btn btn-primary btn-sm" id="apBatchSelBtn">对所选批量改价</button>
         <button class="btn btn-ghost btn-sm" id="apMoveSelBtn">移动所选到分类</button>
         <button class="btn btn-ghost btn-sm" id="apLockSelBtn">🔒 锁定所选价格</button>
+        <button class="btn btn-ghost btn-sm" id="apToggleSelBtn">上架/下架所选</button>
       </div>
       <div class="sync-bar" id="syncBar" style="display:none"></div>
+      <div class="sync-bar" id="xyqBar" style="display:none"></div>
+      <div class="actions" style="margin-bottom:12px">
+        <button class="btn btn-ghost btn-sm" id="apXyqSyncBtn" style="display:none">📄 聚惠星选同步方法</button>
+      </div>
       <div class="ap-list" id="apList"><div class="loading">加载中…</div></div>
       <div class="ap-pager">
         <button class="btn btn-ghost btn-sm" id="apPrev">上一页</button>
@@ -668,6 +675,34 @@
         <span class="t-meta">共 <b id="apCatCount">0</b> 个分类</span>
       </div>
       <div class="ap-cats" id="apCats"><div class="loading">加载中…</div></div>
+    </div>
+  </div>
+
+  <!-- 批量上架/下架弹窗（管理员） -->
+  <div class="modal" id="toggleModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">批量上架 / 下架商品</div>
+      <div class="t-meta" id="tgScope"></div>
+      <div class="field">
+        <label>作用范围</label>
+        <select id="tgScopeSel">
+          <option value="scope">当前筛选范围内的商品</option>
+          <option value="all">全部商品（忽略筛选）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>操作</label>
+        <select id="tgAction">
+          <option value="on">✅ 上架（用户端可见并可下单）</option>
+          <option value="off">🚫 下架（用户端不显示）</option>
+        </select>
+      </div>
+      <div class="t-meta">说明：下架的商品在用户端立即消失，但数据保留；重新上架即可恢复。手动下架的商品不会被货源同步自动上架。</div>
+      <div class="msg" id="tgMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="tgRun">确认执行</button>
+        <button class="btn btn-ghost btn-sm" id="tgClose">取消</button>
+      </div>
     </div>
   </div>
 
@@ -2290,7 +2325,7 @@
     function switchShopSource(src) {
       if (SHOP_SOURCE === src) return;
       SHOP_SOURCE = src;
-      SHOP_CID = ''; SHOP_KW = ''; SHOP_FREE = false;
+      SHOP_CID = ''; SHOP_PARENT = ''; SHOP_KW = ''; SHOP_FREE = false;
       const si = $('shopSearch'); if (si) si.value = '';
       SHOP_CATS = [];
       loadShopSources(); loadShopCats(); loadShopProducts(true);
@@ -2305,11 +2340,29 @@
       SHOP_CATS = res.categories || [];
       renderShopCats();
     }
+    let SHOP_PARENT = '';   // 当前一级分类
     function renderShopCats() {
       const box = $('shopCats');
-      box.innerHTML = '<button class="shop-cat' + (SHOP_CID === '' ? ' active' : '') + '" data-cid="">全部</button>' +
-        SHOP_CATS.map(c => '<button class="shop-cat' + (SHOP_CID === c.id ? ' active' : '') + '" data-cid="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + ' <i>' + c.count + '</i></button>').join('');
-      box.querySelectorAll('.shop-cat').forEach(b => b.addEventListener('click', () => { SHOP_CID = b.dataset.cid; renderShopCats(); loadShopProducts(true); }));
+      const lv1 = SHOP_CATS.filter(c => !c.parentId);
+      const hasTree = SHOP_CATS.some(c => c.parentId);
+      box.innerHTML = '<button class="shop-cat' + (!SHOP_PARENT && !SHOP_CID ? ' active' : '') + '" data-lv1="">全部</button>' +
+        lv1.map(c => '<button class="shop-cat' + ((SHOP_PARENT === c.id || SHOP_CID === c.id) ? ' active' : '') + '" data-lv1="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + ' <i>' + c.count + '</i></button>').join('');
+      box.querySelectorAll('.shop-cat').forEach(b => b.addEventListener('click', () => {
+        SHOP_PARENT = b.dataset.lv1 || ''; SHOP_CID = '';
+        renderShopCats(); renderShopSubCats(); loadShopProducts(true);
+      }));
+      if (hasTree) renderShopSubCats(); else { const sc = $('shopSubCats'); if (sc) sc.style.display = 'none'; }
+    }
+    function renderShopSubCats() {
+      const box = $('shopSubCats'); if (!box) return;
+      const kids = SHOP_PARENT ? SHOP_CATS.filter(c => c.parentId === SHOP_PARENT) : [];
+      if (!kids.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      box.innerHTML = '<button class="shop-subcat' + (SHOP_CID === '' ? ' active' : '') + '" data-cid="">全部</button>' +
+        kids.map(c => '<button class="shop-subcat' + (SHOP_CID === c.id ? ' active' : '') + '" data-cid="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + ' <i>' + c.count + '</i></button>').join('');
+      box.querySelectorAll('.shop-subcat').forEach(b => b.addEventListener('click', () => {
+        SHOP_CID = b.dataset.cid; renderShopSubCats(); loadShopProducts(true);
+      }));
     }
     function productCardHtml(p) {
       const isFree = Number(p.price) <= 0 && SHOP_SOURCE === 'old';
@@ -2409,7 +2462,7 @@
     }
     async function loadShopProducts(reset) {
       if (reset) { SHOP_PAGE = 1; $('shopList').innerHTML = '<div class="loading">加载中…</div>'; }
-      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, keyword: SHOP_KW, sort: SHOP_SORT, free: SHOP_FREE ? '1' : '', source: SHOP_SOURCE, page: SHOP_PAGE, limit: 24 });
+      const res = await api('shop/products', { phone: PHONE, cid: SHOP_CID, parentCid: SHOP_PARENT, keyword: SHOP_KW, sort: SHOP_SORT, free: SHOP_FREE ? '1' : '', source: SHOP_SOURCE, page: SHOP_PAGE, limit: 24 });
       if (!res.ok) { if (reset) $('shopList').innerHTML = '<div class="empty">加载失败：' + escapeHtml(res.msg || '') + '</div>'; return; }
       SHOP_PPY = res.pointsPerYuan || 100;
       $('shopTier').textContent = res.tier || '';
@@ -2770,7 +2823,7 @@
 
     // ==================== 商品管理（管理员） ====================
     let AP_LIST = [], AP_PAGE = 1, AP_TOTAL = 0, AP_CID = '', AP_KW = '', AP_ONLY_ACTIVE = false, AP_CATS = [], AP_EDIT_ID = '';
-    async function loadAdminProducts() { await loadApCats(); await loadApList(true); loadSyncInfo(); }
+    async function loadAdminProducts() { await loadApCats(); await loadApList(true); loadSyncInfo(); loadXyqInfo(); }
     async function loadSyncInfo() {
       const res = await api('admin/shop/syncinfo', {}, true);
       if (!res.ok) return;
@@ -2838,7 +2891,7 @@
       if (reset) AP_PAGE = 1;
       const box = $('apList');
       if (reset) box.innerHTML = '<div class="loading">加载中…</div>';
-      const res = await api('admin/products', { cid: AP_CID, keyword: AP_KW, active: AP_ONLY_ACTIVE, source: AP_SOURCE, page: AP_PAGE, limit: 30 }, true);
+      const res = await api('admin/products', { parentCid: AP_CID, keyword: AP_KW, active: AP_ONLY_ACTIVE, source: AP_SOURCE, page: AP_PAGE, limit: 30 }, true);
       if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
       AP_TOTAL = res.total || 0; AP_LIST = res.products || [];
       $('apTotal').textContent = intFmt(AP_TOTAL);
@@ -3145,6 +3198,118 @@
     $('apLockSelBtn').addEventListener('click', () => openLock(true));
     $('lkRun').addEventListener('click', runLock);
     $('lkClose').addEventListener('click', () => { $('lockModal').style.display = 'none'; });
+
+    // ==================== 批量上架 / 下架 ====================
+    let TG_SEL_MODE = false;
+    function openToggle(selMode) {
+      TG_SEL_MODE = !!selMode;
+      const ids = getSelIds();
+      if (selMode && !ids.length) { alert('请先勾选商品'); return; }
+      $('tgScope').textContent = selMode
+        ? ('作用范围：已勾选的 ' + ids.length + ' 个商品')
+        : ('当前筛选：' + ($('apSrc').value ? $('apSrc').selectedOptions[0].textContent : '全部来源') +
+           (AP_CID ? (' / ' + ((AP_CATS.find(c => c.id === AP_CID) || {}).name || AP_CID)) : '') +
+           (AP_KW ? ' / 关键词：' + AP_KW : '') + '，共 ' + intFmt(AP_TOTAL) + ' 个');
+      $('tgScopeSel').disabled = !!selMode;
+      $('tgScopeSel').value = 'scope';
+      $('tgMsg').className = 'msg'; $('tgMsg').textContent = '';
+      $('toggleModal').style.display = 'flex';
+    }
+    async function runToggle() {
+      const on = $('tgAction').value === 'on';
+      const scopeMode = $('tgScopeSel').value;
+      const msg = $('tgMsg'); msg.className = 'msg'; msg.textContent = '正在处理…';
+      const body = { active: on };
+      if (TG_SEL_MODE) body.ids = getSelIds();
+      else if (scopeMode === 'all') body.all = true;
+      else body.scope = { source: AP_SOURCE || '', cid: AP_CID, kw: AP_KW };
+      const tip = (on ? '上架' : '下架') + '这些商品？' + String.fromCharCode(10) + '范围：' +
+        (TG_SEL_MODE ? ('已勾选 ' + (body.ids || []).length + ' 个') : (scopeMode === 'all' ? '全部商品' : '当前筛选范围'));
+      if (!confirm(tip)) { msg.textContent = ''; return; }
+      const res = await api('admin/products/toggle-batch', body, true);
+      if (res.ok) {
+        msg.className = 'msg ok';
+        msg.textContent = '完成：' + intFmt(res.count || 0) + ' 个商品已' + (on ? '上架' : '下架');
+        setTimeout(() => { $('toggleModal').style.display = 'none'; }, 900);
+        loadApList(true); loadApCats();
+      } else { msg.className = 'msg err'; msg.textContent = res.msg || '操作失败'; }
+    }
+    $('apToggleBtn').addEventListener('click', () => openToggle(false));
+    $('apToggleSelBtn').addEventListener('click', () => openToggle(true));
+    $('tgRun').addEventListener('click', runToggle);
+    $('tgClose').addEventListener('click', () => { $('toggleModal').style.display = 'none'; });
+
+    // ==================== 聚惠星选同步 ====================
+    let XYQ_SYNCING = false, XYQ_INFO = null;
+    function renderXyqBar(html, cls) {
+      const b = $('xyqBar');
+      b.style.display = ''; b.className = 'sync-bar' + (cls ? ' ' + cls : ''); b.innerHTML = html;
+    }
+    async function runXyqSync() {
+      if (XYQ_SYNCING) return;
+      const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
+      const tip = '从聚惠星选同步商品？' + nl2 +
+        '· 新上架的商品会自动导入（按供货价+' + ((XYQ_INFO && XYQ_INFO.markup) || 30) + '%计价）' + nl +
+        '· 更新已有商品的名称/图片/销量/状态' + nl +
+        '· 🔒 已锁价商品的价格不会被覆盖';
+      if (!confirm(tip)) return;
+      XYQ_SYNCING = true;
+      const btn = $('apXyqSyncBtn'); btn.disabled = true;
+      let rounds = 0, created = 0, updated = 0, changed = 0, removed = 0, err = '', seen = 0, tp = 0;
+      renderXyqBar('🔄 正在从聚惠星选同步，请稍候…');
+      try {
+        for (let i = 0; i < 15; i++) {
+          rounds++;
+          const res = await api('admin/xyq/sync', { pages: 30, deadlineMs: 120000 }, true);
+          if (!res.ok) { err = res.msg || '同步失败'; break; }
+          created += res.created || 0; updated += res.updated || 0; changed += res.priceChanged || 0;
+          removed += res.removed || 0; seen += res.listed || 0; tp = res.totalPages || tp;
+          renderXyqBar('🔄 同步中（第 ' + rounds + ' 轮，已到第 ' + ((res.pages || [])[1] || 0) + '/' + tp + ' 页）· 读取 ' + intFmt(seen) +
+            ' 个 · 新增 ' + created + ' · 更新 ' + updated + ' · 价格变动 ' + changed + ' · 下架 ' + removed);
+          if (res.done) break;
+        }
+        if (err) renderXyqBar('❌ 同步失败：' + escapeHtml(err), 'err');
+        else renderXyqBar('✅ 聚惠星选同步完成：新增 <b>' + created + '</b> 个、更新 ' + updated + ' 个、价格变动 ' + changed + ' 个、下架 ' + removed + ' 个（🔒 锁价商品价格保持不变）', 'ok');
+        loadApList(true); loadApCats(); loadXyqInfo();
+      } catch (e) { renderXyqBar('❌ 同步异常：' + escapeHtml(e.message || String(e)), 'err'); }
+      finally { XYQ_SYNCING = false; btn.disabled = false; }
+    }
+    async function loadXyqInfo() {
+      const res = await api('admin/xyq/syncinfo', {}, true);
+      if (!res.ok) return;
+      XYQ_INFO = res;
+      renderXyqBar('🏬 聚惠星选：商品 ' + intFmt(res.total) + ' 个（在售 ' + intFmt(res.active) + '）' +
+        ' ｜ 计价：供货价 ×' + (1 + (res.markup || 0) / 100).toFixed(2) +
+        ' ｜ 上次同步：' + (res.lastSync ? fmtTime(res.lastSync) : '从未同步') +
+        (res.running ? (' ｜ <b>同步进行中（第 ' + res.page + ' 页）</b>') : '') +
+        ' ｜ <label class="chk"><input type="checkbox" id="xyqAutoChk"' + (res.autoSync ? ' checked' : '') + ' /> 自动同步</label>' +
+        ' ｜ <button class="btn btn-ghost btn-xs" id="xyqMarkupBtn">调整加价率</button>');
+      $('apXyqSyncBtn').style.display = '';
+      const chk = $('xyqAutoChk');
+      if (chk) chk.addEventListener('change', async e => {
+        const r = await api('admin/settings/save', { xyqAutoSync: e.target.checked ? '1' : '0' }, true);
+        if (!r.ok) { alert(r.msg || '保存失败'); e.target.checked = !e.target.checked; } else loadXyqInfo();
+      });
+      const mb = $('xyqMarkupBtn');
+      if (mb) mb.addEventListener('click', async () => {
+        const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
+        const v = prompt('聚惠星选商品加价率（%）：' + nl + '当前 ' + (res.markup || 0) + '%' + nl2 +
+          '说明：用户价 = 供货价 × (1 + 加价率)。改完下次同步生效（已锁价商品不受影响）。', res.markup || 0);
+        if (v === null) return;
+        const r = await api('admin/settings/save', { xyqMarkup: v }, true);
+        if (r.ok) { alert('已保存，下次同步生效'); loadXyqInfo(); } else alert(r.msg || '保存失败');
+      });
+    }
+    $('apXyqSyncBtn').addEventListener('click', () => {
+      const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
+      alert('聚惠星选同步说明' + nl2 +
+        '该货源站只支持 http 协议，云端无法直接访问，因此改为「在你电脑上抓取 → 推送到平台」的方式：' + nl2 +
+        '① 双击运行工作目录里的  xyq-sync.bat（或命令行执行 node xyq-sync.mjs）' + nl +
+        '② 脚本会自动抓取最新商品并推送到平台（约 3 分钟）' + nl +
+        '③ 新增商品自动上架、价格变动自动更新、源头下架的商品自动下架' + nl +
+        '④ 🔒 你手工锁价的商品不会被动价格' + nl2 +
+        '建议：用 Windows「任务计划程序」设置每天定时运行一次，全自动。');
+    });
 
     // ==================== 旧平台商品同步 ====================
     let SYNCING = false;
