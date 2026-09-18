@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=40" />
+  <link rel="stylesheet" href="css/style.css?v=42" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -132,6 +132,10 @@
         <div class="greet-quote" id="greetQuote"></div>
       </div>
 
+      <div class="stats-strip" id="statsStrip" style="display:none">
+        🔥 已服务 <b id="stUsers">0</b> 位用户　·　累计完成 <b id="stOrders">0</b> 单　·　今日已完成 <b id="stToday">0</b> 单
+      </div>
+
       <div class="points-bar">
         <div class="pb-left">
           <span class="pb-num" id="myBalance">¥0.00</span>
@@ -148,7 +152,8 @@
 
       <div class="recharge-box" id="rechargeBox" style="display:none">
         <div class="section-title" style="margin-top:26px">账户充值</div>
-        <div class="rc-eta" id="rcEtaBar">⏱ <b>到账时间：</b>提交后管理员核对截图，一般 <b>15 分钟</b>内到账（服务时间 9:00-23:00，其余时段顺延）</div>
+        <div class="rc-eta" id="rcEtaBar">⏱ <b>到账时间：</b>提交后管理员核对截图，一般 <b>2 分钟</b>内到账（服务时间 9:00-23:00，其余时段顺延）</div>
+        <div class="rc-recent" id="rcRecent" style="display:none"></div>
         <div class="pay-steps">
           <div class="pay-step">
             <span class="step-no">1</span>
@@ -165,8 +170,15 @@
               <div class="step-title">填付款信息并上传截图</div>
               <div class="row2">
                 <div class="field">
-                  <label>充值金额 *</label>
-                  <input id="rcAmount" type="number" min="1" placeholder="如 10" />
+                  <label>充值金额 *（1 元 = 1 元余额）</label>
+                  <div class="rc-presets" id="rcPresets">
+                    <button type="button" data-amt="10">¥10</button>
+                    <button type="button" data-amt="30">¥30</button>
+                    <button type="button" data-amt="50">¥50</button>
+                    <button type="button" data-amt="100">¥100</button>
+                    <button type="button" data-amt="200">¥200</button>
+                  </div>
+                  <input id="rcAmount" type="number" min="1" placeholder="或手动输入金额，如 20" />
                 </div>
                 <div class="field">
                   <label>支付宝账号 / 昵称 *</label>
@@ -392,7 +404,13 @@
 
     <!-- ---------- 任务审核（管理员） ---------- -->
     <div class="view" id="view-tasks" style="display:none">
-      <div class="section-title">任务审核</div>
+      <div class="section-title">经营看板</div>
+      <div class="dash-grid" id="dashGrid" style="display:none"></div>
+      <div class="actions" style="margin-bottom:12px">
+        <button class="btn btn-ghost btn-sm" id="bulkRejectBtn">🧹 一键关闭「余额不足」的待审单</button>
+        <button class="btn btn-ghost btn-sm" id="dashRefreshBtn">刷新数据</button>
+      </div>
+      <div class="section-title" style="margin-top:22px">任务审核</div>
       <div class="t-meta" style="margin-bottom:10px">点下方分类筛选：<b>待审核</b>（一审）→ <b>待完成</b>（二审）→ <b>已完成</b> / <b>已拒绝</b>。卡片内显示商品信息与用户余额是否够扣。</div>
       <div class="stats stats-click" id="stats"></div>
       <div id="list" class="task-list"><div class="loading">加载中…</div></div>
@@ -442,6 +460,19 @@
           <input id="setHlColor" type="color" style="width:44px;height:30px;padding:2px" />
           <span>（订单号/金额/链接/联系方式）</span>
         </label>
+        <div class="free-rule-title">风控与激励</div>
+        <label class="inline-field">下单限流<input id="setOrderRate" class="num" type="number" min="0" /><span>单/分钟（0=不限）</span></label>
+        <label class="inline-field">每日下单上限<input id="setOrderDaily" class="num" type="number" min="0" /><span>单/24h（0=不限）</span></label>
+        <label class="inline-field">登录失败<input id="setLoginFail" class="num" type="number" min="0" /><span>次后锁定</span>
+          <input id="setLoginLock" class="num" type="number" min="1" /><span>分钟</span></label>
+        <label class="inline-field">大额订单阈值 ¥<input id="setLargeAmt" class="num" type="number" min="0" /><span>（后台标记提醒）</span></label>
+        <label class="inline-field">首充优惠：充满 ¥<input id="setFirstMin" class="num" type="number" min="0" /><span>送 ¥</span>
+          <input id="setFirstBonus" class="num" type="number" min="0" /><span>（0=关闭）</span></label>
+        <label class="inline-field">连续签到<input id="setStreakDay" class="num" type="number" min="0" /><span>天奖励</span>
+          <input id="setStreakPts" class="num" type="number" min="0" /><span>积分（0=关闭）</span></label>
+        <label class="inline-field">提现保护：注册满<input id="setWdDays" class="num" type="number" min="0" /><span>天 + 完成</span>
+          <input id="setWdOrders" class="num" type="number" min="0" /><span>单</span></label>
+
         <div class="free-rule-title">充值到账说明</div>
         <label class="inline-field">预计到账<input id="setRcEta" class="num" type="number" min="1" /><span>分钟</span></label>
         <label class="inline-field">服务时间<input id="setRcSvc" style="width:150px" placeholder="如 9:00-23:00" /></label>
@@ -1385,6 +1416,7 @@
       renderNav();
       if (v === 'work') { renderGreeting(); loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks(); }
       else if (v === 'shop') loadShop();
+      else if (v === 'work') { loadPlatformStats(); loadRecentRecharges(); }
       else if (v === 'wallet') loadWallet();
       else if (v === 'invite') loadInvite();
       else if (v === 'chat') loadChat();
@@ -1393,7 +1425,7 @@
       else if (v === 'msgAdmin') loadAdminMessages();
       else if (v === 'cs') loadConversations();
       else if (v === 'pay') loadRecharges();
-      else if (v === 'tasks') loadAdminTasks();
+      else if (v === 'tasks') { loadAdminTasks(); loadDashboard(); }
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
       else if (v === 'ann') loadAnnouncementsAdmin();
       else if (v === 'old') loadOldFrame();
@@ -1506,6 +1538,7 @@
     $('checkinBtn').addEventListener('click', async () => {
       const btn = $('checkinBtn'); btn.disabled = true;
       const res = await api('checkin', { phone: PHONE });
+      if (res.ok && res.streakBonus) alert('🎉 连续签到 ' + res.streak + ' 天，额外奖励 ' + res.streakBonus + ' 积分！');
       if (res.ok) alert('签到成功，获得 ' + res.gain + ' 积分' + (res.streak > 1 ? '（连续 ' + res.streak + ' 天）' : ''));
       else alert(res.msg || '签到失败');
       loadPoints();
@@ -1533,6 +1566,38 @@
     });
     function removeRcProof() { rcPicked = null; $('rcFile').value = ''; $('rcThumb').innerHTML = ''; }
 
+    // 充值档位快捷选择
+    document.querySelectorAll('#rcPresets button').forEach(b => b.addEventListener('click', () => {
+      $('rcAmount').value = b.dataset.amt;
+      document.querySelectorAll('#rcPresets button').forEach(x => x.classList.toggle('active', x === b));
+    }));
+    // 最近到账（社会证明）
+    async function loadRecentRecharges() {
+      const box = $('rcRecent'); if (!box) return;
+      const res = await api('recharge/recent', {});
+      const list = (res.ok && res.list) || [];
+      if (!list.length) { box.style.display = 'none'; return; }
+      box.style.display = '';
+      const ago = (ts) => {
+        const m = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 60000));
+        if (m < 1) return '刚刚';
+        if (m < 60) return m + ' 分钟前';
+        if (m < 1440) return Math.floor(m / 60) + ' 小时前';
+        return Math.floor(m / 1440) + ' 天前';
+      };
+      box.innerHTML = '<div class="rr-title">✅ 最近到账</div><div class="rr-list">' +
+        list.slice(0, 6).map(x => '<span class="rr-item">' + escapeHtml(x.phone) + ' 充值 ¥' + Number(x.amount).toFixed(2) + '　<i>' + ago(x.at) + '</i></span>').join('') +
+        '</div>';
+    }
+    // 平台数据（信任感）
+    async function loadPlatformStats() {
+      const res = await api('public/stats', {});
+      const box = $('statsStrip'); if (!box || !res.ok) return;
+      box.style.display = '';
+      $('stUsers').textContent = intFmt(res.users || 0);
+      $('stOrders').textContent = intFmt(res.orders || 0);
+      $('stToday').textContent = intFmt(res.todayOrders || 0);
+    }
     $('rcUrgeBtn').addEventListener('click', async () => {
       const m = $('rcUrgeMsg'); m.className = 'msg'; m.textContent = '正在提醒…';
       const r = await api('user/recharge/urge', { phone: PHONE });
@@ -3754,6 +3819,36 @@
       if (res.ok) { inp.value = ''; loadPresets(); } else alert(res.msg || '保存失败');
     });
 
+    // ==================== 经营看板（管理员） ====================
+    async function loadDashboard() {
+      const g = $('dashGrid'); if (!g) return;
+      const res = await api('admin/dashboard', {}, true);
+      if (!res.ok) return;
+      g.style.display = '';
+      const cell = (lbl, val, cls) => '<div class="dash-cell' + (cls ? ' ' + cls : '') + '"><div class="dash-val">' + val + '</div><div class="dash-lbl">' + lbl + '</div></div>';
+      g.innerHTML =
+        cell('今日订单', intFmt(res.todayOrders)) +
+        cell('今日完成', intFmt(res.todayDone)) +
+        cell('今日收入', '¥' + Number(res.todayIncome || 0).toFixed(2), 'ok') +
+        cell('今日充值到账', '¥' + Number(res.todayRecharge || 0).toFixed(2), 'ok') +
+        cell('今日新增用户', intFmt(res.todayNewUsers)) +
+        cell('待审核订单', intFmt(res.pendingOrders), res.pendingOrders > 0 ? 'warn' : '') +
+        cell('待审充值', intFmt(res.pendingRecharges), res.pendingRecharges > 0 ? 'warn' : '') +
+        cell('待审提现', intFmt(res.pendingWithdraws), res.pendingWithdraws > 0 ? 'warn' : '') +
+        (res.largePending > 0 ? cell('⚠️ 大额待审(≥¥' + res.largeThreshold + ')', intFmt(res.largePending), 'warn') : '') +
+        cell('累计用户', intFmt(res.totalUsers)) +
+        cell('累计订单', intFmt(res.totalOrders));
+    }
+    $('dashRefreshBtn').addEventListener('click', loadDashboard);
+    $('bulkRejectBtn').addEventListener('click', async () => {
+      const nl = String.fromCharCode(10);
+      if (!confirm('将自动关闭所有「账户余额不足」的待审核订单？' + nl + nl +
+        '· 免费福利单、手动提交任务不受影响' + nl + '· 用户会收到站内消息通知' + nl + '· 关闭后状态为「已拒绝」，可人工恢复')) return;
+      const r = await api('admin/review/bulk-reject', { kind: 'insufficient' }, true);
+      if (r.ok) { alert('已关闭 ' + intFmt(r.count) + ' 笔余额不足的订单'); loadDashboard(); if (typeof loadAdminTasks === 'function') loadAdminTasks(); }
+      else alert(r.msg || '操作失败');
+    });
+
     // ==================== 充值审核（管理员） ====================
     async function loadRecharges() {
       const box = $('payList');
@@ -3928,6 +4023,19 @@
         $('setFreePaidWeek').value = (s.free_paid_per_week != null ? s.free_paid_per_week : 0);
         $('setFreeMonth').value = (s.free_month_max != null ? s.free_month_max : 30);
         $('setFreeQuota').value = (s.free_daily_quota != null ? s.free_daily_quota : 0);
+        if ($('setOrderRate')) {
+          $('setOrderRate').value = (s.order_rate_limit != null ? s.order_rate_limit : 5);
+          $('setOrderDaily').value = (s.order_daily_limit != null ? s.order_daily_limit : 50);
+          $('setLoginFail').value = (s.login_fail_limit != null ? s.login_fail_limit : 5);
+          $('setLoginLock').value = (s.login_lock_min != null ? s.login_lock_min : 10);
+          $('setLargeAmt').value = (s.large_order_amount != null ? s.large_order_amount : 500);
+          $('setFirstMin').value = (s.first_recharge_min != null ? s.first_recharge_min : 10);
+          $('setFirstBonus').value = (s.first_recharge_bonus != null ? s.first_recharge_bonus : 1);
+          $('setStreakDay').value = (s.checkin_streak_day != null ? s.checkin_streak_day : 7);
+          $('setStreakPts').value = (s.checkin_streak_points != null ? s.checkin_streak_points : 50);
+          $('setWdDays').value = (s.withdraw_min_days != null ? s.withdraw_min_days : 1);
+          $('setWdOrders').value = (s.withdraw_need_order != null ? s.withdraw_need_order : 1);
+        }
         if ($('setRcEta')) {
           $('setRcEta').value = (s.recharge_eta_min != null ? s.recharge_eta_min : 15);
           $('setRcSvc').value = (s.recharge_service_time || '9:00-23:00');
@@ -3956,6 +4064,17 @@
         freePaidPerWeek: $('setFreePaidWeek') ? $('setFreePaidWeek').value : undefined,
         freeMonthMax: $('setFreeMonth') ? $('setFreeMonth').value : undefined,
         freeDailyQuota: $('setFreeQuota') ? $('setFreeQuota').value : undefined,
+        orderRateLimit: $('setOrderRate') ? $('setOrderRate').value : undefined,
+        orderDailyLimit: $('setOrderDaily') ? $('setOrderDaily').value : undefined,
+        loginFailLimit: $('setLoginFail') ? $('setLoginFail').value : undefined,
+        loginLockMin: $('setLoginLock') ? $('setLoginLock').value : undefined,
+        largeOrderAmount: $('setLargeAmt') ? $('setLargeAmt').value : undefined,
+        firstRechargeMin: $('setFirstMin') ? $('setFirstMin').value : undefined,
+        firstRechargeBonus: $('setFirstBonus') ? $('setFirstBonus').value : undefined,
+        checkinStreakDay: $('setStreakDay') ? $('setStreakDay').value : undefined,
+        checkinStreakPoints: $('setStreakPts') ? $('setStreakPts').value : undefined,
+        withdrawMinDays: $('setWdDays') ? $('setWdDays').value : undefined,
+        withdrawNeedOrder: $('setWdOrders') ? $('setWdOrders').value : undefined,
         rechargeEtaMin: $('setRcEta') ? $('setRcEta').value : undefined,
         rechargeServiceTime: $('setRcSvc') ? $('setRcSvc').value : undefined,
         adminNotifyPhone: $('setRcAdmin') ? $('setRcAdmin').value : undefined,
