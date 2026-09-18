@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=38" />
+  <link rel="stylesheet" href="css/style.css?v=39" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -110,6 +110,8 @@
         </div>
       </div>
       <div class="actions">
+        <span class="top-balance" id="topBalance">¥0.00</span>
+        <button class="btn btn-primary btn-sm" id="topRechargeBtn"><span class="hide-sm">💰 </span>充值</button>
         <button class="btn btn-ghost btn-sm" id="logoutBtn">退出</button>
       </div>
     </div>
@@ -947,7 +949,7 @@
   </div>
 
   <!-- 悬浮充值入口（登录后常驻） -->
-  <button class="float-recharge" id="floatRechargeBtn" style="display:none">💰 充值</button>
+  <button class="float-recharge" id="floatRechargeBtn" style="display:none">💰 充值<span class="fr-close" id="floatRechargeClose" title="关闭（顶部仍有充值入口）">×</span></button>
 
   <!-- 找不到商品 → 引导手动提交 -->
   <div class="modal" id="cantFindModal" style="display:none">
@@ -1473,7 +1475,11 @@
       $('myPoints').textContent = intFmt(res.points);
       const bal = Number(res.balance || 0), gift = Number(res.gift || 0);
       $('myBalance').textContent = '¥' + (bal + gift).toFixed(2);
-      const fr = $('floatRechargeBtn'); if (fr) fr.style.display = (PHONE ? '' : 'none');
+      const tb = $('topBalance'); if (tb) tb.textContent = '¥' + (bal + gift).toFixed(2);
+      let hideFloat = false;
+      try { hideFloat = localStorage.getItem('hrHide') === '1'; } catch (e2) { }
+      const fr = $('floatRechargeBtn');
+      if (fr) fr.style.display = (PHONE && !hideFloat) ? '' : 'none';
       $('myBalanceCash').textContent = bal.toFixed(2);
       $('myBalanceGift').textContent = gift.toFixed(2);
       const btn = $('checkinBtn');
@@ -2638,8 +2644,8 @@
       return true;
     }
     $('lackClose').addEventListener('click', () => { $('lackModal').style.display = 'none'; });
-    // 悬浮充值：切到工作台并展开充值面板
-    $('floatRechargeBtn').addEventListener('click', () => {
+    // 去充值：切到工作台、展开充值面板、定位并高亮（顶部快捷栏与悬浮按钮共用）
+    function goRecharge() {
       if (!PHONE) { switchView('work'); return; }
       switchView('work');
       setTimeout(() => {
@@ -2650,6 +2656,14 @@
         box.classList.add('cf-flash');
         setTimeout(() => box.classList.remove('cf-flash'), 2600);
       }, 280);
+    }
+    $('floatRechargeBtn').addEventListener('click', goRecharge);
+    $('topRechargeBtn').addEventListener('click', goRecharge);
+    // 悬浮按钮可关闭（记住选择；顶部快捷栏仍有充值入口）
+    $('floatRechargeClose').addEventListener('click', (e) => {
+      e.stopPropagation();
+      try { localStorage.setItem('hrHide', '1'); } catch (err) { }
+      $('floatRechargeBtn').style.display = 'none';
     });
     $('unlockGoCharge').addEventListener('click', () => {
       $('unlockModal').style.display = 'none';
