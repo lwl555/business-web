@@ -2552,6 +2552,11 @@
         // 提交后即时做资金检测：不够则弹窗提醒充值
         if (!showLackWallet(res.wallet)) alert('下单成功，已提交管理员审核（预估 ¥' + Number(res.estimate_amount || 0).toFixed(2) + '）');
       }
+      else if (res.insufficient) {
+        // 余额不足：直接拦住，弹充值引导（不再产生无法扣款的待审核单）
+        $('orderModal').style.display = 'none';
+        showLackWallet(res.wallet);
+      }
       else if (res.needsRecharge) {
         $('orderModal').style.display = 'none';
         showUnlockFree(res.minRecharge, res.upgradeTip ? 'week' : 'lock');
