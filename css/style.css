@@ -1209,6 +1209,12 @@ span.ai-warn { color: #92400e; }
 .dash-cell.warn { background: #fffaf0; border-color: #fcd9a5; }
 .dash-cell.warn .dash-val { color: #b45309; }
 
+
+/* ---------- 上传中遮罩（充值截图等） ---------- */
+.thumb { position: relative; }
+.thumb-ov { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(15,23,42,.55); color: #fff; font-size: 12px; border-radius: 8px; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }

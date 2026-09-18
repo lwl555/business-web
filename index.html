@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=42" />
+  <link rel="stylesheet" href="css/style.css?v=43" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -194,6 +194,7 @@
                   <span class="t-meta">转账成功页截图（能看到金额和付款时间）</span>
                 </div>
                 <div class="thumbs" id="rcThumb"></div>
+                <div class="msg" id="rcUpMsg" style="margin-top:6px"></div>
               </div>
               <div class="actions" style="margin-top:12px">
                 <button class="btn btn-primary btn-sm" id="rcSubmitBtn">我已付款，提交审核</button>
@@ -1148,7 +1149,7 @@
     let CS_UNREAD = 0;
     let ADM_MSG_UNREAD = 0;
     let picked = [];
-    let rcPicked = null;
+    let rcPicked = null, rcProof = '';
     const signedCache = {};
 
     function $(id) { return document.getElementById(id); }
@@ -1555,17 +1556,37 @@
       const a = Number($('rcAmount').value) || 0;
       $('rcTip').textContent = a > 0 ? ('将到账 ¥' + a.toFixed(2) + '（可提现余额）') : '';
     });
+    function setRcUp(txt, cls) {
+      const el = $('rcUpMsg'); if (!el) return;
+      el.className = 'msg' + (cls ? ' ' + cls : ''); el.textContent = txt || '';
+    }
     $('rcPickBtn').addEventListener('click', () => $('rcFile').click());
-    $('rcFile').addEventListener('change', () => {
+    // 选图后立即上传，并明确显示上传结果（避免「本地预览成功但实际未上传」）
+    $('rcFile').addEventListener('change', async () => {
       const f = $('rcFile').files && $('rcFile').files[0];
       if (!f) return;
       if (!f.type || f.type.indexOf('image/') !== 0) { alert('只能上传图片文件'); return; }
-      if (f.size > (window.MAX_IMAGE_MB || 5) * 1024 * 1024) { alert('图片超过 5MB，请压缩后再传'); return; }
-      rcPicked = f;
+      const limMB = window.MAX_IMAGE_MB || 5;
+      if (f.size > limMB * 1024 * 1024) { alert('图片超过 ' + limMB + 'MB（多见于相册原图/相机原图）。' + String.fromCharCode(10) + '请改用「截图」方式：在付款成功页面截屏后再上传，体积会小很多。'); return; }
+      rcPicked = f; rcProof = '';
       const url = URL.createObjectURL(f);
-      $('rcThumb').innerHTML = '<div class="thumb"><img src="' + url + '" alt="" /><button type="button" class="thumb-del" title="移除" onclick="removeRcProof()">×</button></div>';
+      $('rcThumb').innerHTML = '<div class="thumb uploading"><img src="' + url + '" alt="" />' +
+        '<div class="thumb-ov">上传中…</div>' +
+        '<button type="button" class="thumb-del" title="移除" onclick="removeRcProof()">×</button></div>';
+      setRcUp('正在上传截图…', '');
+      try {
+        const rel = await uploadFile(f, 'recharge');
+        if (!rel) throw new Error('服务器未返回文件路径');
+        rcProof = rel;
+        const ov = $('rcThumb').querySelector('.thumb-ov'); if (ov) ov.remove();
+        const th = $('rcThumb').querySelector('.thumb'); if (th) th.classList.remove('uploading');
+        setRcUp('✅ 截图已上传成功，可提交审核', 'ok');
+      } catch (e) {
+        rcPicked = null; rcProof = ''; $('rcFile').value = ''; $('rcThumb').innerHTML = '';
+        setRcUp('❌ 截图上传失败：' + ((e && e.message) || '请重试') + '（可换一张更小的图片重试）', 'err');
+      }
     });
-    function removeRcProof() { rcPicked = null; $('rcFile').value = ''; $('rcThumb').innerHTML = ''; }
+    function removeRcProof() { rcPicked = null; rcProof = ''; $('rcFile').value = ''; $('rcThumb').innerHTML = ''; setRcUp('', ''); }
 
     // 充值档位快捷选择
     document.querySelectorAll('#rcPresets button').forEach(b => b.addEventListener('click', () => {
@@ -1611,11 +1632,14 @@
       const msg = $('rcMsg'); msg.className = 'msg ok'; msg.textContent = '';
       if (!amount || amount <= 0) { msg.className = 'msg err'; msg.textContent = '请输入充值金额'; return; }
       if (!account) { msg.className = 'msg err'; msg.textContent = '请填写付款的支付宝账号或昵称'; return; }
-      if (!rcPicked) { msg.className = 'msg err'; msg.textContent = '请上传付款成功截图'; return; }
+      if (!rcProof) {
+        msg.className = 'msg err';
+        msg.textContent = rcPicked ? '截图还在上传中，请稍等 2 秒再提交' : '请先上传付款成功截图（若反复失败，请换一张较小的图片重试）';
+        return;
+      }
       const btn = $('rcSubmitBtn'); btn.disabled = true;
       try {
-        msg.textContent = '正在上传截图…';
-        const proof = await uploadFile(rcPicked, 'recharge');
+        const proof = rcProof;
         msg.textContent = '正在提交…';
         const res = await api('recharge/submit', { phone: PHONE, amount, payAccount: account, proof });
         if (!res.ok) { msg.className = 'msg err'; msg.textContent = res.msg || '提交失败'; btn.disabled = false; return; }
@@ -1777,7 +1801,12 @@
     async function uploadFile(file, tag, opts) {
       opts = opts || {};
       let f = file;
-      if (opts.compress !== false && file && file.type && file.type.indexOf('image/') === 0) f = await compressImage(file);
+      if (opts.compress !== false && file && file.type && file.type.indexOf('image/') === 0) {
+        f = await compressImage(file);
+        // 大图二次压缩：存储桶单文件上限约 5MB，手机原图/HEIC 容易超限导致上传失败
+        if (f && f.size > 2 * 1024 * 1024) f = await compressImage(f, 1200, 0.75);
+        if (f && f.size > 2 * 1024 * 1024) f = await compressImage(f, 1000, 0.6);
+      }
       let ext = ((f.name || '').split('.').pop() || (opts.image ? 'jpg' : 'bin')).toLowerCase().replace(/[^a-z0-9]/g, '');
       if (!ext) ext = opts.image ? 'jpg' : 'bin';
       const base = opts.base || (PHONE + '/');
