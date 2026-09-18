@@ -1583,9 +1583,9 @@
         '<button type="button" class="thumb-del" title="移除" onclick="removeRcProof()">×</button></div>';
       setRcUp('正在上传截图…', '');
       try {
-        const rel = await uploadFile(f, 'recharge');
-        if (!rel) throw new Error('服务器未返回文件路径');
-        rcProof = rel;
+        const up = await uploadFile(f, 'recharge');
+        if (!up || !up.path) throw new Error('服务器未返回文件路径');
+        rcProof = up.path;
         const ov = $('rcThumb').querySelector('.thumb-ov'); if (ov) ov.remove();
         const th = $('rcThumb').querySelector('.thumb'); if (th) th.classList.remove('uploading');
         setRcUp('✅ 截图已上传成功，可提交审核', 'ok');
