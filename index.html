@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=43" />
+  <link rel="stylesheet" href="css/style.css?v=44" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -407,6 +407,7 @@
     <div class="view" id="view-tasks" style="display:none">
       <div class="section-title">经营看板</div>
       <div class="dash-grid" id="dashGrid" style="display:none"></div>
+      <div class="usage-bar" id="usageBar" style="display:none"></div>
       <div class="actions" style="margin-bottom:12px">
         <button class="btn btn-ghost btn-sm" id="bulkRejectBtn">🧹 一键关闭「余额不足」的待审单</button>
         <button class="btn btn-ghost btn-sm" id="dashRefreshBtn">刷新数据</button>
@@ -461,6 +462,12 @@
           <input id="setHlColor" type="color" style="width:44px;height:30px;padding:2px" />
           <span>（订单号/金额/链接/联系方式）</span>
         </label>
+        <div class="free-rule-title">自动维护（省资源）</div>
+        <label class="inline-field">用户图片保留<input id="setRetention" class="num" type="number" min="1" /><span>天（超期自动删除，记录保留）</span></label>
+        <label class="inline-field">用量检查每<input id="setCheckDays" class="num" type="number" min="1" /><span>天一次，达到</span>
+          <input id="setAlertPct" class="num" type="number" min="1" max="100" /><span>% 时站内提醒我</span></label>
+        <div class="t-meta" style="margin:-4px 0 10px">说明：系统每 6 小时自动清理一次超期图片（充值截图、订单附件、客服聊天图片），只删图片本身，充值/订单记录仍保留。免费版数据库 500MB、存储 1GB、带宽 5GB/月。</div>
+
         <div class="free-rule-title">风控与激励</div>
         <label class="inline-field">下单限流<input id="setOrderRate" class="num" type="number" min="0" /><span>单/分钟（0=不限）</span></label>
         <label class="inline-field">每日下单上限<input id="setOrderDaily" class="num" type="number" min="0" /><span>单/24h（0=不限）</span></label>
@@ -1427,7 +1434,7 @@
       else if (v === 'msgAdmin') loadAdminMessages();
       else if (v === 'cs') loadConversations();
       else if (v === 'pay') loadRecharges();
-      else if (v === 'tasks') { loadAdminTasks(); loadDashboard(); }
+      else if (v === 'tasks') { loadAdminTasks(); loadDashboard(); if (typeof loadUsageOnDash === 'function') loadUsageOnDash(); }
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
       else if (v === 'ann') loadAnnouncementsAdmin();
       else if (v === 'old') loadOldFrame();
@@ -3858,6 +3865,7 @@
       if (res.ok) { inp.value = ''; loadPresets(); } else alert(res.msg || '保存失败');
     });
 
+    let loadUsageOnDash = null;
     // ==================== 经营看板（管理员） ====================
     async function loadDashboard() {
       const g = $('dashGrid'); if (!g) return;
@@ -3878,7 +3886,22 @@
         cell('累计用户', intFmt(res.totalUsers)) +
         cell('累计订单', intFmt(res.totalOrders));
     }
-    $('dashRefreshBtn').addEventListener('click', loadDashboard);
+    async function loadUsage() {
+      const bar = $('usageBar'); if (!bar) return;
+      const res = await api('admin/usage', {}, true);
+      if (!res.ok) return;
+      const mb = (b) => (Number(b || 0) / 1024 / 1024).toFixed(1) + 'MB';
+      const cls = (p) => p >= 80 ? 'warn' : (p >= 60 ? 'mid' : 'ok');
+      bar.style.display = '';
+      bar.innerHTML =
+        '<span class="ub-item ' + cls(res.dbPct) + '">数据库 <b>' + mb(res.dbBytes) + '</b> / 500MB（' + res.dbPct + '%）</span>' +
+        '<span class="ub-item ' + cls(res.stPct) + '">文件存储 <b>' + mb(res.storageBytes) + '</b> / 1GB（' + res.stPct + '%）</span>' +
+        '<span class="ub-item ok">图片保留 ' + res.retentionDays + ' 天</span>' +
+        '<span class="ub-item">上次清理：' + (res.lastClean ? fmtTime(res.lastClean) : '待执行') + '</span>' +
+        (res.dbPct >= 80 || res.stPct >= 80 ? '<span class="ub-item warn">⚠️ 已接近上限，建议清理或升级</span>' : '');
+    }
+    $('dashRefreshBtn').addEventListener('click', () => { loadDashboard(); loadUsage(); });
+    loadUsageOnDash = loadUsage;
     $('bulkRejectBtn').addEventListener('click', async () => {
       const nl = String.fromCharCode(10);
       if (!confirm('将自动关闭所有「账户余额不足」的待审核订单？' + nl + nl +
@@ -4062,6 +4085,11 @@
         $('setFreePaidWeek').value = (s.free_paid_per_week != null ? s.free_paid_per_week : 0);
         $('setFreeMonth').value = (s.free_month_max != null ? s.free_month_max : 30);
         $('setFreeQuota').value = (s.free_daily_quota != null ? s.free_daily_quota : 0);
+        if ($('setRetention')) {
+          $('setRetention').value = (s.file_retention_days != null ? s.file_retention_days : 30);
+          $('setCheckDays').value = (s.usage_check_days != null ? s.usage_check_days : 3);
+          $('setAlertPct').value = (s.usage_alert_percent != null ? s.usage_alert_percent : 80);
+        }
         if ($('setOrderRate')) {
           $('setOrderRate').value = (s.order_rate_limit != null ? s.order_rate_limit : 5);
           $('setOrderDaily').value = (s.order_daily_limit != null ? s.order_daily_limit : 50);
@@ -4103,6 +4131,9 @@
         freePaidPerWeek: $('setFreePaidWeek') ? $('setFreePaidWeek').value : undefined,
         freeMonthMax: $('setFreeMonth') ? $('setFreeMonth').value : undefined,
         freeDailyQuota: $('setFreeQuota') ? $('setFreeQuota').value : undefined,
+        fileRetentionDays: $('setRetention') ? $('setRetention').value : undefined,
+        usageCheckDays: $('setCheckDays') ? $('setCheckDays').value : undefined,
+        usageAlertPercent: $('setAlertPct') ? $('setAlertPct').value : undefined,
         orderRateLimit: $('setOrderRate') ? $('setOrderRate').value : undefined,
         orderDailyLimit: $('setOrderDaily') ? $('setOrderDaily').value : undefined,
         loginFailLimit: $('setLoginFail') ? $('setLoginFail').value : undefined,
