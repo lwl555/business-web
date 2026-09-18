@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=35" />
+  <link rel="stylesheet" href="css/style.css?v=36" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -549,6 +549,7 @@
       <div class="t-meta" style="margin-bottom:10px">选择商品直接下单，价格按你的账号等级显示（当前：<b id="shopTier">—</b>）。下单后由管理员审核处理。</div>
       <div class="shop-sources" id="shopSources"></div>
       <div class="shop-toolbar">
+        <select id="shopCatSel" class="shop-catsel"><option value="">全部分类</option></select>
         <input id="shopSearch" placeholder="搜索商品名称，如：抖音 点赞…" />
         <button class="btn btn-primary btn-sm" id="shopSearchBtn">搜索</button>
         <button class="btn btn-ghost btn-sm" id="shopClearBtn">清空</button>
@@ -2323,6 +2324,7 @@
       if (SHOP_SOURCE === src) return;
       SHOP_SOURCE = src;
       SHOP_CID = ''; SHOP_PARENT = ''; SHOP_KW = ''; SHOP_FREE = false;
+      const cs = $('shopCatSel'); if (cs) cs.value = '';
       const si = $('shopSearch'); if (si) si.value = '';
       SHOP_CATS = [];
       loadShopSources(); loadShopCats(); loadShopProducts(true);
@@ -2338,6 +2340,38 @@
       renderShopCats();
     }
     let SHOP_PARENT = '';   // 当前一级分类
+    function renderShopCatSelect() {
+      const sel = $('shopCatSel'); if (!sel) return;
+      const lv1 = SHOP_CATS.filter(c => !c.parentId);
+      const hasTree = SHOP_CATS.some(c => c.parentId);
+      let html = '<option value="">全部分类（共 ' + intFmt(lv1.reduce((s2, c) => s2 + c.count, 0)) + '）</option>';
+      if (!hasTree) {
+        html += lv1.map(c => '<option value="P:' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '（' + c.count + '）</option>').join('');
+      } else {
+        html += lv1.map(c => {
+          const kids = SHOP_CATS.filter(k => k.parentId === c.id);
+          return '<optgroup label="' + escapeHtml(c.name) + '（' + c.count + '）">' +
+            '<option value="P:' + escapeHtml(c.id) + '">全部' + escapeHtml(c.name) + '</option>' +
+            kids.map(k => '<option value="C:' + escapeHtml(k.id) + '">' + escapeHtml(k.name) + '（' + k.count + '）</option>').join('') +
+            '</optgroup>';
+        }).join('');
+      }
+      sel.innerHTML = html;
+      sel.value = SHOP_CID ? ('C:' + SHOP_CID) : (SHOP_PARENT ? ('P:' + SHOP_PARENT) : '');
+    }
+    function onCatSelectChange() {
+      const v = $('shopCatSel').value;
+      if (!v) { SHOP_PARENT = ''; SHOP_CID = ''; }
+      else if (v.indexOf('P:') === 0) { SHOP_PARENT = v.slice(2); SHOP_CID = ''; }
+      else {
+        const id = v.slice(2);
+        SHOP_CID = id;
+        SHOP_PARENT = ((SHOP_CATS.find(c => c.id === id) || {}).parentId) || '';
+      }
+      renderShopCats();
+      if (SHOP_PARENT) renderShopSubCats();
+      loadShopProducts(true);
+    }
     function renderShopCats() {
       const box = $('shopCats');
       const lv1 = SHOP_CATS.filter(c => !c.parentId);
@@ -2349,6 +2383,7 @@
         renderShopCats(); renderShopSubCats(); loadShopProducts(true);
       }));
       if (hasTree) renderShopSubCats(); else { const sc = $('shopSubCats'); if (sc) sc.style.display = 'none'; }
+      renderShopCatSelect();
     }
     function renderShopSubCats() {
       const box = $('shopSubCats'); if (!box) return;
@@ -2358,9 +2393,10 @@
       box.innerHTML = '<button class="shop-subcat' + (SHOP_CID === '' ? ' active' : '') + '" data-cid="">全部</button>' +
         kids.map(c => '<button class="shop-subcat' + (SHOP_CID === c.id ? ' active' : '') + '" data-cid="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + ' <i>' + c.count + '</i></button>').join('');
       box.querySelectorAll('.shop-subcat').forEach(b => b.addEventListener('click', () => {
-        SHOP_CID = b.dataset.cid; renderShopSubCats(); loadShopProducts(true);
+        SHOP_CID = b.dataset.cid; renderShopSubCats(); renderShopCatSelect(); loadShopProducts(true);
       }));
     }
+    if ($('shopCatSel')) $('shopCatSel').addEventListener('change', onCatSelectChange);
     function productCardHtml(p) {
       const isFree = Number(p.price) <= 0 && SHOP_SOURCE === 'old';
       const pts = isFree ? 0 : Math.round(Number(p.price) * SHOP_PPY);

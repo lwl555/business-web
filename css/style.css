@@ -1117,6 +1117,18 @@ span.ai-warn { color: #92400e; }
 .shop-src.active i { color: var(--primary); }
 @media (max-width: 640px) { .shop-src { min-width: 0; padding: 9px 12px; font-size: 13px; } }
 
+/* 手机端分类：单行横向滑动，不再堆成一片 */
+@media (max-width: 640px) {
+  .shop-cats, .shop-subcats {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: 6px; margin-bottom: 10px;
+  }
+  .shop-cats::-webkit-scrollbar, .shop-subcats::-webkit-scrollbar { display: none; height: 0; }
+  .shop-cats .shop-cat, .shop-subcats .shop-subcat { flex: 0 0 auto; white-space: nowrap; }
+  .shop-subcats { max-height: none; padding: 8px 10px; }
+  .shop-sources { gap: 8px; margin-bottom: 10px; }
+}
+
 
 /* ---------- 二级分类 ---------- */
 .shop-subcats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 10px;
@@ -1127,6 +1139,12 @@ span.ai-warn { color: #92400e; }
 .shop-subcat:hover { border-color: var(--primary); color: var(--primary); }
 .shop-subcat.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .shop-subcat.active i { color: rgba(255,255,255,.85); }
+
+
+/* ---------- 分类下拉（手机端首选） ---------- */
+.shop-catsel { min-width: 168px; max-width: 240px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); font-size: 13px; color: var(--text); }
+@media (max-width: 640px) { .shop-catsel { min-width: 0; width: 100%; } }
 
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
