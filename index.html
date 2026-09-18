@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=37" />
+  <link rel="stylesheet" href="css/style.css?v=38" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -946,6 +946,9 @@
     </div>
   </div>
 
+  <!-- 悬浮充值入口（登录后常驻） -->
+  <button class="float-recharge" id="floatRechargeBtn" style="display:none">💰 充值</button>
+
   <!-- 找不到商品 → 引导手动提交 -->
   <div class="modal" id="cantFindModal" style="display:none">
     <div class="modal-box">
@@ -1470,6 +1473,7 @@
       $('myPoints').textContent = intFmt(res.points);
       const bal = Number(res.balance || 0), gift = Number(res.gift || 0);
       $('myBalance').textContent = '¥' + (bal + gift).toFixed(2);
+      const fr = $('floatRechargeBtn'); if (fr) fr.style.display = (PHONE ? '' : 'none');
       $('myBalanceCash').textContent = bal.toFixed(2);
       $('myBalanceGift').textContent = gift.toFixed(2);
       const btn = $('checkinBtn');
@@ -1822,16 +1826,27 @@
     }
 
     // ==================== 公告（用户端） ====================
+    let ANN_LIST = [], ANN_EXPANDED = false;
+    function annItemHtml(a) {
+      return '<div class="ann"><div class="ann-title"><span class="ann-tag">公告</span>' + escapeHtml(a.title || '平台公告') + '</div>' +
+        (a.content ? '<div class="ann-body">' + escapeHtml(a.content).replace(/\n/g, '<br />') + '</div>' : '') + '</div>';
+    }
+    function renderAnnList() {
+      const box = $('annList');
+      if (!ANN_LIST.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      const shown = ANN_EXPANDED ? ANN_LIST : ANN_LIST.slice(0, 1);
+      box.innerHTML = shown.map(annItemHtml).join('') +
+        (ANN_LIST.length > 1
+          ? ('<button class="ann-more" id="annMoreBtn">' + (ANN_EXPANDED ? '收起公告 ▲' : ('展开全部公告（共 ' + ANN_LIST.length + ' 条）▼')) + '</button>')
+          : '');
+      const b = $('annMoreBtn');
+      if (b) b.addEventListener('click', () => { ANN_EXPANDED = !ANN_EXPANDED; renderAnnList(); });
+    }
     async function loadAnnouncements() {
       const res = await api('announcement/list', {});
-      const box = $('annList');
-      const list = (res.ok && res.announcements) ? res.announcements : [];
-      if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-      box.style.display = '';
-      box.innerHTML = list.slice(0, 3).map(a =>
-        '<div class="ann"><div class="ann-title"><span class="ann-tag">公告</span>' + escapeHtml(a.title || '平台公告') + '</div>' +
-        (a.content ? '<div class="ann-body">' + escapeHtml(a.content).replace(/\n/g, '<br />') + '</div>' : '') + '</div>'
-      ).join('');
+      ANN_LIST = (res.ok && res.announcements) ? res.announcements : [];
+      renderAnnList();
     }
 
     // ==================== 用户管理（管理员） ====================
@@ -2623,6 +2638,19 @@
       return true;
     }
     $('lackClose').addEventListener('click', () => { $('lackModal').style.display = 'none'; });
+    // 悬浮充值：切到工作台并展开充值面板
+    $('floatRechargeBtn').addEventListener('click', () => {
+      if (!PHONE) { switchView('work'); return; }
+      switchView('work');
+      setTimeout(() => {
+        const box = $('rechargeBox');
+        if (!box) return;
+        box.style.display = '';
+        box.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        box.classList.add('cf-flash');
+        setTimeout(() => box.classList.remove('cf-flash'), 2600);
+      }, 280);
+    });
     $('unlockGoCharge').addEventListener('click', () => {
       $('unlockModal').style.display = 'none';
       switchView('work');

@@ -1152,6 +1152,17 @@ span.ai-warn { color: #92400e; }
   background: var(--card); font-size: 13px; color: var(--text); }
 @media (max-width: 640px) { .shop-catsel { min-width: 0; width: 100%; } }
 
+
+/* ---------- 公告折叠 + 悬浮充值 ---------- */
+.ann-more { display: block; width: 100%; margin: 6px 0 0; padding: 8px; border-radius: 8px; border: 1px dashed var(--line);
+  background: #f8fafc; color: var(--primary); font-size: 13px; cursor: pointer; }
+.ann-more:hover { background: #eef4ff; }
+.float-recharge { position: fixed; right: 18px; bottom: 84px; z-index: 60; padding: 11px 18px; border: none; border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 8px 22px rgba(37,99,235,.34); }
+.float-recharge:active { transform: scale(.97); }
+@media (max-width: 640px) { .float-recharge { right: 12px; bottom: 72px; padding: 10px 15px; font-size: 13px; } }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
