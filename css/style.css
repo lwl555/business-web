@@ -1175,6 +1175,13 @@ span.ai-warn { color: #92400e; }
   .hide-sm { display: none; }
 }
 
+
+/* ---------- 充值到账说明 / 催单 ---------- */
+.rc-eta { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.7;
+  background: linear-gradient(90deg, #fff8e6, #fffdf5); border: 1px dashed #fcd9a5; color: #92400e; }
+.rc-urge { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #f8fafc; border: 1px dashed var(--line);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
