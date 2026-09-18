@@ -1117,6 +1117,12 @@ span.ai-warn { color: #92400e; }
 .shop-src.active i { color: var(--primary); }
 @media (max-width: 640px) { .shop-src { min-width: 0; padding: 9px 12px; font-size: 13px; } }
 
+/* 手机端：一级分类标签行隐藏（改用下拉选择，更省地方）；二级标签保留可横滑 */
+@media (max-width: 640px) {
+  .shop-cats { display: none !important; }
+  .shop-subcats { margin-top: 2px; }
+}
+
 /* 手机端分类：单行横向滑动，不再堆成一片 */
 @media (max-width: 640px) {
   .shop-cats, .shop-subcats {
