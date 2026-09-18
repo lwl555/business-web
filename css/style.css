@@ -1234,6 +1234,35 @@ span.ai-warn { color: #92400e; }
 .upload-pick:active { background: #f1f5f9; }
 .upload-pick input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
+
+/* ---------- AI 定价分析 ---------- */
+.ai-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 10px 0;
+  padding: 10px 12px; border-radius: 10px; background: #f8fafc; border: 1px dashed var(--line); }
+.ai-controls .inline-field { margin: 0; }
+.ai-controls select, .ai-controls input { max-width: 170px; }
+.ai-stats { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0 0 10px; padding: 10px 12px;
+  border-radius: 10px; background: #fffdf5; border: 1px dashed #fcd9a5; font-size: 12.5px; color: #92400e; }
+.ai-stat b { font-size: 14px; }
+.ai-stat.bad b { color: #b91c1c; }
+.ai-stat.warn b { color: #b45309; }
+.ai-stat.ok b { color: #046c4e; }
+.ai-bigflag { font-size: 11.5px; padding: 1px 7px; border-radius: 20px; background: #fee2e2; color: #b91c1c; font-weight: 600; }
+.ai-row.ai-nopeer { border-left-color: #64748b; background: #f8fafc; }
+.ai-nopeer .ai-verdict { background: #e2e8f0; color: #475569; }
+.ai-row.ai-loss { border-left-color: #b91c1c; background: #fef2f2; }
+.ai-row.ai-thin { border-left-color: #ea580c; background: #fff7ed; }
+.ai-row.ai-nocost { border-left-color: #94a3b8; background: #f8fafc; }
+.ai-loss .ai-verdict { background: #fee2e2; color: #b91c1c; font-weight: 600; }
+.ai-thin .ai-verdict { background: #ffedd5; color: #c2410c; }
+.ai-nocost .ai-verdict { background: #e2e8f0; color: #475569; }
+.ai-nocost { color: #94a3b8; }
+.ai-list .ai-row { margin-bottom: 8px; }
+.ai-list { max-height: 56vh; overflow-y: auto; padding-right: 4px; }
+@media (max-width: 640px) {
+  .ai-controls select, .ai-controls input { max-width: none; width: 100%; }
+  .ai-list { max-height: 62vh; }
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }

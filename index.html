@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=45" />
+  <link rel="stylesheet" href="css/style.css?v=46" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -470,6 +470,13 @@
           <input id="setAlertPct" class="num" type="number" min="1" max="100" /><span>% 时站内提醒我</span></label>
         <div class="t-meta" style="margin:-4px 0 10px">说明：系统每 6 小时自动清理一次超期图片（充值截图、订单附件、客服聊天图片），只删图片本身，充值/订单记录仍保留。免费版数据库 500MB、存储 1GB、带宽 5GB/月。</div>
 
+        <div class="free-rule-title">AI 定价分析</div>
+        <label class="inline-field">目标毛利率<input id="setAiMargin" class="num" type="number" min="0" step="1" /><span>%（建议价至少要达到这个毛利）</span></label>
+        <label class="inline-field">低毛利警戒线<input id="setAiMinMargin" class="num" type="number" min="0" step="1" /><span>%（低于此值标为「毛利过薄」）</span></label>
+        <label class="inline-field">最少同类样本<input id="setAiPeers" class="num" type="number" min="1" step="1" /><span>个（同类少于这个数就不做市场比价，只按成本定价）</span></label>
+        <label class="inline-field">价格离散度上限<input id="setAiSpread" class="num" type="number" min="1" step="0.5" /><span>倍（同类最高价÷最低价超过这个倍数，说明分类里商品差异太大、中位数没有代表性，此时也不做市场比价）</span></label>
+        <div class="t-meta" style="margin:-4px 0 10px">说明：AI 建议价 = 「同来源同分类的市场价」与「进货价 ×(1+目标毛利率)」取高者 —— 既跟得上市场，又不会亏本卖。进货价由聚惠星选同步自动写入；旧平台商品可在商品编辑里手工填「进货价」后启用利润分析。</div>
+
         <div class="free-rule-title">风控与激励</div>
         <label class="inline-field">下单限流<input id="setOrderRate" class="num" type="number" min="0" /><span>单/分钟（0=不限）</span></label>
         <label class="inline-field">每日下单上限<input id="setOrderDaily" class="num" type="number" min="0" /><span>单/24h（0=不限）</span></label>
@@ -893,6 +900,10 @@
         <div class="field"><label>稳定走量档价</label><input id="pmPA" class="num" type="number" step="0.01" min="0" /></div>
         <div class="field"><label>大客户底价档价</label><input id="pmPS" class="num" type="number" step="0.01" min="0" /></div>
       </div>
+      <div class="row2">
+        <div class="field"><label>进货价 / 成本（选填，用于 AI 定价分析算毛利）</label><input id="pmCost" class="num" type="number" step="0.01" min="0" placeholder="聚惠星选商品同步时自动带入" /></div>
+        <div class="field"><label>毛利（自动计算）</label><input id="pmMargin" readonly placeholder="填写进货价后自动显示" /></div>
+      </div>
       <div class="field"><label>输入项名称（用户下单需填写，如「主页链接」；留空则不需要）</label><input id="pmInput" /></div>
       <div class="field"><label>商品说明（选填）</label><textarea id="pmDesc"></textarea></div>
       <div class="field"><label>下单提示（选填，用户下单时展示）</label><input id="pmAlert" /></div>
@@ -943,13 +954,27 @@
   <div class="modal" id="aiPriceModal" style="display:none">
     <div class="modal-box wide">
       <div class="modal-title">🤖 AI 智能定价分析</div>
-      <div class="t-meta" id="aiMeta">基于同分类商品价格分布（P25 / 中位数 / P75）与销量表现，对每个商品给出建议价位与偏离判定。</div>
-      <div class="t-meta" id="aiSummary" style="margin:8px 0"></div>
-      <div class="ai-list" id="aiList"><div class="loading">点击下方按钮开始分析…</div></div>
+      <div class="t-meta">双维度诊断：① 与<b>同来源、同分类</b>商品比价（P25 / 中位 / P75）② 按<b>进货价</b>算真实毛利。亏本、毛利过薄的排在前面。</div>
+      <div class="ai-controls">
+        <label class="inline-field">来源<select id="aiSource" class="num"><option value="">全部来源</option></select></label>
+        <label class="inline-field">分类<select id="aiCid" class="num"><option value="">全部分类</option></select></label>
+        <label class="inline-field">目标毛利率<input id="aiMargin" class="num" type="number" min="0" step="1" /><span>%</span></label>
+        <label class="inline-field">只显示<select id="aiOnly" class="num">
+          <option value="attention">需处理的（默认）</option>
+          <option value="loss">只看亏本的</option>
+          <option value="thin">亏本 + 毛利过薄</option>
+          <option value="profit">与建议价不同的</option>
+          <option value="all">全部商品</option>
+        </select></label>
+        <label class="inline-field">关键词<input id="aiKw" style="width:130px" placeholder="商品名（选填）" /></label>
+        <label class="chk inline-field"><input type="checkbox" id="aiLock" /> 采纳后锁定价格（同步不覆盖）</label>
+      </div>
+      <div class="ai-stats" id="aiStats" style="display:none"></div>
+      <div class="ai-list" id="aiList"><div class="loading">设置好条件后点「开始分析」…</div></div>
       <div class="msg" id="aiMsg"></div>
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="aiRun">开始分析</button>
-        <button class="btn btn-green btn-sm" id="aiAdoptAll" style="display:none">采纳本页全部偏离项建议价</button>
+        <button class="btn btn-green btn-sm" id="aiAdoptAll" style="display:none">一键采纳</button>
         <button class="btn btn-ghost btn-sm" id="aiClose">关闭</button>
       </div>
     </div>
@@ -3210,6 +3235,16 @@
       if (res.ok) { const row = btn.closest('.ap-row'); if (row) row.remove(); const ap = $('apTotal'); }
       else alert(res.msg || '删除失败');
     }
+    // 毛利率实时预览（填了进货价才算）
+    function updatePmMargin() {
+      const el = $('pmMargin'); if (!el) return;
+      const cost = Number($('pmCost').value) || 0;
+      const pu = Number($('pmPU').value) || 0;
+      if (!(cost > 0) || !(pu > 0)) { el.value = ''; el.placeholder = '填写进货价后自动显示'; return; }
+      const m = ((pu - cost) / cost) * 100;
+      el.value = m.toFixed(1) + '%' + (m < 0 ? '（亏本！）' : m < 10 ? '（毛利过薄）' : '');
+    }
+    ['pmCost', 'pmPU'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', updatePmMargin); });
     function editProduct(id) {
       const p = AP_LIST.find(x => x.id === id);
       if (!p) return;
@@ -3218,6 +3253,7 @@
       $('pmName').value = p.name; $('pmSpec').value = p.spec || ''; $('pmInput').value = p.input || '';
       $('pmCat').value = p.cid;
       $('pmPU').value = Number(p.price_user); $('pmPA').value = Number(p.price_agent); $('pmPS').value = Number(p.price_senior);
+      if ($('pmCost')) { $('pmCost').value = (Number(p.cost) > 0 ? Number(p.cost) : ''); updatePmMargin(); }
       $('pmDesc').value = p.desc_text || ''; $('pmAlert').value = p.alert || '';
       $('pmActive').checked = !!p.active;
       $('pmMsg').className = 'msg'; $('pmMsg').textContent = '';
@@ -3228,6 +3264,7 @@
       $('pmTitle').textContent = '新增商品';
       ['pmName', 'pmSpec', 'pmInput', 'pmDesc', 'pmAlert'].forEach(i => $(i).value = '');
       $('pmPU').value = ''; $('pmPA').value = ''; $('pmPS').value = '';
+      if ($('pmCost')) { $('pmCost').value = ''; updatePmMargin(); }
       $('pmActive').checked = true;
       if (AP_CATS[0]) $('pmCat').value = AP_CATS[0].id;
       $('pmMsg').className = 'msg'; $('pmMsg').textContent = '';
@@ -3244,6 +3281,7 @@
         priceUser: Number($('pmPU').value) || 0,
         priceAgent: Number($('pmPA').value) || 0,
         priceSenior: Number($('pmPS').value) || 0,
+        cost: $('pmCost') ? $('pmCost').value : undefined,
         desc: $('pmDesc').value.trim(),
         alert: $('pmAlert').value.trim(),
         active: $('pmActive').checked,
@@ -3311,63 +3349,189 @@
       } else { msg.className = 'msg err'; msg.textContent = res.msg || '执行失败'; }
     }
 
-    let AI_ITEMS = [];
+    // 每次渲染多少行（几千条一次性渲染会卡死浏览器）
+    const AI_PAGE = 60;
+
+    function aiColors(lv) {
+      return ({
+        loss: { tag: '亏本', cls: 'ai-loss' },
+        thin: { tag: '毛利过薄', cls: 'ai-thin' },
+        bad: { tag: '明显偏离', cls: 'ai-bad' },
+        warn: { tag: '轻度偏离', cls: 'ai-warn' },
+        nopeer: { tag: '样本不足', cls: 'ai-nopeer' },
+        nocost: { tag: '缺进货价', cls: 'ai-nocost' },
+        info: { tag: '免费品', cls: 'ai-info' },
+        ok: { tag: '合理', cls: 'ai-ok' },
+      })[lv] || { tag: '合理', cls: 'ai-ok' };
+    }
+
+    // 分类下拉：一级为分组，二级为选项
+    function fillAiCats() {
+      const sel = $('aiCid'); if (!sel) return;
+      const tops = (AP_CATS || []).filter(c => !c.parentId);
+      const kids = (AP_CATS || []).filter(c => c.parentId);
+      sel.innerHTML = '<option value="">全部分类</option>' + tops.map(t => {
+        const sub = kids.filter(k => k.parentId === t.id);
+        if (!sub.length) return '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.name) + '</option>';
+        return '<optgroup label="' + escapeHtml(t.name) + '">' +
+          '<option value="' + escapeHtml(t.id) + '">全部「' + escapeHtml(t.name) + '」</option>' +
+          sub.map(k => '<option value="' + escapeHtml(k.id) + '">　' + escapeHtml(k.name) + '</option>').join('') +
+          '</optgroup>';
+      }).join('');
+    }
+    // 来源下拉：跟随商品列表的来源选项
+    function fillAiSources() {
+      const src = $('apSrc'), sel = $('aiSource');
+      if (!src || !sel) return;
+      sel.innerHTML = Array.from(src.options).map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.textContent) + '</option>').join('');
+      sel.value = src.value || '';
+    }
+
+    let AI_ITEMS = [], AI_STATS = null, AI_CTX = {}, AI_RENDERED = 0;
+
     async function runAiPrice() {
-      const box = $('aiList'); box.innerHTML = '<div class="loading">🤖 AI 分析中，正在比对同分类价格分布与销量…</div>';
-      $('aiSummary').textContent = ''; $('aiAdoptAll').style.display = 'none';
-      const res = await api('admin/products/ai-price', { cid: AP_CID }, true);
+      const box = $('aiList');
+      const source = $('aiSource') ? $('aiSource').value : '';
+      const cid = $('aiCid') ? $('aiCid').value : '';
+      const kw = $('aiKw') ? $('aiKw').value.trim() : '';
+      const only = $('aiOnly') ? $('aiOnly').value : 'attention';
+      const margin = $('aiMargin') ? Number($('aiMargin').value) : '';
+      AI_CTX = { source, cid, kw, only, margin };
+      $('aiStats').style.display = 'none';
+      $('aiAdoptAll').style.display = 'none';
+      $('aiMsg').className = 'msg'; $('aiMsg').textContent = '';
+      box.innerHTML = '<div class="loading">🤖 正在逐批扫描商品并计算毛利…（全库数千个商品，请稍候）</div>';
+      const btn = $('aiRun'); btn.disabled = true;
+      const res = await api('admin/products/ai-price', { source, cid, kw, only, margin }, true);
+      btn.disabled = false;
       if (!res.ok) { box.innerHTML = '<div class="empty">' + escapeHtml(res.msg || '分析失败') + '</div>'; return; }
       AI_ITEMS = res.items || [];
-      const bad = AI_ITEMS.filter(x => x.level === 'bad').length;
-      const warn = AI_ITEMS.filter(x => x.level === 'warn').length;
-      $('aiSummary').innerHTML = '共分析 <b>' + intFmt(AI_ITEMS.length) + '</b> 个商品' + (AP_CID ? '（当前分类）' : '（全站在售）') +
-        ' · 三档平均比例：代理 ×' + res.ratioAgent + '、高级 ×' + res.ratioSenior +
-        ' · <b class="ai-bad">' + bad + '</b> 个明显偏离、<b class="ai-warn">' + warn + '</b> 个轻度偏离（偏离项已排在最前）';
+      AI_STATS = res.stats || {};
+      renderAiStats(res);
       renderAiItems();
-      $('aiAdoptAll').style.display = (bad + warn) > 0 ? '' : 'none';
     }
+
+    function renderAiStats(res) {
+      const st = AI_STATS || {};
+      const pct = (v) => (v == null ? '—' : v + '%');
+      const cell = (label, val, cls) => '<span class="ai-stat' + (cls ? ' ' + cls : '') + '">' + label + ' <b>' + val + '</b></span>';
+      const parts = [
+        cell('已扫描', intFmt(st.scanned || 0)),
+        cell('需处理', intFmt(st.needAction || 0), (st.needAction ? 'warn' : 'ok')),
+        cell('亏本', intFmt(st.loss || 0), (st.loss ? 'bad' : 'ok')),
+        cell('毛利过薄', intFmt(st.thin || 0), (st.thin ? 'warn' : 'ok')),
+        cell('明显偏离', intFmt(st.bad || 0), (st.bad ? 'warn' : 'ok')),
+        cell('平均毛利', pct(st.avgMargin)),
+        cell('目标毛利', (res.targetMargin != null ? res.targetMargin : '—') + '%'),
+        cell('样本不足', intFmt(st.nopeer || 0), (st.nopeer ? 'warn' : 'ok')),
+        cell('变动超3倍', intFmt(st.bigChange || 0), (st.bigChange ? 'bad' : 'ok')),
+        cell('有进货价', intFmt(st.withCost || 0) + ' / ' + intFmt(st.total || 0)),
+      ];
+      if (st.lossAmount > 0) parts.push(cell('亏本单累计多亏', '¥' + st.lossAmount, 'bad'));
+      if (st.locked) parts.push(cell('已锁价', intFmt(st.locked)));
+      $('aiStats').style.display = '';
+      $('aiStats').innerHTML = parts.join('') +
+        '<div class="t-meta" style="width:100%;margin:4px 0 0">' +
+        (AI_CTX.cid ? '（已限定分类）' : '（全部分类）') +
+        (AI_CTX.kw ? '（关键词：' + escapeHtml(AI_CTX.kw) + '）' : '') +
+        ' 建议价 = 市场价与「进货价 ×(1+目标毛利)」取高，保证不亏本' +
+        (res.minPeers ? '；同类少于 ' + res.minPeers + ' 个、或同类价差超过 ' + (res.maxSpread || 4) + ' 倍时，不做市场比价（防误导）' : '') + '</div>';
+      const n = AI_ITEMS.length;
+      $('aiAdoptAll').style.display = n ? '' : 'none';
+      $('aiAdoptAll').textContent = '一键采纳 ' + n + ' 个商品的建议价';
+    }
+
     function aiRowHtml(x, idx) {
-      const lvCls = ({ bad: 'ai-bad', warn: 'ai-warn', ok: 'ai-ok', info: 'ai-info' })[x.level] || 'ai-ok';
-      return '<div class="ai-row ' + lvCls + '">' +
-        '<div class="ai-name">' + escapeHtml(x.name) + (x.sales ? ' <span class="t-meta">已售 ' + intFmt(x.sales) + '</span>' : '') + '</div>' +
+      const c = aiColors(x.level);
+      const marginTxt = (x.marginPct == null)
+        ? '<span class="ai-nocost">毛利未知</span>'
+        : '<span class="' + (x.marginPct < 0 ? 'ai-bad' : x.marginPct < 10 ? 'ai-warn' : 'ai-ok') + '">毛利 ' + x.marginPct + '%</span>';
+      const chg = x.changePct > 0 ? ('+' + x.changePct + '%') : (x.changePct + '%');
+      const chgCls = x.changePct > 0 ? 'ai-ok' : (x.changePct < 0 ? 'ai-bad' : '');
+      return '<div class="ai-row ' + c.cls + '">' +
+        '<div class="ai-name">' + escapeHtml(x.name) +
+          (x.sales ? ' <span class="t-meta">已售 ' + intFmt(x.sales) + '</span>' : '') +
+          (x.locked ? ' <span class="t-meta">🔒 已锁价</span>' : '') +
+          (x.bigChange ? ' <span class="ai-bigflag">⚠️ 变动超 3 倍，批量采纳会跳过</span>' : '') +
+        '</div>' +
         '<div class="ai-nums">' +
-          '<span>当前 <b>¥' + x.priceUser + '</b></span>' +
-          '<span>同类中位 ¥' + x.catMedian + '</span>' +
-          '<span>合理区间 ¥' + x.rangeLow + ' ~ ' + x.rangeHigh + '</span>' +
-          '<span>建议 <b>¥' + x.suggest + '</b>（代理 ¥' + x.suggestAgent + ' / 高级 ¥' + x.suggestSenior + '）</span>' +
+          (x.cost > 0 ? '<span>进货 ¥' + x.cost + '</span>' : '<span class="ai-nocost">无进货价</span>') +
+          '<span>现价 <b>¥' + x.priceUser + '</b></span>' +
+          '<span>' + marginTxt + '</span>' +
+          (x.breakEven > 0 ? '<span>保本 ¥' + x.breakEven + '</span>' : '') +
+          '<span>同类 ' + (x.rangeLow === x.rangeHigh ? ('¥' + x.catMedian) : ('¥' + x.rangeLow + ' ~ ' + x.rangeHigh)) + '（' + intFmt(x.peerN) + ' 个同类）</span>' +
+          '<span>建议 <b>¥' + x.suggest + '</b> <span class="' + chgCls + '">(' + chg + ')</span></span>' +
           '<span class="ai-verdict">' + escapeHtml(x.verdict) + '</span>' +
         '</div>' +
         '<div class="ai-ops">' +
-          ((x.level === 'ok' || x.level === 'info') ? '' : '<button class="btn btn-primary btn-sm" onclick="adoptAi(' + idx + ',this)">采纳建议价</button>') +
+          ((x.level !== 'info' && x.level !== 'ok') ? '<button class="btn btn-primary btn-sm" onclick="adoptAi(' + idx + ',this)">采纳 ¥' + x.suggest + '</button>' : '') +
         '</div>' +
       '</div>';
     }
+
     function renderAiItems() {
-      $('aiList').innerHTML = AI_ITEMS.length ? AI_ITEMS.map(aiRowHtml).join('') : '<div class="empty">没有商品</div>';
+      if (!AI_ITEMS.length) {
+        $('aiList').innerHTML = '<div class="empty">当前条件下没有商品（换个筛选条件试试）</div>';
+        return;
+      }
+      AI_RENDERED = Math.min(AI_PAGE, AI_ITEMS.length);
+      $('aiList').innerHTML = AI_ITEMS.slice(0, AI_RENDERED).map(aiRowHtml).join('') +
+        (AI_ITEMS.length > AI_RENDERED
+          ? '<button class="btn btn-ghost btn-sm" id="aiMore" style="width:100%">显示更多（还有 ' + intFmt(AI_ITEMS.length - AI_RENDERED) + ' 个）</button>'
+          : '');
+      if ($('aiMore')) $('aiMore').addEventListener('click', () => {
+        const add = AI_ITEMS.slice(AI_RENDERED, AI_RENDERED + AI_PAGE);
+        AI_RENDERED += add.length;
+        const btn = $('aiMore');
+        btn.insertAdjacentHTML('beforebegin', add.map((x, i) => aiRowHtml(x, AI_RENDERED - add.length + i)).join(''));
+        if (AI_RENDERED >= AI_ITEMS.length) btn.remove();
+        else btn.textContent = '显示更多（还有 ' + intFmt(AI_ITEMS.length - AI_RENDERED) + ' 个）';
+      });
     }
+
+    function aiLockChecked() { return $('aiLock') && $('aiLock').checked; }
+
     async function adoptAi(idx, btn) {
       const x = AI_ITEMS[idx];
-      if (!x || !x.adopt) return;
-      const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior, lockPrice: true }, true);
-      if (res.ok) {
-        x.priceUser = x.suggest; x.level = 'ok'; x.verdict = '已采纳建议价';
-        const row = btn.closest('.ai-row');
-        if (row) { row.className = 'ai-row ai-ok'; btn.remove(); const v = row.querySelector('.ai-verdict'); if (v) v.textContent = '已采纳建议价'; }
-        loadApList(false);
-      } else alert(res.msg || '采纳失败');
-    }
-    async function adoptAiAll() {
-      const targets = AI_ITEMS.filter(x => x.level === 'bad' || x.level === 'warn');
-      if (!targets.length) return;
-      if (!confirm('将按 AI 建议价更新 ' + targets.length + ' 个商品的三档价格（规格/说明等保持不变），确认执行？')) return;
-      let done = 0, fail = 0;
-      for (const x of targets) {
-        const res = await api('admin/product/save', { id: x.id, ...x.adopt, priceUser: x.suggest, priceAgent: x.suggestAgent, priceSenior: x.suggestSenior, lockPrice: true }, true);
-        if (res.ok) done++; else fail++;
+      if (!x) return;
+      if (x.bigChange && !confirm('这个商品的建议价与现价相差超过 3 倍：' + String.fromCharCode(10) +
+        '现价 ¥' + x.priceUser + ' → 建议 ¥' + x.suggest + '（' + (x.changePct > 0 ? '+' : '') + x.changePct + '%）' + String.fromCharCode(10, 10) +
+        '通常说明源头数据异常或商品不同质，建议先去商品管理核对。确定要改吗？')) return;
+      btn.disabled = true; btn.textContent = '处理中…';
+      const res = await api('admin/products/ai-price/apply', { ids: [x.id], only: 'ids', lock: aiLockChecked() }, true);
+      if (!res.ok) { btn.disabled = false; btn.textContent = '重试'; alert(res.msg || '采纳失败'); return; }
+      x.priceUser = x.suggest; x.marginPct = x.suggestMarginPct; x.changePct = 0;
+      x.level = 'ok'; x.verdict = '已采纳建议价' + (aiLockChecked() ? '（已锁价）' : '');
+      x.locked = aiLockChecked(); x.needAction = false;
+      const row = btn.closest('.ai-row');
+      if (row) {
+        row.className = 'ai-row ai-ok';
+        const v = row.querySelector('.ai-verdict'); if (v) v.textContent = x.verdict;
+        btn.remove();
       }
-      alert('采纳完成：成功 ' + done + ' 个' + (fail ? '，失败 ' + fail + ' 个' : ''));
-      runAiPrice();
+      loadApList(false);
+    }
+
+    async function adoptAiAll() {
+      const n = AI_ITEMS.length;
+      if (!n) return;
+      const lockTxt = aiLockChecked() ? '\n· 采纳后自动锁定价格（旧平台/聚惠星选同步不会覆盖）' : '';
+      if (!confirm('将按 AI 建议价调整 ' + n + ' 个商品的三档价格。' + String.fromCharCode(10) +
+        '· 范围：' + (AI_CTX.cid ? '当前分类' : '全部分类') + (AI_CTX.source ? ' / 当前来源' : '') + (AI_CTX.kw ? (' / 关键词 ' + AI_CTX.kw) : '') +
+        String.fromCharCode(10) + '· 口径：' + $('aiOnly').selectedOptions[0].textContent + lockTxt +
+        String.fromCharCode(10, 10) + '价格立即生效，确认执行？')) return;
+      const btn = $('aiAdoptAll'); btn.disabled = true;
+      const old = btn.textContent; btn.textContent = '正在批量调整…';
+      const res = await api('admin/products/ai-price/apply', {
+        source: AI_CTX.source, cid: AI_CTX.cid, kw: AI_CTX.kw, only: AI_CTX.only, margin: AI_CTX.margin, lock: aiLockChecked(),
+      }, true);
+      btn.disabled = false; btn.textContent = old;
+      if (!res.ok) { alert(res.msg || '批量采纳失败'); return; }
+      alert('已调整 ' + (res.count || 0) + ' 个商品的价格' + (res.lock ? '（并已锁定）' : '') + (res.scanned ? '（扫描 ' + res.scanned + ' 个）' : '') +
+        (res.skippedBig ? (String.fromCharCode(10, 10) + '⚠️ 另有 ' + res.skippedBig + ' 个商品建议价变动超过 3 倍（可能源头数据异常），已自动跳过，请到列表里逐个确认。') : '') +
+        (res.msg ? (String.fromCharCode(10) + res.msg) : ''));
       loadApList(true);
+      runAiPrice();
     }
 
     // ==================== 批量移动分类 ====================
@@ -3686,7 +3850,16 @@
     });
     $('bpRun').addEventListener('click', runBatchPrice);
     $('bpClose').addEventListener('click', () => $('batchPriceModal').style.display = 'none');
-    $('apAiBtn').addEventListener('click', () => { $('aiPriceModal').style.display = 'flex'; });
+    $('apAiBtn').addEventListener('click', () => {
+      fillAiSources(); fillAiCats();
+      if ($('aiMargin') && !$('aiMargin').value) $('aiMargin').value = ($('setAiMargin') && $('setAiMargin').value) ? $('setAiMargin').value : 30;
+      if ($('aiCid') && AP_CID) $('aiCid').value = AP_CID;
+      $('aiPriceModal').style.display = 'flex';
+    });
+    // 在弹窗里改条件后自动重跑（体验更顺）
+    ['aiSource', 'aiCid', 'aiOnly'].forEach(id => {
+      const el = $(id); if (el) el.addEventListener('change', () => { if (AI_STATS) runAiPrice(); });
+    });
     $('aiRun').addEventListener('click', runAiPrice);
     $('aiAdoptAll').addEventListener('click', adoptAiAll);
     $('aiClose').addEventListener('click', () => $('aiPriceModal').style.display = 'none');
@@ -4111,6 +4284,12 @@
           $('setRcSvc').value = (s.recharge_service_time || '9:00-23:00');
           $('setRcAdmin').value = (s.admin_notify_phone || '');
         }
+        if ($('setAiMargin')) {
+          $('setAiMargin').value = (s.ai_target_margin != null ? s.ai_target_margin : 30);
+          $('setAiMinMargin').value = (s.ai_min_margin != null ? s.ai_min_margin : 10);
+          $('setAiPeers').value = (s.ai_min_peers != null ? s.ai_min_peers : 5);
+          $('setAiSpread').value = (s.ai_max_spread != null ? s.ai_max_spread : 4);
+        }
         if ($('setQuotaMode')) $('setQuotaMode').value = (s.free_quota_mode === 'custom' ? 'custom' : 'real');
         if ($('setQuotaShowTotal')) $('setQuotaShowTotal').value = (s.free_quota_show_total != null ? s.free_quota_show_total : 0);
         if ($('setQuotaShowLeft')) $('setQuotaShowLeft').value = (s.free_quota_show_left != null ? s.free_quota_show_left : 0);
@@ -4148,6 +4327,10 @@
         checkinStreakPoints: $('setStreakPts') ? $('setStreakPts').value : undefined,
         withdrawMinDays: $('setWdDays') ? $('setWdDays').value : undefined,
         withdrawNeedOrder: $('setWdOrders') ? $('setWdOrders').value : undefined,
+        aiTargetMargin: $('setAiMargin') ? $('setAiMargin').value : undefined,
+        aiMinMargin: $('setAiMinMargin') ? $('setAiMinMargin').value : undefined,
+        aiMinPeers: $('setAiPeers') ? $('setAiPeers').value : undefined,
+        aiMaxSpread: $('setAiSpread') ? $('setAiSpread').value : undefined,
         rechargeEtaMin: $('setRcEta') ? $('setRcEta').value : undefined,
         rechargeServiceTime: $('setRcSvc') ? $('setRcSvc').value : undefined,
         adminNotifyPhone: $('setRcAdmin') ? $('setRcAdmin').value : undefined,
