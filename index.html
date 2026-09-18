@@ -1058,12 +1058,13 @@
       <div class="modal-title">一审通过 · 填写实际扣除金额</div>
       <div class="t-meta" id="rvId"></div>
       <div class="t-meta" id="rvHint"></div>
+      <div class="t-meta" style="color:#b45309">⚠ 系统强制：商品订单的扣除金额不能低于原价（防「差额通过」亏损）；用户余额不足时无法扣除，请拒绝并让用户充值后重下。</div>
       <div class="field">
         <label>业务 / 渠道（管理员指定，用户不可自选）</label>
         <select id="rvChannel"><option value="">不指定（维持原预估）</option></select>
       </div>
       <div class="field">
-        <label>实际扣除金额（元，可任意填写，默认 = 预估）</label>
+        <label>实际扣除金额（元，默认 = 预估；<b>不得低于商品原价</b>）</label>
         <input id="rvAmount" type="number" min="0" step="0.01" placeholder="如 3.50" />
       </div>
       <div class="msg" id="rvMsg"></div>
@@ -1846,6 +1847,9 @@
         return;
       }
       box.innerHTML = tasks.map(t => {
+        const cNeed = Number(t.estimate_amount || 0);
+        const cHave = Number(t.uTotal || 0);
+        const cEnough = cHave + 1e-9 >= cNeed;
         const note = t.progress_note ? '<div class="note">备注：' + escapeHtml(t.progress_note) + '</div>' : '';
         const imgs = Array.isArray(t.images) ? t.images : [];
         const imgHtml = imgs.length ? '<div class="thumbs">' + imgs.map(p => {
@@ -1854,7 +1858,13 @@
         }).join('') + '</div>' : '';
         let actions = '';
         if (adminMode) {
-          if (t.status === 'pending_review') actions = '<button class="btn btn-green btn-sm" onclick="openReview(\'' + t.id + '\')">一审通过</button><button class="btn btn-red btn-sm" onclick="openReject(\'review\',\'' + t.id + '\')">拒绝</button>';
+          if (t.status === 'pending_review') {
+            actions = (cNeed > 0.01 && !cEnough)
+              ? '<button class="btn btn-ghost btn-sm" disabled title="用户余额不足（差 ¥' + Math.max(0, cNeed - cHave).toFixed(2) + '），扣款会失败">一审通过（余额不足）</button>' +
+                '<button class="btn btn-red btn-sm" onclick="openReject(\'review\',\'' + t.id + '\')">拒绝并提醒充值</button>'
+              : '<button class="btn btn-green btn-sm" onclick="openReview(\'' + t.id + '\')">一审通过</button>' +
+                '<button class="btn btn-red btn-sm" onclick="openReject(\'review\',\'' + t.id + '\')">拒绝</button>';
+          }
           else if (t.status === 'approved') actions = '<button class="btn btn-green btn-sm" onclick="confirmR(\'' + t.id + '\',\'confirm\')">标记完成</button><button class="btn btn-red btn-sm" onclick="openReject(\'confirm\',\'' + t.id + '\')">拒绝（退款）</button>';
         } else {
           const days = Number(t.after_sale_days != null ? t.after_sale_days : 7);
