@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=49" />
+  <link rel="stylesheet" href="css/style.css?v=50" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -1220,8 +1220,8 @@
       const box = $('marquee'), wrap = $('mqWrap');
       if (!box || !wrap) return;
       const cfg = MQ_CFG || {};
-      // 管理员看到的是后台界面，字幕是给用户看的，避免干扰
-      if (isAdmin || cfg.enabled === false) { wrap.style.display = 'none'; return; }
+      // 注意：管理员也要能看到（老板要随时确认效果），只按后台开关控制
+      if (cfg.enabled === false) { wrap.style.display = 'none'; return; }
       const items = (cfg.text ? String(cfg.text).split('\n') : MQ_DEFAULT)
         .map(x => String(x).trim()).filter(Boolean).slice(0, 12);
       if (!items.length) { wrap.style.display = 'none'; return; }
