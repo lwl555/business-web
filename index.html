@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=50" />
+  <link rel="stylesheet" href="css/style.css?v=51" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -434,7 +434,15 @@
       <div class="section-title">首页滚动字幕</div>
       <div class="t-meta" style="margin:-4px 0 10px">用户端顶部那条滚动字幕的内容就在这里改，改完保存即可生效（每个页面顶部都会显示）。</div>
         <label class="chk inline-field"><input type="checkbox" id="setMqOn" /> 在用户端显示滚动字幕（每个页面顶部）</label>
-        <label class="inline-field">滚动速度<input id="setMqSpeed" class="num" type="number" min="5" max="300" step="1" /><span>秒/圈（数字越小滚得越快，建议 25~40）</span></label>
+        <label class="inline-field">滚动速度<input id="setMqSpeed" class="num" type="number" min="5" max="300" step="1" /><span>秒/圈（数字越小滚得越快，允许 5~300）</span></label>
+        <div class="mq-speed-presets">
+          <span class="t-meta">快捷设置：</span>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqspeed="15">很快 15 秒</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqspeed="22">较快 22 秒</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqspeed="30">正常 30 秒</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqspeed="45">较慢 45 秒</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqspeed="60">很慢 60 秒</button>
+        </div>
         <div class="field" style="margin:6px 0 4px">
           <label>字幕内容（<b>每行一条</b>，留空则用系统默认文案；建议 3~6 条、每条不超过 25 字）</label>
           <textarea id="setMqText" rows="5" placeholder="🔥 全场 7000+ 商品，每日更新&#10;⏱ 充值一般 2 分钟内到账&#10;🎁 首次充值有赠送"></textarea>
@@ -1257,6 +1265,12 @@
         '<div class="mq-view"><div class="mq-track" style="animation-duration:' + speed + 's">' + half + half + '</div></div></div>';
     }
     ['setMqText', 'setMqSpeed'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', renderMqPreview); });
+    // 速度快捷按钮：一键填入并即时预览
+    document.querySelectorAll('.mq-speed-presets button').forEach(b => b.addEventListener('click', () => {
+      $('setMqSpeed').value = b.dataset.mqspeed;
+      document.querySelectorAll('.mq-speed-presets button').forEach(x => x.classList.toggle('active', x === b));
+      renderMqPreview();
+    }));
     { const el = $('setMqOn'); if (el) el.addEventListener('change', renderMqPreview); }
 
     let MQ_RT = null;
@@ -4464,9 +4478,6 @@
         checkinStreakPoints: $('setStreakPts') ? $('setStreakPts').value : undefined,
         withdrawMinDays: $('setWdDays') ? $('setWdDays').value : undefined,
         withdrawNeedOrder: $('setWdOrders') ? $('setWdOrders').value : undefined,
-        marqueeEnabled: $('setMqOn') ? ($('setMqOn').checked ? '1' : '0') : undefined,
-        marqueeText: $('setMqText') ? $('setMqText').value : undefined,
-        marqueeSpeed: $('setMqSpeed') ? $('setMqSpeed').value : undefined,
         marqueeEnabled: $('setMqOn') ? ($('setMqOn').checked ? '1' : '0') : undefined,
         marqueeText: $('setMqText') ? $('setMqText').value : undefined,
         marqueeSpeed: $('setMqSpeed') ? $('setMqSpeed').value : undefined,

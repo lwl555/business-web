@@ -1299,6 +1299,9 @@ span.ai-warn { color: #92400e; }
 .om-wallet .om-frozen { color: #b45309; }
 .om-wallet .om-avail { color: #046c4e; }
 
+.mq-speed-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 10px; }
+.mq-speed-presets button.active { border-color: var(--primary); color: var(--primary); background: #eef4ff; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
