@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=56" />
+  <link rel="stylesheet" href="css/style.css?v=57" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -417,6 +417,43 @@
     </div>
 
     <!-- ---------- 领券中心（用户端） ---------- -->
+    <div class="view" id="view-offers" style="display:none">
+      <div class="section-title">🎯 任务中心</div>
+      <div class="t-meta" style="margin-bottom:12px">完成下面的任务即可获得<b>积分奖励</b>：按步骤操作后上传截图，管理员审核通过后积分自动到账，<b>下单时可直接抵扣</b>。</div>
+      <div id="offerList" class="coupon-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 弹窗与任务管理（管理员） ---------- -->
+    <div class="view" id="view-ops" style="display:none">
+      <div class="section-title">弹窗与任务管理</div>
+      <div class="t-meta" style="margin-bottom:10px">「首页弹窗」在用户进入工作台时弹出（可叠加多条，按排序依次弹）；「任务」展示在用户端「任务中心」，用户上传截图 → 你在这里审核 → 通过后积分自动到账。</div>
+      <div class="section-title" style="font-size:15px">📥 待审核提交 <span id="opsPendingBadge" class="cp-tag" style="display:none"></span></div>
+      <div class="actions" style="margin-bottom:8px">
+        <select id="opsClaimFilter" class="shop-catsel" style="max-width:150px">
+          <option value="pending">待审核</option>
+          <option value="approved">已通过</option>
+          <option value="rejected">已驳回</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="opsClaimRefresh">刷新</button>
+      </div>
+      <div id="opsClaims" class="coupon-list" style="margin-bottom:18px"><div class="loading">加载中…</div></div>
+
+      <div class="section-title" style="font-size:15px">🎯 活动任务</div>
+      <div class="actions" style="margin-bottom:8px">
+        <button class="btn btn-green btn-sm" id="offerAddBtn">+ 新增任务</button>
+        <button class="btn btn-ghost btn-sm" id="offerRefreshBtn">刷新</button>
+      </div>
+      <div id="offerAdminList" class="coupon-list" style="margin-bottom:18px"><div class="loading">加载中…</div></div>
+
+      <div class="section-title" style="font-size:15px">🏠 首页弹窗</div>
+      <div class="t-meta" style="margin-bottom:8px">弹窗频率：每次进入都弹 / 每天一次 / 只弹一次。按钮可跳转平台内页面（任务中心、领券中心、商品页、充值、邀请）或外部链接。</div>
+      <div class="actions" style="margin-bottom:8px">
+        <button class="btn btn-green btn-sm" id="popAddBtn">+ 新增弹窗</button>
+        <button class="btn btn-ghost btn-sm" id="popRefreshBtn">刷新</button>
+      </div>
+      <div id="popAdminList" class="coupon-list"><div class="loading">加载中…</div></div>
+    </div>
+
     <div class="view" id="view-coupons" style="display:none">
       <div class="section-title">🎟 领券中心</div>
       <div class="t-meta" style="margin-bottom:12px">下面的优惠券都来自官方推广渠道，<b>点「一键领取」会跳转到官方页面</b>领取（在美团 App 内使用）。领券免费，不影响你的余额。</div>
@@ -1141,6 +1178,92 @@
   </div>
 
   <!-- 商品下单弹窗（用户端） -->
+  <div class="modal" id="popModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="popTitle"></div>
+      <img id="popImg" class="pop-img" style="display:none" alt="" />
+      <div class="pop-body" id="popBody"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="popBtn"></button>
+        <button class="btn btn-ghost btn-sm" id="popClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="claimModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="clTitle">提交任务截图</div>
+      <div class="t-meta" id="clMeta" style="white-space:pre-wrap"></div>
+      <div class="field">
+        <label>完成截图（必填）</label>
+        <label class="upload-pick">📷 点击选择完成截图<input type="file" id="clFile" accept="image/*" /></label>
+        <div class="t-meta" id="clUpMsg"></div>
+        <div class="thumb" id="clThumb" style="display:none"><img alt="" /><span class="thumb-ov" style="display:none">上传中…</span></div>
+      </div>
+      <div class="field"><label>补充说明（选填）</label><input id="clNote" placeholder="如：已关注，微信号 xxx" /></div>
+      <div class="msg" id="clMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="clSubmit">提交审核</button>
+        <button class="btn btn-ghost btn-sm" id="clClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="popEditModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="peTitle">编辑弹窗</div>
+      <div class="field"><label>标题（必填）</label><input id="peTitleInput" maxlength="60" /></div>
+      <div class="field"><label>内容</label><textarea id="peBody" rows="4" maxlength="800"></textarea></div>
+      <div class="field"><label>图片地址（选填）</label><input id="peImg" placeholder="https://..." /></div>
+      <div class="field"><label>按钮文字（留空 = 不显示按钮）</label><input id="peBtnText" maxlength="20" placeholder="如：去完成任务" /></div>
+      <div class="field"><label>按钮动作</label>
+        <select id="peBtnAction">
+          <option value="">不跳转</option>
+          <option value="view:offers">打开任务中心</option>
+          <option value="view:coupons">打开领券中心</option>
+          <option value="view:shop">打开商品页</option>
+          <option value="view:wallet">打开钱包/充值</option>
+          <option value="view:invite">打开邀请好友</option>
+          <option value="view:chat">打开在线客服</option>
+          <option value="url:">自定义链接…</option>
+        </select>
+        <input id="peBtnUrl" style="display:none;margin-top:6px" placeholder="https://...（完整链接）" />
+      </div>
+      <div class="field"><label>弹出频率</label>
+        <select id="peFreq">
+          <option value="daily">每天弹一次（推荐）</option>
+          <option value="every">每次进入都弹</option>
+          <option value="once">只弹一次</option>
+        </select>
+      </div>
+      <div class="field"><label>排序（越小越先弹）</label><input id="peSort" class="num" type="number" step="1" /></div>
+      <div class="field"><label class="chk"><input type="checkbox" id="peActive" /> 启用（在用户端显示）</label></div>
+      <div class="msg" id="peMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="peSave">保存</button>
+        <button class="btn btn-ghost btn-sm" id="peClose">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="offerEditModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="oeTitle">编辑任务</div>
+      <div class="field"><label>任务标题（必填）</label><input id="oeTitleInput" maxlength="60" placeholder="如：关注微信公众号领 100 积分" /></div>
+      <div class="field"><label>完成步骤说明</label><textarea id="oeDetail" rows="5" maxlength="1000" placeholder="1. 微信搜索并关注公众号 xxx；&#10;2. 截图关注成功页面；&#10;3. 上传截图等待审核。"></textarea></div>
+      <div class="field"><label>奖励积分</label><input id="oeReward" class="num" type="number" min="0" max="1000000" step="1" /></div>
+      <div class="field"><label class="chk"><input type="checkbox" id="oeNeedProof" checked /> 需要上传截图</label></div>
+      <div class="field"><label class="chk"><input type="checkbox" id="oeOnce" checked /> 每个用户只能完成一次</label></div>
+      <div class="field"><label>排序</label><input id="oeSort" class="num" type="number" step="1" /></div>
+      <div class="field"><label class="chk"><input type="checkbox" id="oeActive" checked /> 启用（在任务中心显示）</label></div>
+      <div class="msg" id="oeMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="oeSave">保存</button>
+        <button class="btn btn-ghost btn-sm" id="oeClose">取消</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="orderModal" style="display:none">
     <div class="modal-box">
       <div class="modal-title" id="omName">商品下单</div>
@@ -1901,6 +2024,7 @@
     // ==================== 应用框架 ====================
     const NAV = [
       { id: 'work', label: '工作台', roles: ['user', 'admin'] },
+      { id: 'offers', label: '🎯 任务中心', roles: ['user'] },
       { id: 'coupons', label: '🎟 领券中心', roles: ['user'] },
       { id: 'shop', label: '商品下单', roles: ['user'] },
       { id: 'wallet', label: '钱包', roles: ['user'] },
@@ -1917,12 +2041,13 @@
       { id: 'pricingAdmin', label: '价目表', roles: ['admin'] },
       { id: 'products', label: '商品管理', roles: ['admin'] },
       { id: 'couponsAdm', label: '领券管理', roles: ['admin'] },
+      { id: 'ops', label: '弹窗与任务', roles: ['admin'] },
       { id: 'withdrawals', label: '提现审核', roles: ['admin'] },
       { id: 'aftersales', label: '售后处理', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
       { id: 'old', label: '旧平台', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'coupons', 'couponsAdm', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'offers', 'coupons', 'couponsAdm', 'ops', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
@@ -1954,7 +2079,10 @@
       if (v === 'work') {
         renderGreeting(); loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks();
         loadPlatformStats(); loadRecentRecharges(); loadCouponEntry();
+        maybeShowPopups(); // 首页弹窗（每次页面加载最多弹一轮，频率由后台每条弹窗控制）
       }
+      else if (v === 'offers') loadOffers();
+      else if (v === 'ops') loadOps();
       else if (v === 'coupons') loadCoupons();
       else if (v === 'couponsAdm') loadCouponsAdmin();
       else if (v === 'shop') loadShop();
@@ -4361,6 +4489,300 @@
         '③ 新增商品自动上架、价格变动自动更新、源头下架的商品自动下架' + nl +
         '④ 🔒 你手工锁价的商品不会被动价格' + nl2 +
         '建议：用 Windows「任务计划程序」设置每天定时运行一次，全自动。');
+    });
+
+    // ==================== 首页弹窗 ====================
+    let POP_ALL = [], POP_QUEUE = [], POP_CUR = null, POP_SESS = false;
+    function popMarkSeen(p) {
+      try {
+        if (p.freq === 'once') localStorage.setItem('popSeen_' + p.id, '1');
+        else if (p.freq === 'daily') localStorage.setItem('popSeen_' + p.id, new Date().toISOString().slice(0, 10));
+      } catch (e) {}
+    }
+    function popSeenOk(p) {
+      try {
+        const v = localStorage.getItem('popSeen_' + p.id);
+        if (p.freq === 'once') return !v;
+        if (p.freq === 'daily') return v !== new Date().toISOString().slice(0, 10);
+      } catch (e) {}
+      return true;
+    }
+    async function maybeShowPopups() {
+      if (POP_SESS) return; // 每次页面加载最多弹一轮
+      POP_SESS = true;
+      try {
+        const res = await api('shop/popups', {});
+        if (!res.ok || !(res.popups || []).length) return;
+        POP_ALL = res.popups || [];
+        POP_QUEUE = POP_ALL.filter(popSeenOk);
+        showNextPopup();
+      } catch (e) {}
+    }
+    function showNextPopup() {
+      $('popModal').style.display = 'none';
+      if (!POP_QUEUE.length) { POP_CUR = null; return; }
+      POP_CUR = POP_QUEUE.shift();
+      popMarkSeen(POP_CUR);
+      $('popTitle').textContent = POP_CUR.title || '平台公告';
+      $('popBody').innerHTML = escapeHtml(POP_CUR.body || '').replace(/\n/g, '<br>');
+      const img = $('popImg');
+      if (POP_CUR.img) { img.src = POP_CUR.img; img.style.display = ''; } else { img.style.display = 'none'; }
+      const btn = $('popBtn');
+      if (POP_CUR.btn_text && POP_CUR.btn_action) { btn.textContent = POP_CUR.btn_text; btn.style.display = ''; }
+      else { btn.style.display = 'none'; }
+      $('popModal').style.display = 'flex';
+    }
+    function popAct() {
+      const a = (POP_CUR && POP_CUR.btn_action) || '';
+      $('popModal').style.display = 'none';
+      POP_QUEUE = []; // 用户点了按钮 = 已参与，本轮剩余弹窗不再连着打扰
+      if (a.indexOf('view:') === 0) { const vid = a.slice(5); if (VIEW_IDS.indexOf(vid) >= 0) switchView(vid); }
+      else if (a.indexOf('url:') === 0) { const u = a.slice(4); if (/^https?:\/\//i.test(u)) window.open(u, '_blank'); }
+    }
+    $('popBtn').addEventListener('click', popAct);
+    $('popClose').addEventListener('click', () => showNextPopup());
+
+    // ==================== 任务中心（用户端） ====================
+    let OFFERS = [], CLAIMS = [], CL_OFFER = null, CL_PROOF = '', CL_UPLOADING = false;
+    async function loadOffers() {
+      const res = await api('shop/offers', PHONE ? { phone: PHONE } : {});
+      if (!res.ok) return;
+      OFFERS = res.offers || []; CLAIMS = res.claims || [];
+      renderOffers();
+    }
+    function claimOf(oid) {
+      const arr = CLAIMS.filter(c => c.offer_id === oid);
+      return arr.find(c => c.status === 'pending') || arr.find(c => c.status === 'approved') || arr[arr.length - 1] || null;
+    }
+    function renderOffers() {
+      const box = $('offerList');
+      if (!OFFERS.length) { box.innerHTML = '<div class="loading">暂无进行中的任务，敬请期待～</div>'; return; }
+      box.innerHTML = OFFERS.map(o => {
+        const c = claimOf(o.id);
+        let st = '';
+        if (c && c.status === 'approved') st = '<span class="cp-tag" style="background:#dcfce7;color:#15803d">✅ 已完成 +' + o.reward + ' 积分</span>';
+        else if (c && c.status === 'pending') st = '<span class="cp-tag">⏳ 截图审核中，请耐心等待</span>';
+        else if (c && c.status === 'rejected') st = '<span class="cp-tag off">❌ 未通过：' + escapeHtml(c.review_note || '截图不符合要求') + '</span>';
+        const btn = (c && (c.status === 'approved' || c.status === 'pending')) ? ''
+          : '<button class="btn btn-primary btn-sm" data-claim="' + o.id + '">' + (c && c.status === 'rejected' ? '重新提交' : '上传截图参与') + '</button>';
+        return '<div class="cp-card"><div class="cp-main"><div class="cp-ico">🎯</div><div class="cp-info">' +
+          '<div class="cp-title">' + escapeHtml(o.title) + '　<span class="cp-tag">+' + o.reward + ' 积分</span></div>' +
+          '<div class="cp-sub" style="white-space:pre-wrap">' + escapeHtml(o.detail || '') + '</div>' +
+          '<div class="cp-plat">' + st + '</div></div></div>' +
+          '<div class="cp-ops">' + btn + '</div></div>';
+      }).join('');
+      box.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', () => openClaim(b.dataset.claim)));
+    }
+    function openClaim(oid) {
+      if (!PHONE) { goLogin(); return; }
+      const o = OFFERS.find(x => x.id === oid);
+      if (!o) return;
+      CL_OFFER = o; CL_PROOF = ''; CL_UPLOADING = false;
+      $('clTitle').textContent = '参与：' + o.title;
+      $('clMeta').textContent = (o.detail || '') + String.fromCharCode(10) + '奖励：' + o.reward + ' 积分（审核通过后自动到账）';
+      $('clUpMsg').textContent = ''; $('clUpMsg').className = 't-meta';
+      $('clThumb').style.display = 'none'; $('clThumb').querySelector('img').removeAttribute('src');
+      $('clNote').value = ''; $('clMsg').textContent = ''; $('clMsg').className = 'msg';
+      $('clFile').value = '';
+      $('claimModal').style.display = 'flex';
+    }
+    $('clFile').addEventListener('change', async e => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      CL_PROOF = ''; CL_UPLOADING = true;
+      const ov = $('clThumb'), img = ov.querySelector('img'), msg = $('clUpMsg');
+      try {
+        img.src = URL.createObjectURL(f); ov.style.display = ''; ov.querySelector('.thumb-ov').style.display = 'flex';
+        msg.textContent = '截图上传中…'; msg.className = 't-meta';
+        const up = await uploadFile(f, 'task');
+        if (!up || !up.path) throw new Error('服务器未返回文件路径');
+        CL_PROOF = up.path;
+        ov.querySelector('.thumb-ov').style.display = 'none';
+        msg.textContent = '✅ 截图已上传成功，可提交审核'; msg.className = 't-meta ok';
+      } catch (err) {
+        ov.style.display = 'none';
+        msg.textContent = '❌ 截图上传失败：' + (err.message || '请重试或换一张较小的图片'); msg.className = 't-meta err';
+      }
+      CL_UPLOADING = false;
+    });
+    $('clSubmit').addEventListener('click', async () => {
+      const msg = $('clMsg');
+      if (CL_UPLOADING) { msg.className = 'msg err'; msg.textContent = '截图还在上传中，请稍等 2 秒再提交'; return; }
+      if (CL_OFFER.need_proof && !CL_PROOF) { msg.className = 'msg err'; msg.textContent = '请先点击「📷 点击选择完成截图」，等提示「已上传成功」后再提交'; return; }
+      msg.className = 'msg'; msg.textContent = '提交中…';
+      const res = await api('task/claim', { phone: PHONE, offerId: CL_OFFER.id, proof: CL_PROOF, note: $('clNote').value });
+      if (res.ok) {
+        $('claimModal').style.display = 'none';
+        alert('已提交！管理员审核通过后 ' + CL_OFFER.reward + ' 积分自动到账，可在「钱包」查看');
+        loadOffers();
+      } else { msg.className = 'msg err'; msg.textContent = res.msg || '提交失败'; }
+    });
+    $('clClose').addEventListener('click', () => { $('claimModal').style.display = 'none'; });
+
+    // ==================== 后台：弹窗与任务 ====================
+    let OPS_OFFERS = [], OPS_POPUPS = [], POP_EDIT_ID = '', OFFER_EDIT_ID = '';
+    function proofUrl(path) { return window.SUPABASE_URL + '/storage/v1/object/public/' + window.UPLOAD_BUCKET + '/' + path; }
+    async function loadOps() { loadOpsClaims(); loadOpsOffers(); loadOpsPopups(); }
+    async function loadOpsClaims() {
+      const status = $('opsClaimFilter').value;
+      const res = await api('admin/taskclaims', { status }, true);
+      const box = $('opsClaims');
+      if (!res.ok) { box.innerHTML = '<div class="loading">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
+      const list = res.claims || [];
+      const badge = $('opsPendingBadge');
+      if (status === 'pending' && list.length) { badge.style.display = ''; badge.textContent = list.length + ' 条待审'; }
+      else badge.style.display = 'none';
+      if (!list.length) { box.innerHTML = '<div class="loading">暂无相关提交</div>'; return; }
+      box.innerHTML = list.map(c => {
+        const o = (res.offerMap || {})[c.offer_id] || {};
+        const proofHtml = c.proof ? '<a href="' + proofUrl(c.proof) + '" target="_blank" rel="noopener">📎 查看截图</a>' : '（无截图）';
+        const ops = c.status === 'pending'
+          ? '<button class="btn btn-green btn-sm" data-ok="' + c.id + '">✓ 通过（+' + (o.reward || 0) + '）</button><button class="btn btn-ghost btn-sm" data-no="' + c.id + '">✕ 驳回</button>'
+          : '<span class="t-meta">' + (c.status === 'approved' ? ('已发 ' + c.reward + ' 积分') : ('已驳回：' + escapeHtml(c.review_note || ''))) + '</span>';
+        return '<div class="cp-card"><div class="cp-main"><div class="cp-info">' +
+          '<div class="cp-title">' + escapeHtml(c.uid) + ' · ' + escapeHtml(o.title || c.offer_id) + '</div>' +
+          '<div class="cp-sub">' + fmtTime(c.created_at) + (c.note ? ' ｜ 说明：' + escapeHtml(c.note) : '') + ' ｜ ' + proofHtml + '</div></div></div>' +
+          '<div class="cp-ops">' + ops + '</div></div>';
+      }).join('');
+      box.querySelectorAll('[data-ok]').forEach(b => b.addEventListener('click', () => reviewClaim(b.dataset.ok, 'approve', '')));
+      box.querySelectorAll('[data-no]').forEach(b => b.addEventListener('click', () => {
+        const note = prompt('驳回原因（会通知用户）：', '截图不符合要求');
+        if (note === null) return;
+        reviewClaim(b.dataset.no, 'reject', note);
+      }));
+    }
+    async function reviewClaim(id, action, note) {
+      const res = await api('admin/taskclaim/review', { id, action, note: note || '' }, true);
+      if (!res.ok) { alert(res.msg || '操作失败'); return; }
+      alert(action === 'approve' ? ('已通过，' + (res.reward || 0) + ' 积分已发放给用户') : '已驳回并通知用户');
+      loadOpsClaims();
+    }
+    $('opsClaimFilter').addEventListener('change', loadOpsClaims);
+    $('opsClaimRefresh').addEventListener('click', loadOpsClaims);
+
+    async function loadOpsOffers() {
+      const res = await api('admin/offers', {}, true);
+      const box = $('offerAdminList');
+      if (!res.ok) { box.innerHTML = '<div class="loading">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
+      OPS_OFFERS = res.offers || [];
+      if (!OPS_OFFERS.length) { box.innerHTML = '<div class="loading">还没有任务，点「+ 新增任务」创建（如：关注公众号领积分）</div>'; return; }
+      box.innerHTML = OPS_OFFERS.map(o =>
+        '<div class="cp-card"><div class="cp-main"><div class="cp-info">' +
+        '<div class="cp-title">' + escapeHtml(o.title) + '　<span class="cp-tag">+' + o.reward + ' 积分</span>' + (o.active ? '' : ' <span class="cp-tag off">已停用</span>') + '</div>' +
+        '<div class="cp-sub">' + escapeHtml((o.detail || '').slice(0, 90)) + ((o.detail || '').length > 90 ? '…' : '') + '</div>' +
+        '<div class="cp-plat">' + (o.pending ? ('<b style="color:#b45309">📥 ' + o.pending + ' 条待审</b> ｜ ') : '') + (o.once ? '每人一次' : '可重复参与') + (o.need_proof ? ' ｜ 需截图' : ' ｜ 无需截图') + '</div></div></div>' +
+        '<div class="cp-ops"><button class="btn btn-ghost btn-sm" data-oe="' + o.id + '">编辑</button>' +
+        '<button class="btn btn-ghost btn-sm" data-oa="' + o.id + '">' + (o.active ? '停用' : '启用') + '</button>' +
+        '<button class="btn btn-ghost btn-sm" data-od="' + o.id + '">删除</button></div></div>').join('');
+      box.querySelectorAll('[data-oe]').forEach(b => b.addEventListener('click', () => openOfferEdit(b.dataset.oe)));
+      box.querySelectorAll('[data-oa]').forEach(b => b.addEventListener('click', async () => {
+        const o = OPS_OFFERS.find(x => x.id === b.dataset.oa);
+        if (!o) return;
+        await api('admin/offer/save', { id: o.id, title: o.title, detail: o.detail, reward: o.reward, need_proof: o.need_proof, once: o.once, sort: o.sort, active: !o.active }, true);
+        loadOpsOffers();
+      }));
+      box.querySelectorAll('[data-od]').forEach(b => b.addEventListener('click', async () => {
+        if (!confirm('删除该任务？（已产生的审核记录与积分不受影响）')) return;
+        await api('admin/offer/delete', { id: b.dataset.od }, true);
+        loadOpsOffers();
+      }));
+    }
+    function openOfferEdit(id) {
+      OFFER_EDIT_ID = id || '';
+      const o = id ? OPS_OFFERS.find(x => x.id === id) : null;
+      $('oeTitleInput').value = o ? o.title : '';
+      $('oeDetail').value = o ? (o.detail || '') : '';
+      $('oeReward').value = o ? o.reward : 100;
+      $('oeNeedProof').checked = o ? !!o.need_proof : true;
+      $('oeOnce').checked = o ? !!o.once : true;
+      $('oeSort').value = o ? (o.sort || 0) : 0;
+      $('oeActive').checked = o ? !!o.active : true;
+      $('oeMsg').textContent = ''; $('oeMsg').className = 'msg';
+      $('offerEditModal').style.display = 'flex';
+    }
+    $('offerAddBtn').addEventListener('click', () => openOfferEdit(''));
+    $('offerRefreshBtn').addEventListener('click', loadOpsOffers);
+    $('oeClose').addEventListener('click', () => { $('offerEditModal').style.display = 'none'; });
+    $('oeSave').addEventListener('click', async () => {
+      const msg = $('oeMsg');
+      const title = $('oeTitleInput').value.trim();
+      if (!title) { msg.className = 'msg err'; msg.textContent = '请填写任务标题'; return; }
+      const res = await api('admin/offer/save', {
+        id: OFFER_EDIT_ID || undefined, title, detail: $('oeDetail').value,
+        reward: $('oeReward').value, need_proof: $('oeNeedProof').checked, once: $('oeOnce').checked,
+        sort: $('oeSort').value, active: $('oeActive').checked,
+      }, true);
+      if (res.ok) { $('offerEditModal').style.display = 'none'; loadOpsOffers(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
+    });
+
+    async function loadOpsPopups() {
+      const res = await api('admin/popups', {}, true);
+      const box = $('popAdminList');
+      if (!res.ok) { box.innerHTML = '<div class="loading">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
+      OPS_POPUPS = res.popups || [];
+      if (!OPS_POPUPS.length) { box.innerHTML = '<div class="loading">还没有弹窗，点「+ 新增弹窗」创建</div>'; return; }
+      const FREQ = { every: '每次进入都弹', daily: '每天一次', once: '只弹一次' };
+      box.innerHTML = OPS_POPUPS.map(pp =>
+        '<div class="cp-card"><div class="cp-main"><div class="cp-info">' +
+        '<div class="cp-title">' + escapeHtml(pp.title) + (pp.active ? '' : ' <span class="cp-tag off">已停用</span>') + '</div>' +
+        '<div class="cp-sub">' + escapeHtml((pp.body || '').slice(0, 80)) + ((pp.body || '').length > 80 ? '…' : '') + '</div>' +
+        '<div class="cp-plat">' + (FREQ[pp.freq] || pp.freq) + (pp.btn_text ? (' ｜ 按钮「' + escapeHtml(pp.btn_text) + '」→ ' + escapeHtml(pp.btn_action || '')) : ' ｜ 无按钮') + '</div></div></div>' +
+        '<div class="cp-ops"><button class="btn btn-ghost btn-sm" data-pe="' + pp.id + '">编辑</button>' +
+        '<button class="btn btn-ghost btn-sm" data-pa="' + pp.id + '">' + (pp.active ? '停用' : '启用') + '</button>' +
+        '<button class="btn btn-ghost btn-sm" data-pd="' + pp.id + '">删除</button></div></div>').join('');
+      box.querySelectorAll('[data-pe]').forEach(b => b.addEventListener('click', () => openPopupEdit(b.dataset.pe)));
+      box.querySelectorAll('[data-pa]').forEach(b => b.addEventListener('click', async () => {
+        const pp = OPS_POPUPS.find(x => x.id === b.dataset.pa);
+        if (!pp) return;
+        await api('admin/popup/save', { id: pp.id, title: pp.title, body: pp.body, img: pp.img, btn_text: pp.btn_text, btn_action: pp.btn_action, freq: pp.freq, sort: pp.sort, active: !pp.active }, true);
+        loadOpsPopups();
+      }));
+      box.querySelectorAll('[data-pd]').forEach(b => b.addEventListener('click', async () => {
+        if (!confirm('删除该弹窗？')) return;
+        await api('admin/popup/delete', { id: b.dataset.pd }, true);
+        loadOpsPopups();
+      }));
+    }
+    function openPopupEdit(id) {
+      POP_EDIT_ID = id || '';
+      const pp = id ? OPS_POPUPS.find(x => x.id === id) : null;
+      $('peTitleInput').value = pp ? pp.title : '';
+      $('peBody').value = pp ? (pp.body || '') : '';
+      $('peImg').value = pp ? (pp.img || '') : '';
+      $('peBtnText').value = pp ? (pp.btn_text || '') : '去参与';
+      const act = pp ? (pp.btn_action || '') : 'view:offers';
+      if (act.indexOf('url:') === 0) { $('peBtnAction').value = 'url:'; $('peBtnUrl').style.display = ''; $('peBtnUrl').value = act.slice(4); }
+      else { $('peBtnAction').value = act; $('peBtnUrl').style.display = 'none'; $('peBtnUrl').value = ''; }
+      $('peFreq').value = pp ? (pp.freq || 'daily') : 'daily';
+      $('peSort').value = pp ? (pp.sort || 0) : 0;
+      $('peActive').checked = pp ? !!pp.active : true;
+      $('peMsg').textContent = ''; $('peMsg').className = 'msg';
+      $('popEditModal').style.display = 'flex';
+    }
+    $('peBtnAction').addEventListener('change', () => {
+      $('peBtnUrl').style.display = ($('peBtnAction').value === 'url:') ? '' : 'none';
+    });
+    $('popAddBtn').addEventListener('click', () => openPopupEdit(''));
+    $('popRefreshBtn').addEventListener('click', loadOpsPopups);
+    $('peClose').addEventListener('click', () => { $('popEditModal').style.display = 'none'; });
+    $('peSave').addEventListener('click', async () => {
+      const msg = $('peMsg');
+      const title = $('peTitleInput').value.trim();
+      if (!title) { msg.className = 'msg err'; msg.textContent = '请填写弹窗标题'; return; }
+      let act = $('peBtnAction').value;
+      if (act === 'url:') {
+        const u = $('peBtnUrl').value.trim();
+        if (!/^https?:\/\//i.test(u)) { msg.className = 'msg err'; msg.textContent = '链接必须以 http(s):// 开头'; return; }
+        act = 'url:' + u;
+      }
+      const res = await api('admin/popup/save', {
+        id: POP_EDIT_ID || undefined, title, body: $('peBody').value, img: $('peImg').value.trim(),
+        btn_text: $('peBtnText').value.trim(), btn_action: act, freq: $('peFreq').value,
+        sort: $('peSort').value, active: $('peActive').checked,
+      }, true);
+      if (res.ok) { $('popEditModal').style.display = 'none'; loadOpsPopups(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
     });
 
     // ==================== 旧平台商品同步 ====================
