@@ -1265,6 +1265,8 @@ span.ai-warn { color: #92400e; }
 
 
 /* ---------- 顶部滚动字幕（用户端） ---------- */
+.mq-wrap { width: 100%; padding: 8px 14px 0; }
+.mq-wrap .marquee { max-width: 1040px; margin: 0 auto; }
 .marquee { display: flex; align-items: center; gap: 8px; margin: -8px 0 14px; padding: 8px 12px;
   border-radius: 10px; background: linear-gradient(90deg, #fff7ed, #fffdf5); border: 1px solid #fed7aa;
   overflow: hidden; cursor: pointer; }
@@ -1285,6 +1287,7 @@ span.ai-warn { color: #92400e; }
 }
 @media (max-width: 640px) {
   .marquee { padding: 7px 10px; margin: -6px 0 12px; }
+  .mq-wrap { padding: 7px 10px 0; }
   .mq-track { font-size: 12.5px; }
 }
 

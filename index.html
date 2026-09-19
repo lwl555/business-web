@@ -5,10 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=47" />
+  <link rel="stylesheet" href="css/style.css?v=48" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
+
+  <!-- 滚动字幕：首页 / 登录页 / 应用内都显示，内容后台可配置 -->
+  <div class="mq-wrap" id="mqWrap" style="display:none">
+    <div class="marquee" id="marquee" role="marquee" aria-label="平台公告">
+      <span class="mq-tag">📢</span>
+      <div class="mq-view"><div class="mq-track" id="mqTrack"></div></div>
+    </div>
+  </div>
 
   <!-- ============ 平台选择（默认界面） ============ -->
   <div class="wrap-narrow card tight" id="homeBox">
@@ -120,11 +128,6 @@
     <!-- 主导航 -->
     <div class="nav" id="nav"></div>
 
-    <!-- 滚动字幕（用户端，后台可配置内容；点击进入商品页） -->
-    <div class="marquee" id="marquee" style="display:none" role="marquee" aria-label="平台公告">
-      <span class="mq-tag">📢</span>
-      <div class="mq-view"><div class="mq-track" id="mqTrack"></div></div>
-    </div>
 
     <!-- ---------- 工作台（用户端 / 管理员也能用） ---------- -->
     <div class="view" id="view-work">
@@ -1209,19 +1212,19 @@
       '💬 订单有问题直接点右下角客服，人工处理不敷衍',
     ];
     function renderMarquee() {
-      const box = $('marquee');
-      if (!box) return;
+      const box = $('marquee'), wrap = $('mqWrap');
+      if (!box || !wrap) return;
       const cfg = MQ_CFG || {};
       // 管理员看到的是后台界面，字幕是给用户看的，避免干扰
-      if (isAdmin || cfg.enabled === false) { box.style.display = 'none'; return; }
+      if (isAdmin || cfg.enabled === false) { wrap.style.display = 'none'; return; }
       const items = (cfg.text ? String(cfg.text).split('\n') : MQ_DEFAULT)
         .map(x => String(x).trim()).filter(Boolean).slice(0, 12);
-      if (!items.length) { box.style.display = 'none'; return; }
+      if (!items.length) { wrap.style.display = 'none'; return; }
 
       const seg = items.map(escapeHtml).join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
       const track = $('mqTrack');
       const view = box.querySelector('.mq-view');
-      box.style.display = '';
+      wrap.style.display = '';
       // 先量一段的宽度，再决定复制几份，保证滚动过程中不会出现空白
       track.style.animation = 'none';
       track.innerHTML = '<span class="mq-seg">' + seg + '</span>';
@@ -1255,10 +1258,14 @@
     window.addEventListener('resize', () => {
       if (!MQ_CFG) return;
       clearTimeout(MQ_RT);
-      MQ_RT = setTimeout(() => { const m = $('marquee'); if (m && m.style.display !== 'none') renderMarquee(); }, 250);
+      MQ_RT = setTimeout(() => { const m = $('mqWrap'); if (m && m.style.display !== 'none') renderMarquee(); }, 250);
     });
     const mqBox = $('marquee');
-    if (mqBox) mqBox.addEventListener('click', () => { if (!isAdmin) switchView('shop'); });
+    if (mqBox) mqBox.addEventListener('click', () => {
+      if (isAdmin) return;
+      if (PHONE) switchView('shop');   // 已登录 → 直接去商品页
+      else goLogin();                  // 未登录 → 去登录页
+    });
     let MSG_UNREAD = 0;
     let CHAT_UNREAD = 0;
     let CS_UNREAD = 0;
@@ -4527,6 +4534,7 @@
 
     // ==================== 启动 ====================
     (async () => {
+      renderMarquee(); // 首屏立即显示（先用内置文案，取到后台配置后自动刷新）
       if (token) {
         const res = await api('admin/tasks', {}, true);
         if (res.ok) { isAdmin = true; PHONE = $('username').value.trim() || (localStorage.getItem('biz_phone') || '18882632073'); showApp(); return; }
