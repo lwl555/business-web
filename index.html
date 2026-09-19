@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=48" />
+  <link rel="stylesheet" href="css/style.css?v=49" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -431,7 +431,20 @@
 
     <!-- ---------- 金额规则（管理员） ---------- -->
     <div class="view" id="view-rules" style="display:none">
-      <div class="section-title">积分设置</div>
+      <div class="section-title">首页滚动字幕</div>
+      <div class="t-meta" style="margin:-4px 0 10px">用户端顶部那条滚动字幕的内容就在这里改，改完保存即可生效（每个页面顶部都会显示）。</div>
+        <label class="chk inline-field"><input type="checkbox" id="setMqOn" /> 在用户端显示滚动字幕（每个页面顶部）</label>
+        <label class="inline-field">滚动速度<input id="setMqSpeed" class="num" type="number" min="5" max="300" step="1" /><span>秒/圈（数字越小滚得越快，建议 25~40）</span></label>
+        <div class="field" style="margin:6px 0 4px">
+          <label>字幕内容（<b>每行一条</b>，留空则用系统默认文案；建议 3~6 条、每条不超过 25 字）</label>
+          <textarea id="setMqText" rows="5" placeholder="🔥 全场 7000+ 商品，每日更新&#10;⏱ 充值一般 2 分钟内到账&#10;🎁 首次充值有赠送"></textarea>
+        </div>
+        <div class="field" style="margin:0 0 10px">
+          <label>效果预览（用户端顶部就是这个样子）</label>
+          <div id="mqPreview"></div>
+        </div>
+
+      <div class="section-title" style="margin-top:22px">积分设置</div>
       <div class="rate-add">
         <label class="inline-field">每天签到得
           <input id="setCheckin" class="num" type="number" min="0" />
@@ -479,17 +492,6 @@
           <input id="setAlertPct" class="num" type="number" min="1" max="100" /><span>% 时站内提醒我</span></label>
         <div class="t-meta" style="margin:-4px 0 10px">说明：系统每 6 小时自动清理一次超期图片（充值截图、订单附件、客服聊天图片），只删图片本身，充值/订单记录仍保留。免费版数据库 500MB、存储 1GB、带宽 5GB/月。</div>
 
-        <div class="free-rule-title">首页滚动字幕</div>
-        <label class="chk inline-field"><input type="checkbox" id="setMqOn" /> 在用户端显示滚动字幕（每个页面顶部）</label>
-        <label class="inline-field">滚动速度<input id="setMqSpeed" class="num" type="number" min="5" max="300" step="1" /><span>秒/圈（数字越小滚得越快，建议 25~40）</span></label>
-        <div class="field" style="margin:6px 0 4px">
-          <label>字幕内容（<b>每行一条</b>，留空则用系统默认文案；建议 3~6 条、每条不超过 25 字）</label>
-          <textarea id="setMqText" rows="5" placeholder="🔥 全场 7000+ 商品，每日更新&#10;⏱ 充值一般 2 分钟内到账&#10;🎁 首次充值有赠送"></textarea>
-        </div>
-        <div class="field" style="margin:0 0 10px">
-          <label>效果预览（用户端顶部就是这个样子）</label>
-          <div id="mqPreview"></div>
-        </div>
 
         <div class="free-rule-title">AI 定价分析</div>
         <label class="inline-field">目标毛利率<input id="setAiMargin" class="num" type="number" min="0" step="1" /><span>%（建议价至少要达到这个毛利）</span></label>
@@ -1189,6 +1191,9 @@
     let MY_TIER = '普通散客档';
     let ADMIN_TASKS = [];
     let PTS = { points: 0, pointsPerYuan: 100, checkedToday: false, streak: 0, checkinPoints: 10 };
+    // 钱包：总额 / 待审核订单占用 / 可用额度（可用 = 总额 - 占用，用于下新单）
+    let MY_TOTAL_BAL = 0, MY_FROZEN = 0, MY_AVAILABLE = 0;
+    let ORDER_BLOCKED = false;
 
     // 订单重要信息高亮色（后台可改，来自 ui/config）
     let HL_COLOR = '#dc2626';
@@ -1642,6 +1647,9 @@
       MY_TIER = res.tier || '普通散客';
       $('myPoints').textContent = intFmt(res.points);
       const bal = Number(res.balance || 0), gift = Number(res.gift || 0);
+      MY_TOTAL_BAL = Number(res.totalBalance != null ? res.totalBalance : (bal + gift));
+      MY_FROZEN = Number(res.frozen || 0);
+      MY_AVAILABLE = Number(res.available != null ? res.available : (bal + gift - MY_FROZEN));
       $('myBalance').textContent = '¥' + (bal + gift).toFixed(2);
       const tb = $('topBalance'); if (tb) tb.textContent = '¥' + (bal + gift).toFixed(2);
       let hideFloat = false;
@@ -2823,9 +2831,43 @@
         (p.desc ? '<div class="t-meta">说明：' + escapeHtml(String(p.desc)).slice(0, 220) + '</div>' : '') +
         '<div class="t-meta">提交后由管理员审核处理，<b>审核通过后从你的余额扣款（先扣赠送余额）</b>。</div>';
       $('omMsg').className = 'msg'; $('omMsg').textContent = '';
+
+      // 余额明细（实时拉一次，确保占用金额是最新的：同一用户多个待审核订单都会计入）
+      try {
+        const w = await api('my/points', { phone: PHONE });
+        if (w.ok) {
+          MY_TOTAL_BAL = Number(w.totalBalance != null ? w.totalBalance : (Number(w.balance || 0) + Number(w.gift || 0)));
+          MY_FROZEN = Number(w.frozen || 0);
+          MY_AVAILABLE = Number(w.available != null ? w.available : (MY_TOTAL_BAL - MY_FROZEN));
+        }
+      } catch (e) { }
+
+      const walletLine = '<div class="om-wallet">余额 <b>¥' + MY_TOTAL_BAL.toFixed(2) + '</b>' +
+        (MY_FROZEN > 0 ? (' ｜ 待审核占用 <b class="om-frozen">¥' + MY_FROZEN.toFixed(2) + '</b>') : '') +
+        ' ｜ 可用 <b class="om-avail">¥' + MY_AVAILABLE.toFixed(2) + '</b></div>';
+      $('omSummary').insertAdjacentHTML('beforeend', walletLine);
+      if (!isFree && MY_FROZEN > 0) {
+        $('omSummary').insertAdjacentHTML('beforeend',
+          '<div class="t-meta">说明：待审核订单已占用 ¥' + MY_FROZEN.toFixed(2) +
+          '（审核通过会从余额扣掉），这部分不能再用于下新单。余额不足请先充值。</div>');
+      }
+
+      // 余额不够抵扣 → 不允许提交（按「可用额度」判断，而不是账面余额）
+      const price = Number(p.price) || 0;
+      const short = +(price - MY_AVAILABLE).toFixed(2);
+      ORDER_BLOCKED = (!isFree && short > 1e-9);
+      if (ORDER_BLOCKED) {
+        $('omMsg').className = 'msg err';
+        $('omMsg').textContent = '可用余额不足：本单 ¥' + price.toFixed(2) + '，可用 ¥' + MY_AVAILABLE.toFixed(2) +
+          '，还差 ¥' + short.toFixed(2) + '，请先充值后再提交。';
+        $('omSubmit').textContent = '余额不足，去充值';
+      } else {
+        ORDER_BLOCKED = false;
+      }
       $('orderModal').style.display = 'flex';
     }
     async function submitOrder() {
+      if (ORDER_BLOCKED) { $('orderModal').style.display = 'none'; goRecharge(); return; }
       if (!ORDER_PRODUCT) return;
       const p = ORDER_PRODUCT;
       const inputValue = $('omInput').value.trim();

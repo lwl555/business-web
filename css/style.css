@@ -1291,6 +1291,14 @@ span.ai-warn { color: #92400e; }
   .mq-track { font-size: 12.5px; }
 }
 
+
+/* ---------- 下单弹窗：余额明细 ---------- */
+.om-wallet { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: #f8fafc;
+  border: 1px dashed var(--line); font-size: 13px; color: var(--muted); }
+.om-wallet b { color: var(--text); }
+.om-wallet .om-frozen { color: #b45309; }
+.om-wallet .om-avail { color: #046c4e; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
