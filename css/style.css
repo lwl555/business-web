@@ -1184,9 +1184,23 @@ span.ai-warn { color: #92400e; }
 
 
 /* ---------- 信任感：平台数据 / 最近到账 / 充值档位 ---------- */
-.stats-strip { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.7;
-  background: linear-gradient(90deg, #f0fdf6, #f7fffb); border: 1px dashed #a7f3d0; color: #046c4e; }
+.stats-strip { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px;
+  background: linear-gradient(135deg, #ecfdf5, #f0fdfa 55%, #f7fffb);
+  border: 1px solid #a7f3d0; box-shadow: 0 2px 10px rgba(16,185,129,.08); color: #046c4e; }
 .stats-strip b { font-size: 15px; }
+.ss-cells { display: flex; align-items: stretch; }
+.ss-cell { flex: 1 1 0; text-align: center; position: relative; }
+.ss-cell + .ss-cell::before { content: ''; position: absolute; left: 0; top: 12%; height: 76%; width: 1px; background: #a7f3d0; }
+.ss-val { font-size: 21px; font-weight: 800; line-height: 1.15; color: #047857; letter-spacing: -.3px; }
+.ss-val i { font-style: normal; font-size: 12px; font-weight: 500; margin-left: 2px; color: #10b981; }
+.ss-lbl { font-size: 11.5px; color: #059669; margin-top: 2px; }
+.ss-text { text-align: center; font-size: 14px; font-weight: 600; color: #047857; line-height: 1.6; }
+@media (max-width: 640px) {
+  .stats-strip { padding: 10px 8px; }
+  .ss-val { font-size: 18px; }
+  .ss-lbl { font-size: 11px; }
+  .ss-text { font-size: 13px; }
+}
 .rc-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .rc-presets button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff;
   font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; transition: .15s; }
@@ -1301,6 +1315,42 @@ span.ai-warn { color: #92400e; }
 
 .mq-speed-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 10px; }
 .mq-speed-presets button.active { border-color: var(--primary); color: var(--primary); background: #eef4ff; }
+
+.bp-pct-row { display: flex; align-items: center; gap: 8px; }
+.bp-pct-row select { max-width: 90px; }
+.bp-pct-row input { max-width: 120px; }
+
+
+/* ---------- 领券中心 ---------- */
+.coupon-entry { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 12px 14px;
+  border-radius: 12px; cursor: pointer; background: linear-gradient(135deg, #fff1f2, #fff7ed 60%, #fffbeb);
+  border: 1px solid #fecdd3; box-shadow: 0 2px 10px rgba(244,63,94,.08); }
+.coupon-entry:hover { border-color: #fda4af; }
+.ce-ico { font-size: 20px; }
+.ce-txt { flex: 1 1 auto; font-size: 13px; color: #9f1239; line-height: 1.5; }
+.ce-txt b { font-size: 14px; }
+.ce-go { flex: 0 0 auto; font-size: 13px; font-weight: 600; color: #e11d48; }
+.coupon-list { display: flex; flex-direction: column; gap: 10px; }
+.cp-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); flex-wrap: wrap; }
+.cp-main { display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0; }
+.cp-img { width: 54px; height: 54px; object-fit: cover; border-radius: 10px; }
+.cp-ico { width: 54px; height: 54px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; border-radius: 10px; background: linear-gradient(135deg, #fff7ed, #ffedd5); }
+.cp-info { min-width: 0; }
+.cp-title { font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.4; }
+.cp-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.cp-plat { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+.cp-tag { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  background: #ffe4e6; color: #be123c; vertical-align: middle; }
+.cp-tag.off { background: #e2e8f0; color: #475569; }
+.cp-ops { display: flex; gap: 8px; flex: 0 0 auto; }
+@media (max-width: 640px) {
+  .ce-txt { font-size: 12.5px; }
+  .cp-card { padding: 11px 12px; }
+  .cp-ops { width: 100%; }
+  .cp-ops .btn { flex: 1 1 0; }
+}
 
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {

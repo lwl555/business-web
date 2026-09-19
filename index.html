@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=52" />
+  <link rel="stylesheet" href="css/style.css?v=54" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -143,7 +143,18 @@
       </div>
 
       <div class="stats-strip" id="statsStrip" style="display:none">
-        🔥 已服务 <b id="stUsers">0</b> 位用户　·　累计完成 <b id="stOrders">0</b> 单　·　今日已完成 <b id="stToday">0</b> 单
+        <div class="ss-cells">
+          <div class="ss-cell"><div class="ss-val"><span id="stUsers">0</span><i>位</i></div><div class="ss-lbl">已服务用户</div></div>
+          <div class="ss-cell"><div class="ss-val"><span id="stOrders">0</span><i>单</i></div><div class="ss-lbl">累计完成</div></div>
+          <div class="ss-cell"><div class="ss-val"><span id="stToday">0</span><i>单</i></div><div class="ss-lbl">今日已完成</div></div>
+        </div>
+        <div class="ss-text" id="statsText" style="display:none"></div>
+      </div>
+
+      <div class="coupon-entry" id="couponEntry" style="display:none" onclick="switchView('coupons')">
+        <span class="ce-ico">🎟</span>
+        <span class="ce-txt"><b>领券中心</b>　美团外卖 / 到店优惠券，一键领取，领券免费</span>
+        <span class="ce-go">去看看 ›</span>
       </div>
 
       <div class="points-bar">
@@ -405,6 +416,27 @@
       </div>
     </div>
 
+    <!-- ---------- 领券中心（用户端） ---------- -->
+    <div class="view" id="view-coupons" style="display:none">
+      <div class="section-title">🎟 领券中心</div>
+      <div class="t-meta" style="margin-bottom:12px">下面的优惠券都来自官方推广渠道，<b>点「一键领取」会跳转到官方页面</b>领取（在美团 App 内使用）。领券免费，不影响你的余额。</div>
+      <div class="coupon-list" id="couponList"><div class="loading">加载中…</div></div>
+    </div>
+
+    <!-- ---------- 领券管理（管理员） ---------- -->
+    <div class="view" id="view-couponsAdm" style="display:none">
+      <div class="section-title">领券中心管理</div>
+      <div class="t-meta" style="margin-bottom:10px">
+        填写<b>官方推广链接</b>（美团联盟 media.meituan.com / union.meituan.com 生成的链接，或官方小程序路径），用户点击「一键领取」会跳过去领券。
+        <b>请勿填写非官方或来路不明的链接</b>——既拿不到佣金，也可能被平台判违规。
+      </div>
+      <div class="actions" style="margin-bottom:12px">
+        <button class="btn btn-green btn-sm" id="cpAddBtn">+ 新增券位</button>
+        <button class="btn btn-ghost btn-sm" id="cpRefreshBtn">刷新</button>
+      </div>
+      <div id="cpAdminList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
     <!-- ---------- 充值审核（管理员） ---------- -->
     <div class="view" id="view-pay" style="display:none">
       <div class="section-title">充值申请</div>
@@ -501,6 +533,19 @@
           <input id="setAlertPct" class="num" type="number" min="1" max="100" /><span>% 时站内提醒我</span></label>
         <div class="t-meta" style="margin:-4px 0 10px">说明：系统每 6 小时自动清理一次超期图片（充值截图、订单附件、客服聊天图片），只删图片本身，充值/订单记录仍保留。免费版数据库 500MB、存储 1GB、带宽 5GB/月。</div>
 
+
+        <div class="free-rule-title">首页数据展示（吸引用户）</div>
+        <label class="inline-field">数据来源<select id="setStatsMode" class="num">
+          <option value="real">真实数据（自动统计）</option>
+          <option value="custom">自定义数字（造势用）</option>
+        </select></label>
+        <label class="inline-field">已服务用户<input id="setStatsUsers" class="num" type="number" min="0" /><span>位</span></label>
+        <label class="inline-field">累计完成<input id="setStatsOrders" class="num" type="number" min="0" /><span>单</span></label>
+        <label class="inline-field">今日已完成<input id="setStatsToday" class="num" type="number" min="0" /><span>单</span></label>
+        <label class="inline-field">自定义整句（选填，填了就顶掉上面三个数字）<input id="setStatsText" style="width:300px" placeholder="如：🔥 已有 12800 位用户下单，今日已完成 356 单" /></label>
+        <div class="t-meta" style="margin:-4px 0 10px">说明：显示在用户端默认首页（工作台）最上方。<b>真实数据</b>=系统自动统计；<b>自定义</b>=用你填的数字造势（后台会显示真实值供对照，建议别太夸张）。<b>改完自动保存</b>。</div>
+        <div class="msg" id="stSaved" style="margin:0 0 10px"></div>
+        <div class="t-meta" id="stReal" style="margin:0 0 10px"></div>
 
         <div class="free-rule-title">AI 定价分析</div>
         <label class="inline-field">目标毛利率<input id="setAiMargin" class="num" type="number" min="0" step="1" /><span>%（建议价至少要达到这个毛利）</span></label>
@@ -741,6 +786,8 @@
       </div>
       <div class="ap-select-bar" id="apSelectBar" style="display:none">
         <label class="chk"><input type="checkbox" id="apSelAll" /> 全选本页</label>
+        <button class="btn btn-ghost btn-sm" id="apSelFilterAll">选中当前筛选全部</button>
+        <button class="btn btn-ghost btn-sm" id="apSelClear">清空选择</button>
         <span class="t-meta">已选 <b id="apSelCount">0</b> 个</span>
         <button class="btn btn-primary btn-sm" id="apBatchSelBtn">对所选批量改价</button>
         <button class="btn btn-ghost btn-sm" id="apMoveSelBtn">移动所选到分类</button>
@@ -952,7 +999,16 @@
   <div class="modal" id="batchPriceModal" style="display:none">
     <div class="modal-box">
       <div class="modal-title">批量改价</div>
-      <div class="t-meta" id="bpScope"></div>
+      <div class="field"><label>作用范围</label>
+        <select id="bpScopeMode">
+          <option value="ids">已勾选的商品</option>
+          <option value="cur">当前筛选范围内的全部商品</option>
+          <option value="cat">指定分类（可含其子类）</option>
+          <option value="all">整个店铺全部商品（不限分类）</option>
+        </select>
+      </div>
+      <div class="field" id="bpCatWrap" style="display:none"><label>指定分类</label><select id="bpCat"></select></div>
+      <div class="t-meta" id="bpScope" style="margin:-4px 0 10px"></div>
       <div class="row2">
         <div class="field"><label>调整档位</label>
           <select id="bpWhich">
@@ -970,10 +1026,18 @@
         </div>
       </div>
       <div class="row2">
-        <div class="field" id="bpPctWrap"><label>调整百分比（正加负减，如 10 或 -15）</label><input id="bpPct" class="num" type="number" step="0.1" placeholder="如 -5 表示降价 5%" /></div>
+        <div class="field" id="bpPctWrap"><label>调整方向与幅度</label>
+          <div class="bp-pct-row">
+            <select id="bpDir"><option value="up">上调</option><option value="down">下调</option></select>
+            <input id="bpPct" class="num" type="number" step="0.1" min="0" placeholder="如 10" />
+            <span class="t-meta">%</span>
+          </div>
+        </div>
         <div class="field" id="bpSetWrap" style="display:none"><label>统一价格（元，三档一起设时三档同价）</label><input id="bpSet" class="num" type="number" step="0.01" min="0" placeholder="如 9.9" /></div>
       </div>
-      <div class="t-meta">⚠️ 批量改价立即生效且影响在售商品，请确认后再执行。</div>
+      <label class="chk" style="margin:6px 0"><input type="checkbox" id="bpOnlyActive" /> 仅对「在售」商品生效（不勾选=在售与已下架都改）</label>
+      <div class="t-meta" id="bpPreview">正在统计影响范围…</div>
+      <div class="t-meta">⚠️ 批量改价立即生效，且会自动把这些商品「锁定价格」（之后旧平台/聚惠星选同步不会覆盖你的定价）。</div>
       <div class="msg" id="bpMsg"></div>
       <div class="actions">
         <button class="btn btn-primary btn-sm" id="bpRun">执行批量改价</button>
@@ -1008,6 +1072,29 @@
         <button class="btn btn-primary btn-sm" id="aiRun">开始分析</button>
         <button class="btn btn-green btn-sm" id="aiAdoptAll" style="display:none">一键采纳</button>
         <button class="btn btn-ghost btn-sm" id="aiClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 券位编辑弹窗（管理员） -->
+  <div class="modal" id="couponModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title" id="cpTitle">新增券位</div>
+      <div class="field"><label>券名 *</label><input id="cpTitleInput" placeholder="如：美团外卖红包（满 25 减 8）" /></div>
+      <div class="row2">
+        <div class="field"><label>副标题</label><input id="cpSub" placeholder="如：限新用户，每日可领" /></div>
+        <div class="field"><label>角标</label><input id="cpTag" placeholder="如：热门 / 新手专享" /></div>
+      </div>
+      <div class="field"><label>官方推广链接 *（http/https 开头）</label><input id="cpUrl" placeholder="https://..." /></div>
+      <div class="row2">
+        <div class="field"><label>平台</label><input id="cpPlatform" placeholder="美团" /></div>
+        <div class="field"><label>排序（小的在前）</label><input id="cpSort" class="num" type="number" step="1" /></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="cpActive" /> 在用户端显示（启用）</label>
+      <div class="msg" id="cpMsg"></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="cpSave">保存</button>
+        <button class="btn btn-ghost btn-sm" id="cpClose">取消</button>
       </div>
     </div>
   </div>
@@ -1215,6 +1302,127 @@
       if (res.ok && res.marquee) { MQ_CFG = res.marquee; renderMarquee(); }
     }
 
+    // ==================== 领券中心 ====================
+    let CP_LIST = [];
+    function couponCardHtml(c) {
+      return '<div class="cp-card">' +
+        '<div class="cp-main">' +
+          (c.img ? '<img class="cp-img" src="' + escapeHtml(c.img) + '" alt="" />' : '<div class="cp-ico">🎟</div>') +
+          '<div class="cp-info">' +
+            '<div class="cp-title">' + escapeHtml(c.title) + (c.tag ? ' <span class="cp-tag">' + escapeHtml(c.tag) + '</span>' : '') + '</div>' +
+            (c.sub ? '<div class="cp-sub">' + escapeHtml(c.sub) + '</div>' : '') +
+            '<div class="cp-plat">' + escapeHtml(c.platform || '美团') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cp-ops">' +
+          '<button class="btn btn-primary btn-sm" data-cp="' + escapeHtml(c.id) + '">一键领取</button>' +
+          '<button class="btn btn-ghost btn-sm" data-cpcopy="' + escapeHtml(c.id) + '">复制链接</button>' +
+        '</div>' +
+      '</div>';
+    }
+    async function loadCoupons() {
+      const box = $('couponList'); if (!box) return;
+      const res = await api('shop/coupons', {});
+      CP_LIST = (res.ok && res.coupons) || [];
+      if (!CP_LIST.length) {
+        box.innerHTML = '<div class="empty">暂时还没有可领取的优惠券，过几天再来看看～</div>';
+        return;
+      }
+      box.innerHTML = CP_LIST.map(couponCardHtml).join('');
+    }
+    // 首页入口：有券才显示
+    async function loadCouponEntry() {
+      const el = $('couponEntry'); if (!el) return;
+      try {
+        const res = await api('shop/coupons', {});
+        const list = (res.ok && res.coupons) || [];
+        el.style.display = list.length ? '' : 'none';
+        const t = el.querySelector('.ce-txt');
+        if (t && list.length) t.innerHTML = '<b>领券中心</b>　' + list.length + ' 个优惠券可领（美团外卖 / 到店），一键领取，领券免费';
+      } catch (e) { el.style.display = 'none'; }
+    }
+    function openCoupon(id) {
+      const c = CP_LIST.find(x => x.id === id);
+      if (!c) return;
+      api('coupon/click', { id }).catch(() => {});
+      window.open(c.url, '_blank', 'noopener');
+    }
+    document.addEventListener('click', e => {
+      const t = e.target;
+      if (!t || !t.getAttribute) return;
+      const id = t.getAttribute('data-cp');
+      const cid = t.getAttribute('data-cpcopy');
+      if (id) { openCoupon(id); return; }
+      if (cid) {
+        const c = CP_LIST.find(x => x.id === cid);
+        if (!c) return;
+        const ok = copyText(c.url);
+        alert(ok ? '链接已复制。若在微信里打不开，可把链接粘贴到手机浏览器打开。' : ('复制失败，请手动复制：' + c.url));
+      }
+    });
+    function copyText(txt) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) { return false; }
+    }
+
+    // 后台：领券管理
+    let CP_EDIT = '';
+    async function loadCouponsAdmin() {
+      const box = $('cpAdminList'); if (!box) return;
+      const res = await api('admin/coupons', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="empty">加载失败，请重新登录</div>'; return; }
+      const list = res.coupons || [];
+      if (!list.length) { box.innerHTML = '<div class="empty">还没有券位，点上面「+ 新增券位」添加</div>'; return; }
+      box.innerHTML = list.map(c =>
+        '<div class="task-card">' +
+          '<div class="t-type">' + escapeHtml(c.title) + (c.active ? '' : ' <span class="cp-tag off">已停用</span>') + '</div>' +
+          (c.sub ? '<div class="t-meta">' + escapeHtml(c.sub) + '</div>' : '') +
+          '<div class="t-meta">平台：' + escapeHtml(c.platform || '美团') + ' ｜ 排序 ' + (c.sort || 0) + ' ｜ 点击 ' + intFmt(c.clicks || 0) + ' 次</div>' +
+          '<div class="t-meta" style="word-break:break-all">链接：' + escapeHtml(String(c.url).slice(0, 90)) + '</div>' +
+          '<div class="actions">' +
+            '<button class="btn btn-primary btn-sm" data-cpedit="' + escapeHtml(c.id) + '">编辑</button>' +
+            '<button class="btn btn-ghost btn-sm" data-cptoggle="' + escapeHtml(c.id) + '">' + (c.active ? '停用' : '启用') + '</button>' +
+            '<button class="btn btn-ghost btn-sm" data-cpdel="' + escapeHtml(c.id) + '">删除</button>' +
+          '</div>' +
+        '</div>').join('');
+    }
+    function openCouponEdit(id) {
+      CP_EDIT = id || '';
+      const c = id ? (CP_EDIT_CACHE.find(x => x.id === id) || {}) : {};
+      $('cpTitle').textContent = id ? '编辑券位' : '新增券位';
+      $('cpTitleInput').value = c.title || '';
+      $('cpSub').value = c.sub || '';
+      $('cpTag').value = c.tag || '';
+      $('cpUrl').value = c.url || '';
+      $('cpPlatform').value = c.platform || '美团';
+      $('cpSort').value = (c.sort == null ? 0 : c.sort);
+      $('cpActive').checked = !!c.active;
+      $('cpMsg').className = 'msg'; $('cpMsg').textContent = '';
+      $('couponModal').style.display = 'flex';
+    }
+    let CP_EDIT_CACHE = [];
+    async function saveCouponModal() {
+      const msg = $('cpMsg'); msg.className = 'msg'; msg.textContent = '';
+      const body = {
+        id: CP_EDIT || undefined,
+        title: $('cpTitleInput').value.trim(),
+        sub: $('cpSub').value.trim(), tag: $('cpTag').value.trim(),
+        url: $('cpUrl').value.trim(), platform: $('cpPlatform').value.trim() || '美团',
+        sort: Number($('cpSort').value) || 0, active: $('cpActive').checked,
+      };
+      if (!body.title) { msg.className = 'msg err'; msg.textContent = '请填写券名'; return; }
+      if (!/^https?:\/\//i.test(body.url)) { msg.className = 'msg err'; msg.textContent = '请填写以 http(s):// 开头的官方推广链接'; return; }
+      const res = await api('admin/coupon/save', body, true);
+      if (res.ok) { $('couponModal').style.display = 'none'; alert('已保存'); loadCouponsAdmin(); }
+      else { msg.className = 'msg err'; msg.textContent = res.msg || '保存失败'; }
+    }
+
     // ==================== 顶部滚动字幕 ====================
     let MQ_CFG = null;
     // 后台没有自定义内容时用的默认文案
@@ -1307,6 +1515,38 @@
     { const el = $('setMqText'); if (el) el.addEventListener('change', saveMarqueeSection); }
     { const el = $('setMqOn'); if (el) el.addEventListener('change', saveMarqueeSection); }
     { const el = $('setMqOn'); if (el) el.addEventListener('change', renderMqPreview); }
+
+    // 首页数据展示：同样改完自动保存 + 立即刷新
+    let ST_SAVING = false, ST_QUEUE = false;
+    async function saveStatsSection() {
+      if (!$('setStatsMode')) return;
+      if (ST_SAVING) { ST_QUEUE = true; return; }
+      ST_SAVING = true;
+      const st = $('stSaved');
+      if (st) { st.className = 'msg'; st.textContent = '正在保存…'; }
+      try {
+        const r = await api('admin/settings/save', {
+          statsMode: $('setStatsMode').value,
+          statsUsers: $('setStatsUsers').value,
+          statsOrders: $('setStatsOrders').value,
+          statsToday: $('setStatsToday').value,
+          statsText: $('setStatsText').value,
+        }, true);
+        if (r.ok) {
+          await loadPlatformStats();
+          if (st) { st.className = 'msg ok'; st.textContent = '✅ 已保存生效（用户端首页立刻显示）'; }
+        } else if (st) { st.className = 'msg err'; st.textContent = r.msg || '保存失败'; }
+      } catch (e) {
+        if (st) { st.className = 'msg err'; st.textContent = '保存失败：' + ((e && e.message) || '请重试'); }
+      }
+      ST_SAVING = false;
+      if (ST_QUEUE) { ST_QUEUE = false; saveStatsSection(); }
+    }
+    ['setStatsUsers', 'setStatsOrders', 'setStatsToday'].forEach(id => {
+      const el = $(id); if (el) el.addEventListener('change', saveStatsSection);
+    });
+    { const el = $('setStatsText'); if (el) el.addEventListener('change', saveStatsSection); }
+    { const el = $('setStatsMode'); if (el) el.addEventListener('change', saveStatsSection); }
 
     let MQ_RT = null;
     window.addEventListener('resize', () => {
@@ -1544,6 +1784,7 @@
     // ==================== 应用框架 ====================
     const NAV = [
       { id: 'work', label: '工作台', roles: ['user', 'admin'] },
+      { id: 'coupons', label: '🎟 领券中心', roles: ['user'] },
       { id: 'shop', label: '商品下单', roles: ['user'] },
       { id: 'wallet', label: '钱包', roles: ['user'] },
       { id: 'invite', label: '邀请好友', roles: ['user'] },
@@ -1558,12 +1799,13 @@
       { id: 'rules', label: '金额规则', roles: ['admin'] },
       { id: 'pricingAdmin', label: '价目表', roles: ['admin'] },
       { id: 'products', label: '商品管理', roles: ['admin'] },
+      { id: 'couponsAdm', label: '领券管理', roles: ['admin'] },
       { id: 'withdrawals', label: '提现审核', roles: ['admin'] },
       { id: 'aftersales', label: '售后处理', roles: ['admin'] },
       { id: 'ann', label: '公告管理', roles: ['admin'] },
       { id: 'old', label: '旧平台', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'coupons', 'couponsAdm', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
@@ -1592,9 +1834,13 @@
         if (el) el.style.display = (id === v) ? '' : 'none';
       });
       renderNav();
-      if (v === 'work') { renderGreeting(); loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks(); }
+      if (v === 'work') {
+        renderGreeting(); loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks();
+        loadPlatformStats(); loadRecentRecharges(); loadCouponEntry();
+      }
+      else if (v === 'coupons') loadCoupons();
+      else if (v === 'couponsAdm') loadCouponsAdmin();
       else if (v === 'shop') loadShop();
-      else if (v === 'work') { loadPlatformStats(); loadRecentRecharges(); }
       else if (v === 'wallet') loadWallet();
       else if (v === 'invite') loadInvite();
       else if (v === 'chat') loadChat();
@@ -1791,13 +2037,25 @@
         '</div>';
     }
     // 平台数据（信任感）
+    let ST_REAL = null;
     async function loadPlatformStats() {
       const res = await api('public/stats', {});
       const box = $('statsStrip'); if (!box || !res.ok) return;
+      // 后台填了「自定义整句」就直接显示那句话（可带活动氛围），否则显示三个数字
+      ST_REAL = res.real || null;
+      const custom = String(res.text || '').trim();
+      const cells = box.querySelector('.ss-cells'), txtEl = $('statsText');
+      if (custom) {
+        if (cells) cells.style.display = 'none';
+        if (txtEl) { txtEl.style.display = ''; txtEl.textContent = custom; }
+      } else {
+        if (cells) cells.style.display = '';
+        if (txtEl) txtEl.style.display = 'none';
+        $('stUsers').textContent = intFmt(res.users || 0);
+        $('stOrders').textContent = intFmt(res.orders || 0);
+        $('stToday').textContent = intFmt(res.todayOrders || 0);
+      }
       box.style.display = '';
-      $('stUsers').textContent = intFmt(res.users || 0);
-      $('stOrders').textContent = intFmt(res.orders || 0);
-      $('stToday').textContent = intFmt(res.todayOrders || 0);
     }
     $('rcUrgeBtn').addEventListener('click', async () => {
       const m = $('rcUrgeMsg'); m.className = 'msg'; m.textContent = '正在提醒…';
@@ -3500,32 +3758,107 @@
     function updateSelCount() {
       $('apSelCount').textContent = getSelIds().length;
     }
-    let BP_SCOPE = null; // null = 用勾选的 ids；否则 { cid, kw, active }
-    function openBatchPrice(scope) {
-      BP_SCOPE = scope || null;
+    // ==================== 批量改价（v2：范围可选 + 上调下调 + 影响预览） ====================
+    function bpFillCats() {
+      const sel = $('bpCat'); if (!sel) return;
+      const tops = (AP_CATS || []).filter(c => !c.parentId);
+      const kids = (AP_CATS || []).filter(c => c.parentId);
+      sel.innerHTML = tops.map(t => {
+        const sub = kids.filter(k => k.parentId === t.id);
+        if (!sub.length) return '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.name) + '</option>';
+        return '<optgroup label="' + escapeHtml(t.name) + '">' +
+          '<option value="' + escapeHtml(t.id) + '">整个「' + escapeHtml(t.name) + '」（含子类）</option>' +
+          sub.map(k => '<option value="' + escapeHtml(k.id) + '">　' + escapeHtml(k.name) + '</option>').join('') +
+          '</optgroup>';
+      }).join('');
+      if (AP_CID) sel.value = AP_CID;
+    }
+
+    // 把弹窗里的选择翻译成后端参数
+    function bpFilter(extra) {
+      const mode = $('bpScopeMode').value;
+      const src = AP_SOURCE || '';
+      const body = Object.assign({}, extra || {});
+      if (mode === 'ids') body.ids = getSelIds();
+      else if (mode === 'all') body.scope = { all: true };
+      else if (mode === 'cat') body.scope = { parentCid: $('bpCat').value };
+      else body.scope = { parentCid: AP_CID || '', kw: AP_KW || '', source: src };
+      if (mode !== 'ids' && $('bpOnlyActive').checked) body.scope.active = true;
+      return body;
+    }
+
+    function bpScopeText() {
+      const mode = $('bpScopeMode').value;
+      if (mode === 'ids') return '已勾选 ' + getSelIds().length + ' 个商品';
+      if (mode === 'all') return '整个店铺的全部商品';
+      if (mode === 'cat') {
+        const c = (AP_CATS || []).find(x => x.id === $('bpCat').value);
+        return '分类「' + ((c && c.name) || $('bpCat').value) + '」下的商品' + ((c && !c.parentId) ? '（含子类）' : '');
+      }
+      return '当前筛选范围（分类 ' + (AP_CID || '全部') + (AP_KW ? ' / 关键词 ' + AP_KW : '') + (AP_SOURCE ? ' / 来源 ' + AP_SOURCE : '') + '）';
+    }
+
+    let BP_PREVIEW_T = null;
+    async function bpPreview() {
+      const el = $('bpPreview'); if (!el) return;
+      el.textContent = '正在统计影响范围…';
+      clearTimeout(BP_PREVIEW_T);
+      const res = await api('admin/products/batch', bpFilter({ dryRun: true }), true);
+      if (!res.ok) { el.textContent = res.msg || '统计失败'; return; }
+      const cnt = res.count || 0;
+      el.innerHTML = cnt > 0
+        ? ('将对 <b>' + intFmt(cnt) + '</b> 个商品生效；范围：' + escapeHtml(bpScopeText()))
+        : '⚠️ 该范围内没有商品，请检查条件';
+    }
+    function bpOnScopeChange() {
+      $('bpCatWrap').style.display = ($('bpScopeMode').value === 'cat') ? '' : 'none';
+      bpPreview();
+    }
+
+    function openBatchPrice(forSel) {
       const ids = getSelIds();
-      if (!BP_SCOPE && !ids.length) { alert('请先勾选要改价的商品；若要对当前筛选全部生效，请点工具栏的「批量改价」。'); return; }
-      $('bpScope').textContent = BP_SCOPE
-        ? '作用范围：当前筛选的全部 ' + intFmt(AP_TOTAL) + ' 个商品（分类：' + (AP_CID || '全部') + (AP_KW ? ' / 关键词：' + AP_KW : '') + (AP_ONLY_ACTIVE ? ' / 仅在售' : '') + '）'
-        : '作用范围：已勾选的 ' + ids.length + ' 个商品';
+      if (!$('bpScopeMode')) return;
+      bpFillCats();
+      // 默认范围：从勾选条进来 = 用勾选；否则用当前筛选
+      $('bpScopeMode').value = (forSel && ids.length) ? 'ids' : 'cur';
+      $('bpScopeMode').options[0].textContent = '已勾选的商品（' + ids.length + ' 个）';
+      $('bpCatWrap').style.display = 'none';
+      $('bpOnlyActive').checked = false;
       $('bpMsg').className = 'msg'; $('bpMsg').textContent = '';
       $('batchPriceModal').style.display = 'flex';
+      bpPreview();
     }
+
     async function runBatchPrice() {
       const msg = $('bpMsg'); msg.className = 'msg'; msg.textContent = '';
       const mode = $('bpMode').value;
-      const body = { which: $('bpWhich').value, mode };
-      if (BP_SCOPE) body.scope = BP_SCOPE; else body.ids = getSelIds();
-      if (mode === 'set') body.value = Number($('bpSet').value);
-      else body.pct = Number($('bpPct').value);
-      if (mode === 'set' && (!(body.value >= 0))) { msg.className = 'msg err'; msg.textContent = '请填写统一价格'; return; }
-      if (mode === 'pct' && (!isFinite(body.pct) || body.pct === 0)) { msg.className = 'msg err'; msg.textContent = '请填写调整百分比（正加负减）'; return; }
-      if (!confirm('确认执行批量改价？该操作立即生效。')) return;
+      const scopeMode = $('bpScopeMode').value;
+      const body = bpFilter({ which: $('bpWhich').value, mode });
+      if (scopeMode === 'ids' && !(body.ids || []).length) { msg.className = 'msg err'; msg.textContent = '没有勾选任何商品'; return; }
+      if (mode === 'set') {
+        const v = Number($('bpSet').value);
+        if (!(v >= 0)) { msg.className = 'msg err'; msg.textContent = '请填写统一价格'; return; }
+        body.value = v;
+      } else {
+        const v = Number($('bpPct').value);
+        if (!isFinite(v) || v <= 0) { msg.className = 'msg err'; msg.textContent = '请填写要调整的百分比（正数，如 10）'; return; }
+        body.pct = ($('bpDir').value === 'down') ? -v : v;
+      }
+      // 再统计一次，确认最终影响数量
+      const chk = await api('admin/products/batch', Object.assign({}, body, { dryRun: true }), true);
+      const cnt = (chk.ok && chk.count) || 0;
+      const dirTxt = mode === 'set' ? ('统一设为 ¥' + body.value) : ((body.pct > 0 ? '上调 ' : '下调 ') + Math.abs(body.pct) + '%');
+      if (!confirm('确认批量改价？' + String.fromCharCode(10, 10) +
+        '· 范围：' + bpScopeText() + String.fromCharCode(10) +
+        '· 操作：' + dirTxt + String.fromCharCode(10) +
+        '· 影响：' + cnt + ' 个商品' + String.fromCharCode(10) +
+        '· 档位：' + $('bpWhich').selectedOptions[0].textContent + String.fromCharCode(10, 10) +
+        '改完会自动锁定这些商品的价格，确认执行？')) return;
       const res = await api('admin/products/batch', body, true);
       if (res.ok) {
-        alert('批量改价完成，共更新 ' + (res.updated || 0) + ' 个商品');
+        alert('批量改价完成，共更新 ' + (res.updated || 0) + ' 个商品（已自动锁价）');
         $('batchPriceModal').style.display = 'none';
-        loadApList(true);
+        loadApList(true); loadApCats();
       } else { msg.className = 'msg err'; msg.textContent = res.msg || '执行失败'; }
     }
 
@@ -4015,8 +4348,45 @@
     $('apSelectBar').style.display = '';
     $('apSelAll').addEventListener('change', e => { document.querySelectorAll('.ap-chk').forEach(c => { c.checked = e.target.checked; }); updateSelCount(); });
     $('apList').addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('ap-chk')) { if (!e.target.checked) $('apSelAll').checked = false; updateSelCount(); } });
-    $('apBatchBtn').addEventListener('click', () => openBatchPrice({ cid: AP_CID, kw: AP_KW, active: AP_ONLY_ACTIVE ? true : null }));
-    $('apBatchSelBtn').addEventListener('click', () => openBatchPrice(null));
+    $('apBatchBtn').addEventListener('click', () => openBatchPrice(false));
+    $('apBatchSelBtn').addEventListener('click', () => openBatchPrice(true));
+    if ($('apSelFilterAll')) $('apSelFilterAll').addEventListener('click', () => {
+      const ids = getSelIds();
+      $('apSelectBar').style.display = '';
+      openBatchPrice(false);
+      $('bpScopeMode').value = 'cur';
+      bpOnScopeChange();
+      if (!ids.length) $('apSelAll').checked = false;
+    });
+    if ($('apSelClear')) $('apSelClear').addEventListener('click', () => {
+      document.querySelectorAll('.ap-chk').forEach(c => { c.checked = false; });
+      if ($('apSelAll')) $('apSelAll').checked = false;
+      updateSelCount();
+    });
+    if ($('bpScopeMode')) $('bpScopeMode').addEventListener('change', bpOnScopeChange);
+    if ($('cpAddBtn')) $('cpAddBtn').addEventListener('click', () => { CP_EDIT_CACHE = []; openCouponEdit(''); });
+    if ($('cpRefreshBtn')) $('cpRefreshBtn').addEventListener('click', () => loadCouponsAdmin());
+    if ($('cpSave')) $('cpSave').addEventListener('click', saveCouponModal);
+    if ($('cpClose')) $('cpClose').addEventListener('click', () => { $('couponModal').style.display = 'none'; });
+    if ($('cpAdminList')) $('cpAdminList').addEventListener('click', async e => {
+      const t = e.target; if (!t || !t.getAttribute) return;
+      const ed = t.getAttribute('data-cpedit'), tg = t.getAttribute('data-cptoggle'), dl = t.getAttribute('data-cpdel');
+      if (!ed && !tg && !dl) return;
+      const res = await api('admin/coupons', {}, true);
+      CP_EDIT_CACHE = (res.ok && res.coupons) || [];
+      if (ed) openCouponEdit(ed);
+      else if (tg) {
+        const c = CP_EDIT_CACHE.find(x => x.id === tg); if (!c) return;
+        const r2 = await api('admin/coupon/save', { id: tg, title: c.title, sub: c.sub, tag: c.tag, url: c.url, img: c.img, platform: c.platform, sort: c.sort, active: !c.active }, true);
+        if (r2.ok) loadCouponsAdmin(); else alert(r2.msg || '操作失败');
+      } else if (dl) {
+        if (!confirm('确定删除这个券位？')) return;
+        const r3 = await api('admin/coupon/delete', { id: dl }, true);
+        if (r3.ok) loadCouponsAdmin(); else alert(r3.msg || '删除失败');
+      }
+    });
+    if ($('bpCat')) $('bpCat').addEventListener('change', bpPreview);
+    if ($('bpOnlyActive')) $('bpOnlyActive').addEventListener('change', bpPreview);
     $('apMoveBtn').addEventListener('click', () => openMove({ cid: AP_CID, kw: AP_KW, active: AP_ONLY_ACTIVE ? true : null }));
     $('apMoveSelBtn').addEventListener('click', () => openMove(null));
     $('mvRun').addEventListener('click', runMove);
@@ -4463,6 +4833,17 @@
           $('setRcEta').value = (s.recharge_eta_min != null ? s.recharge_eta_min : 15);
           $('setRcSvc').value = (s.recharge_service_time || '9:00-23:00');
           $('setRcAdmin').value = (s.admin_notify_phone || '');
+        }
+        if ($('setStatsMode')) {
+          $('setStatsMode').value = (s.stats_mode === 'custom' ? 'custom' : 'real');
+          $('setStatsUsers').value = (s.stats_users != null ? s.stats_users : 0);
+          $('setStatsOrders').value = (s.stats_orders != null ? s.stats_orders : 0);
+          $('setStatsToday').value = (s.stats_today != null ? s.stats_today : 0);
+          $('setStatsText').value = (s.stats_text || '');
+          loadPlatformStats().then(() => {
+            const el = $('stReal');
+            if (el && ST_REAL) el.innerHTML = '当前真实数据：已服务 <b>' + intFmt(ST_REAL.users) + '</b> 位 · 累计完成 <b>' + intFmt(ST_REAL.orders) + '</b> 单 · 今日 <b>' + intFmt(ST_REAL.todayOrders) + '</b> 单';
+          });
         }
         if ($('setMqOn')) {
           $('setMqOn').checked = (s.marquee_enabled !== false);
