@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=46" />
+  <link rel="stylesheet" href="css/style.css?v=47" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -119,6 +119,12 @@
 
     <!-- 主导航 -->
     <div class="nav" id="nav"></div>
+
+    <!-- 滚动字幕（用户端，后台可配置内容；点击进入商品页） -->
+    <div class="marquee" id="marquee" style="display:none" role="marquee" aria-label="平台公告">
+      <span class="mq-tag">📢</span>
+      <div class="mq-view"><div class="mq-track" id="mqTrack"></div></div>
+    </div>
 
     <!-- ---------- 工作台（用户端 / 管理员也能用） ---------- -->
     <div class="view" id="view-work">
@@ -469,6 +475,18 @@
         <label class="inline-field">用量检查每<input id="setCheckDays" class="num" type="number" min="1" /><span>天一次，达到</span>
           <input id="setAlertPct" class="num" type="number" min="1" max="100" /><span>% 时站内提醒我</span></label>
         <div class="t-meta" style="margin:-4px 0 10px">说明：系统每 6 小时自动清理一次超期图片（充值截图、订单附件、客服聊天图片），只删图片本身，充值/订单记录仍保留。免费版数据库 500MB、存储 1GB、带宽 5GB/月。</div>
+
+        <div class="free-rule-title">首页滚动字幕</div>
+        <label class="chk inline-field"><input type="checkbox" id="setMqOn" /> 在用户端显示滚动字幕（每个页面顶部）</label>
+        <label class="inline-field">滚动速度<input id="setMqSpeed" class="num" type="number" min="5" max="300" step="1" /><span>秒/圈（数字越小滚得越快，建议 25~40）</span></label>
+        <div class="field" style="margin:6px 0 4px">
+          <label>字幕内容（<b>每行一条</b>，留空则用系统默认文案；建议 3~6 条、每条不超过 25 字）</label>
+          <textarea id="setMqText" rows="5" placeholder="🔥 全场 7000+ 商品，每日更新&#10;⏱ 充值一般 2 分钟内到账&#10;🎁 首次充值有赠送"></textarea>
+        </div>
+        <div class="field" style="margin:0 0 10px">
+          <label>效果预览（用户端顶部就是这个样子）</label>
+          <div id="mqPreview"></div>
+        </div>
 
         <div class="free-rule-title">AI 定价分析</div>
         <label class="inline-field">目标毛利率<input id="setAiMargin" class="num" type="number" min="0" step="1" /><span>%（建议价至少要达到这个毛利）</span></label>
@@ -1177,7 +1195,70 @@
         HL_COLOR = res.highlightColor;
         document.documentElement.style.setProperty('--hl', HL_COLOR);
       }
+      if (res.ok && res.marquee) { MQ_CFG = res.marquee; renderMarquee(); }
     }
+
+    // ==================== 顶部滚动字幕 ====================
+    let MQ_CFG = null;
+    // 后台没有自定义内容时用的默认文案
+    const MQ_DEFAULT = [
+      '🔥 全场 7000+ 商品，每日更新，下单后客服全程跟进',
+      '⏱ 充值一般 2 分钟内到账，客服在线 9:00-23:00',
+      '🎁 首次充值有赠送，每日签到还能攒积分抵现',
+      '📝 商品列表里没找到？可在工作台「手动提交需求」，管理员单独报价',
+      '💬 订单有问题直接点右下角客服，人工处理不敷衍',
+    ];
+    function renderMarquee() {
+      const box = $('marquee');
+      if (!box) return;
+      const cfg = MQ_CFG || {};
+      // 管理员看到的是后台界面，字幕是给用户看的，避免干扰
+      if (isAdmin || cfg.enabled === false) { box.style.display = 'none'; return; }
+      const items = (cfg.text ? String(cfg.text).split('\n') : MQ_DEFAULT)
+        .map(x => String(x).trim()).filter(Boolean).slice(0, 12);
+      if (!items.length) { box.style.display = 'none'; return; }
+
+      const seg = items.map(escapeHtml).join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
+      const track = $('mqTrack');
+      const view = box.querySelector('.mq-view');
+      box.style.display = '';
+      // 先量一段的宽度，再决定复制几份，保证滚动过程中不会出现空白
+      track.style.animation = 'none';
+      track.innerHTML = '<span class="mq-seg">' + seg + '</span>';
+      const baseW = track.querySelector('.mq-seg').getBoundingClientRect().width || 1;
+      const needW = Math.max(view.clientWidth || 0, 360);
+      // 上限 12 份：宽度量不准（字体未加载 / 元素隐藏）时也不会复制出几百份
+      const k = Math.min(12, Math.max(1, Math.ceil(needW / baseW) + 1));
+      const half = new Array(k).fill('<span class="mq-seg">' + seg + '</span>').join('');
+      track.innerHTML = half + half;              // 两半完全相同 → translateX(-50%) 正好无缝循环
+      track.style.animation = '';
+      track.style.animationDuration = Math.max(5, Number(cfg.speed) || 30) + 's';
+    }
+    // 后台设置页的实时预览
+    function renderMqPreview() {
+      const box = $('mqPreview'); if (!box) return;
+      const on = $('setMqOn') ? $('setMqOn').checked : true;
+      const raw = $('setMqText') ? $('setMqText').value : '';
+      const items = (raw ? raw.split('\n') : MQ_DEFAULT).map(x => String(x).trim()).filter(Boolean);
+      if (!on) { box.innerHTML = '<div class="t-meta">已关闭，用户端不会显示</div>'; return; }
+      if (!items.length) { box.innerHTML = '<div class="t-meta">没有内容（留空时会用系统默认文案）</div>'; return; }
+      const seg = items.map(escapeHtml).join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
+      const speed = Math.max(5, Number($('setMqSpeed') && $('setMqSpeed').value) || 30);
+      const half = (seg + seg + seg);
+      box.innerHTML = '<div class="marquee mq-preview"><span class="mq-tag">📢</span>' +
+        '<div class="mq-view"><div class="mq-track" style="animation-duration:' + speed + 's">' + half + half + '</div></div></div>';
+    }
+    ['setMqText', 'setMqSpeed'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', renderMqPreview); });
+    { const el = $('setMqOn'); if (el) el.addEventListener('change', renderMqPreview); }
+
+    let MQ_RT = null;
+    window.addEventListener('resize', () => {
+      if (!MQ_CFG) return;
+      clearTimeout(MQ_RT);
+      MQ_RT = setTimeout(() => { const m = $('marquee'); if (m && m.style.display !== 'none') renderMarquee(); }, 250);
+    });
+    const mqBox = $('marquee');
+    if (mqBox) mqBox.addEventListener('click', () => { if (!isAdmin) switchView('shop'); });
     let MSG_UNREAD = 0;
     let CHAT_UNREAD = 0;
     let CS_UNREAD = 0;
@@ -1484,6 +1565,7 @@
       currentView = 'work';
       switchView('work');
       loadUiConfig();
+      renderMarquee(); // 管理员/用户切换后重新判断是否显示
       if (!isAdmin) { loadUnread(); loadChatUnread(); }
       else { loadConversations(); loadPresets(); loadAdmMsgUnread(); }
     }
@@ -4284,6 +4366,12 @@
           $('setRcSvc').value = (s.recharge_service_time || '9:00-23:00');
           $('setRcAdmin').value = (s.admin_notify_phone || '');
         }
+        if ($('setMqOn')) {
+          $('setMqOn').checked = (s.marquee_enabled !== false);
+          $('setMqSpeed').value = (s.marquee_speed != null ? s.marquee_speed : 30);
+          $('setMqText').value = (s.marquee_text || '');
+          renderMqPreview();
+        }
         if ($('setAiMargin')) {
           $('setAiMargin').value = (s.ai_target_margin != null ? s.ai_target_margin : 30);
           $('setAiMinMargin').value = (s.ai_min_margin != null ? s.ai_min_margin : 10);
@@ -4327,6 +4415,12 @@
         checkinStreakPoints: $('setStreakPts') ? $('setStreakPts').value : undefined,
         withdrawMinDays: $('setWdDays') ? $('setWdDays').value : undefined,
         withdrawNeedOrder: $('setWdOrders') ? $('setWdOrders').value : undefined,
+        marqueeEnabled: $('setMqOn') ? ($('setMqOn').checked ? '1' : '0') : undefined,
+        marqueeText: $('setMqText') ? $('setMqText').value : undefined,
+        marqueeSpeed: $('setMqSpeed') ? $('setMqSpeed').value : undefined,
+        marqueeEnabled: $('setMqOn') ? ($('setMqOn').checked ? '1' : '0') : undefined,
+        marqueeText: $('setMqText') ? $('setMqText').value : undefined,
+        marqueeSpeed: $('setMqSpeed') ? $('setMqSpeed').value : undefined,
         aiTargetMargin: $('setAiMargin') ? $('setAiMargin').value : undefined,
         aiMinMargin: $('setAiMinMargin') ? $('setAiMinMargin').value : undefined,
         aiMinPeers: $('setAiPeers') ? $('setAiPeers').value : undefined,

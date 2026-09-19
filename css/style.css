@@ -1263,6 +1263,31 @@ span.ai-warn { color: #92400e; }
   .ai-list { max-height: 62vh; }
 }
 
+
+/* ---------- 顶部滚动字幕（用户端） ---------- */
+.marquee { display: flex; align-items: center; gap: 8px; margin: -8px 0 14px; padding: 8px 12px;
+  border-radius: 10px; background: linear-gradient(90deg, #fff7ed, #fffdf5); border: 1px solid #fed7aa;
+  overflow: hidden; cursor: pointer; }
+.marquee:hover { border-color: #fdba74; }
+.mq-tag { flex: 0 0 auto; font-size: 14px; line-height: 1; }
+.mq-view { flex: 1 1 auto; overflow: hidden; }
+.mq-track { display: inline-flex; white-space: nowrap; will-change: transform;
+  animation: mqScroll 30s linear infinite; font-size: 13px; color: #9a3412; }
+.marquee:hover .mq-track { animation-play-state: paused; }
+.mq-seg { display: inline-block; }
+.mq-dot { color: #fdba74; margin: 0 10px; }
+@keyframes mqScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+/* 后台预览：不需要点击跳转 */
+.mq-preview { margin: 6px 0 0; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+  .mq-track { animation: none; }
+  .mq-view { overflow-x: auto; }
+}
+@media (max-width: 640px) {
+  .marquee { padding: 7px 10px; margin: -6px 0 12px; }
+  .mq-track { font-size: 12.5px; }
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
