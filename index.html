@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=54" />
+  <link rel="stylesheet" href="css/style.css?v=55" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -430,6 +430,21 @@
         填写<b>官方推广链接</b>（美团联盟 media.meituan.com / union.meituan.com 生成的链接，或官方小程序路径），用户点击「一键领取」会跳过去领券。
         <b>请勿填写非官方或来路不明的链接</b>——既拿不到佣金，也可能被平台判违规。
       </div>
+      <details class="cp-help">
+        <summary>📖 怎么拿到官方推广链接？（点开看步骤，5 分钟搞定）</summary>
+        <div class="cp-help-body">
+          <div class="t-meta" style="margin-bottom:6px">渠道：<b>美团联盟</b>（官方，免费注册，无技术服务费）。个人可从微信「美团联盟」小程序快速开通。</div>
+          <ol class="cp-help-list">
+            <li>打开 <a href="https://media.meituan.com/pc/index.html#/" target="_blank" rel="noopener">media.meituan.com</a> → 点【注册】→ 登录</li>
+            <li>左侧「<b>账户管理 → 资质管理</b>」完成认证（⚠️ 账户性质提交后不可改；手机号只记第一次填的）</li>
+            <li>左侧「<b>媒体管理</b>」→【新增媒体】→ 保存后复制列表里的 <b>APPKEY</b></li>
+            <li>左侧「<b>推广位管理</b>」→【新增推广位】→ 确定后复制列表里的 <b>SID</b></li>
+            <li>左侧「<b>选品广场 → 物料推广</b>」→ 找到券 →【立即推广】→ 选媒体+推广位 →【复制文案】拿到链接（建议用短链/长链）</li>
+            <li>回到这里：编辑券位 → 粘贴链接 → 勾选「在用户端显示」→ 保存。用户端立刻出现</li>
+          </ol>
+          <div class="t-meta">📈 效果在联盟后台「效果报表 / 收入概览」查看（可按 SID 区分是哪个位置带来的）。<b>用户退款或风控会产生负向佣金</b>。完整图文步骤见工作目录的《美团联盟注册与取链指南.md》。</div>
+        </div>
+      </details>
       <div class="actions" style="margin-bottom:12px">
         <button class="btn btn-green btn-sm" id="cpAddBtn">+ 新增券位</button>
         <button class="btn btn-ghost btn-sm" id="cpRefreshBtn">刷新</button>

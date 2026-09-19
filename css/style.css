@@ -1352,6 +1352,13 @@ span.ai-warn { color: #92400e; }
   .cp-ops .btn { flex: 1 1 0; }
 }
 
+.cp-help { margin: 0 0 12px; border: 1px dashed var(--line); border-radius: 10px; background: #f8fafc; }
+.cp-help > summary { cursor: pointer; padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--primary); }
+.cp-help-body { padding: 0 14px 12px; font-size: 13px; color: var(--muted); line-height: 1.8; }
+.cp-help-list { margin: 6px 0 8px; padding-left: 20px; }
+.cp-help-list li { margin-bottom: 3px; }
+.cp-help-body a { color: var(--primary); }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
