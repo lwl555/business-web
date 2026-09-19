@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=55" />
+  <link rel="stylesheet" href="css/style.css?v=56" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -491,9 +491,35 @@
           <button type="button" class="btn btn-ghost btn-xs" data-mqspeed="60">很慢 60 秒</button>
         </div>
         <div class="field" style="margin:6px 0 4px">
-          <label>字幕内容（<b>每行一条</b>，留空则用系统默认文案；建议 3~6 条、每条不超过 25 字）</label>
-          <textarea id="setMqText" rows="5" placeholder="🔥 全场 7000+ 商品，每日更新&#10;⏱ 充值一般 2 分钟内到账&#10;🎁 首次充值有赠送"></textarea>
+          <label>字幕内容（<b>每行一条</b>；可在行首加 <b>[红] [橙] [绿] [蓝] [紫] [灰]</b> 设置该条颜色；留空=系统默认文案）</label>
+          <textarea id="setMqText" rows="6" placeholder="[红]🔥 今日已完成 {today} 单，{online} 人在线&#10;[橙]⏱ 充值一般 2 分钟内到账&#10;[绿]✅ 已服务 {users} 位用户，累计完成 {orders} 单"></textarea>
         </div>
+        <div class="mq-vars">
+          <span class="t-meta">点一下插入到光标处：</span>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="{today}">今日完成</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="{online}">在线人数</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="{users}">已服务人数</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="{orders}">累计完成</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="{recent}">最近到账</button>
+          <span class="t-meta">｜颜色：</span>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="[红]">红</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="[橙]">橙</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="[绿]">绿</button>
+          <button type="button" class="btn btn-ghost btn-xs" data-mqvar="[蓝]">蓝</button>
+        </div>
+        <div class="t-meta" style="margin:0 0 8px">
+          数字来源：<b>{today}/{users}/{orders}</b> 跟随下面「首页数据展示」的<b>真实/自定义</b>设置；<b>{online}</b> 跟随「在线人数」设置；<b>{recent}</b> 取「最近到账」手动文案，留空则自动显示最近一笔真实到账（脱敏）。
+        </div>
+
+        <div class="free-rule-title">在线人数 / 最近到账</div>
+        <label class="inline-field">在线人数<select id="setOnlineMode" class="num">
+          <option value="custom">自定义数字（造势）</option>
+          <option value="real">真实统计（最近 5 分钟活跃用户）</option>
+        </select></label>
+        <label class="inline-field">自定义在线<input id="setStatsOnline" class="num" type="number" min="0" /><span>人</span></label>
+        <label class="inline-field">最近到账文案（选填）<input id="setStatsRecent" style="width:260px" placeholder="留空=自动显示最近一笔真实到账" /></label>
+        <div class="msg" id="onlineSaved" style="margin:0 0 10px"></div>
+        <div class="t-meta" id="onlineRealBox" style="margin:0 0 10px"></div>
         <div class="field" style="margin:0 0 10px">
           <label>效果预览（用户端顶部就是这个样子）</label>
           <div id="mqPreview"></div>
@@ -1440,6 +1466,7 @@
 
     // ==================== 顶部滚动字幕 ====================
     let MQ_CFG = null;
+    const MQ_COLOR_MAP = { '红': '#dc2626', '橙': '#c2410c', '绿': '#047857', '蓝': '#2563eb', '紫': '#7c3aed', '灰': '#64748b' };
     // 后台没有自定义内容时用的默认文案
     const MQ_DEFAULT = [
       '🔥 全场 7000+ 商品，每日更新，下单后客服全程跟进',
@@ -1454,11 +1481,24 @@
       const cfg = MQ_CFG || {};
       // 注意：管理员也要能看到（老板要随时确认效果），只按后台开关控制
       if (cfg.enabled === false) { wrap.style.display = 'none'; return; }
-      const items = (cfg.text ? String(cfg.text).split('\n') : MQ_DEFAULT)
-        .map(x => String(x).trim()).filter(Boolean).slice(0, 12);
-      if (!items.length) { wrap.style.display = 'none'; return; }
+      // 优先用后端解析好的条目（变量已替换、按重要性着色）；否则用自定义文案 / 内置默认
+      let parts = null;
+      if (Array.isArray(cfg.items) && cfg.items.length) {
+        parts = cfg.items.map(x => '<span class="mq-item" style="color:' + (x.color || '#c2410c') + '">' + escapeHtml(x.text) + '</span>');
+      } else {
+        const items = (cfg.text ? String(cfg.text).split('\n') : MQ_DEFAULT)
+          .map(x => String(x).trim()).filter(Boolean).slice(0, 12);
+        if (!items.length) { wrap.style.display = 'none'; return; }
+        parts = items.map(t => {
+          let color = '#c2410c', text = t;
+          const m = t.match(/^\[([红橙绿蓝紫灰])\]\s*/);
+          if (m) { color = MQ_COLOR_MAP[m[1]] || color; text = t.slice(m[0].length); }
+          return '<span class="mq-item" style="color:' + color + '">' + escapeHtml(text) + '</span>';
+        });
+      }
+      if (!parts.length) { wrap.style.display = 'none'; return; }
 
-      const seg = items.map(escapeHtml).join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
+      const seg = parts.join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
       const track = $('mqTrack');
       const view = box.querySelector('.mq-view');
       wrap.style.display = '';
@@ -1482,13 +1522,68 @@
       const items = (raw ? raw.split('\n') : MQ_DEFAULT).map(x => String(x).trim()).filter(Boolean);
       if (!on) { box.innerHTML = '<div class="t-meta">已关闭，用户端不会显示</div>'; return; }
       if (!items.length) { box.innerHTML = '<div class="t-meta">没有内容（留空时会用系统默认文案）</div>'; return; }
-      const seg = items.map(escapeHtml).join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
+      // 若已保存的最新内容与当前输入一致，直接用后端解析好的条目（能看到真实数字与颜色）
+      const cur = ($('setMqText') ? $('setMqText').value : '').trim();
+      if (MQ_CFG && Array.isArray(MQ_CFG.items) && MQ_CFG.items.length && String(MQ_CFG.text || '').trim() === cur) {
+        const parts = MQ_CFG.items.map(x => '<span class="mq-item" style="color:' + (x.color || '#c2410c') + '">' + escapeHtml(x.text) + '</span>');
+        const seg0 = parts.join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
+        const speed0 = Math.max(5, Number($('setMqSpeed') && $('setMqSpeed').value) || 30);
+        const h0 = seg0 + seg0 + seg0;
+        box.innerHTML = '<div class="marquee mq-preview"><span class="mq-tag">📢</span>' +
+          '<div class="mq-view"><div class="mq-track" style="animation-duration:' + speed0 + 's">' + h0 + h0 + '</div></div></div>';
+        return;
+      }
+      const seg = items.map(t => {
+        let color = '#c2410c', text = t;
+        const m = t.match(/^\[([红橙绿蓝紫灰])\]\s*/);
+        if (m) { color = MQ_COLOR_MAP[m[1]] || color; text = t.slice(m[0].length); }
+        return '<span class="mq-item" style="color:' + color + '">' + escapeHtml(text) + '</span>';
+      }).join('<span class="mq-dot">•</span>') + '<span class="mq-dot">•</span>';
       const speed = Math.max(5, Number($('setMqSpeed') && $('setMqSpeed').value) || 30);
       const half = (seg + seg + seg);
       box.innerHTML = '<div class="marquee mq-preview"><span class="mq-tag">📢</span>' +
         '<div class="mq-view"><div class="mq-track" style="animation-duration:' + speed + 's">' + half + half + '</div></div></div>';
     }
     ['setMqText', 'setMqSpeed'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', renderMqPreview); });
+    // 变量 / 颜色：点一下插入到光标处
+    document.querySelectorAll('.mq-vars button').forEach(b => b.addEventListener('click', () => {
+      const ta = $('setMqText'); if (!ta) return;
+      const token = b.dataset.mqvar;
+      const st = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+      const en = ta.selectionEnd == null ? ta.value.length : ta.selectionEnd;
+      ta.value = ta.value.slice(0, st) + token + ta.value.slice(en);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = st + token.length;
+      renderMqPreview();
+    }));
+    // 在线人数 / 最近到账：改完自动保存
+    let OL_SAVING = false;
+    async function saveOnlineSection() {
+      if (!$('setOnlineMode') || OL_SAVING) return;
+      OL_SAVING = true;
+      const st = $('onlineSaved');
+      if (st) { st.className = 'msg'; st.textContent = '正在保存…'; }
+      try {
+        const r = await api('admin/settings/save', {
+          onlineMode: $('setOnlineMode').value,
+          statsOnline: $('setStatsOnline').value,
+          statsRecent: $('setStatsRecent').value,
+        }, true);
+        if (r.ok) {
+          await loadUiConfig();
+          const s2 = await api('public/stats', {});
+          if (s2.ok && s2.real) {
+            const ob = $('onlineRealBox');
+            if (ob) ob.innerHTML = '真实在线：<b>' + intFmt(s2.real.online || 0) + '</b> 人（最近 5 分钟活跃）' + (s2.real.recent ? ('　｜　最近到账（真实）：' + escapeHtml(s2.real.recent)) : '');
+          }
+          if (st) { st.className = 'msg ok'; st.textContent = '✅ 已保存生效（用户端字幕立刻刷新）'; }
+        } else if (st) { st.className = 'msg err'; st.textContent = r.msg || '保存失败'; }
+      } catch (e) { if (st) { st.className = 'msg err'; st.textContent = '保存失败：' + ((e && e.message) || '请重试'); } }
+      OL_SAVING = false;
+    }
+    { const el = $('setOnlineMode'); if (el) el.addEventListener('change', saveOnlineSection); }
+    { const el = $('setStatsOnline'); if (el) el.addEventListener('change', saveOnlineSection); }
+    { const el = $('setStatsRecent'); if (el) el.addEventListener('change', saveOnlineSection); }
     // 字幕设置：改完自动保存（并立刻刷新本页字幕，所见即所得）
     let MQ_SAVING = false, MQ_QUEUE = false;
     async function saveMarqueeSection() {
@@ -1562,6 +1657,13 @@
     });
     { const el = $('setStatsText'); if (el) el.addEventListener('change', saveStatsSection); }
     { const el = $('setStatsMode'); if (el) el.addEventListener('change', saveStatsSection); }
+
+    // 在线心跳：登录后每 60 秒上报一次（页面在后台时跳过，省资源）
+    setInterval(() => {
+      if (!PHONE) return;
+      if (document.hidden) return;
+      api('ping', { phone: PHONE }).catch(() => {});
+    }, 60000);
 
     let MQ_RT = null;
     window.addEventListener('resize', () => {
@@ -4855,9 +4957,14 @@
           $('setStatsOrders').value = (s.stats_orders != null ? s.stats_orders : 0);
           $('setStatsToday').value = (s.stats_today != null ? s.stats_today : 0);
           $('setStatsText').value = (s.stats_text || '');
+          $('setOnlineMode').value = (s.online_mode === 'real' ? 'real' : 'custom');
+          $('setStatsOnline').value = (s.stats_online != null ? s.stats_online : 0);
+          $('setStatsRecent').value = (s.stats_recent || '');
           loadPlatformStats().then(() => {
             const el = $('stReal');
             if (el && ST_REAL) el.innerHTML = '当前真实数据：已服务 <b>' + intFmt(ST_REAL.users) + '</b> 位 · 累计完成 <b>' + intFmt(ST_REAL.orders) + '</b> 单 · 今日 <b>' + intFmt(ST_REAL.todayOrders) + '</b> 单';
+            const ob = $('onlineRealBox');
+            if (ob && ST_REAL) ob.innerHTML = '真实在线：<b>' + intFmt(ST_REAL.online || 0) + '</b> 人（最近 5 分钟活跃）' + (ST_REAL.recent ? ('　｜　最近到账（真实）：' + escapeHtml(ST_REAL.recent)) : '');
           });
         }
         if ($('setMqOn')) {

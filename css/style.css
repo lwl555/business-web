@@ -1359,6 +1359,10 @@ span.ai-warn { color: #92400e; }
 .cp-help-list li { margin-bottom: 3px; }
 .cp-help-body a { color: var(--primary); }
 
+.mq-vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; }
+.mq-vars button { border-style: dashed; }
+.mq-item { font-weight: 600; }
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 640px) {
   body { padding: 24px 12px; }
