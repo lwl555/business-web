@@ -2754,7 +2754,6 @@
         '</div>').join('');
     }
     async function paySentOrder(id, amount) {
-      if (ORDER_BLOCKED) { /* noop */ }
       if (!confirm('确认支付这笔补单 ¥' + Number(amount).toFixed(2) + '？将从余额扣除（先扣赠送余额）。')) return;
       const res = await api('sentorder/pay', { phone: PHONE, id });
       if (res.ok) {
