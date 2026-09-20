@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=63" />
+  <link rel="stylesheet" href="css/style.css?v=64" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -3440,7 +3440,7 @@
       if (!SHOP_CATS.length) await loadShopCats();
       else renderShopCats();
       loadShopProducts(true);
-      loadFreeZone();
+      syncFreeZone();
       renderShopHot();
       renderShopHistory();
     }
@@ -3462,10 +3462,7 @@
       const si = $('shopSearch'); if (si) si.value = '';
       SHOP_CATS = [];
       loadShopSources(); loadShopCats(); loadShopProducts(true);
-      // 免费福利区只在本平台精选下展示
-      const fz = $('freeZone');
-      if (fz) fz.style.display = (src === 'old') ? '' : 'none';
-      if (src === 'old') loadFreeZone();
+      syncFreeZone(); // 免费福利区只在本平台精选且无筛选时展示
     }
     async function loadShopCats() {
       const res = await api('shop/categories', { source: SHOP_SOURCE });
@@ -3558,13 +3555,27 @@
       '</div>';
     }
     let FREE_INFO = null;
+    // 免费福利区只在「默认视图」展示：本平台精选 + 无分类 + 无搜索词 + 非免费专区 + 第一页 + 默认排序
+    // （以前只按分区判断，导致在热门业务里切任何分类/搜索它都常驻，占位置、影响观感）
+    let FREE_ZONE_SHOWN = false;
+    function freeZoneAllowed() {
+      return SHOP_SOURCE === 'old' && !SHOP_PARENT && !SHOP_CID && !SHOP_KW && !SHOP_FREE &&
+             SHOP_PAGE === 1 && SHOP_SORT === 'default';
+    }
+    function syncFreeZone() {
+      const fz = $('freeZone'); if (!fz) return;
+      if (!freeZoneAllowed()) { fz.style.display = 'none'; FREE_ZONE_SHOWN = false; return; }
+      if (FREE_ZONE_SHOWN) return; // 已经显示过就不重复请求
+      loadFreeZone();
+    }
     async function loadFreeZone() {
       const box = $('freeZone'); if (!box) return;
+      if (!freeZoneAllowed()) { box.style.display = 'none'; FREE_ZONE_SHOWN = false; return; }
       const res = await api('shop/products', { phone: PHONE, free: '1', limit: 12 });
-      if (!res.ok) { box.style.display = 'none'; return; }
+      if (!res.ok) { box.style.display = 'none'; FREE_ZONE_SHOWN = false; return; }
       const list = res.products || [];
-      if (!list.length) { box.style.display = 'none'; return; }
-      box.style.display = '';
+      if (!list.length) { box.style.display = 'none'; FREE_ZONE_SHOWN = false; return; }
+      box.style.display = ''; FREE_ZONE_SHOWN = true;
       $('freeZoneList').innerHTML = list.map(freeCardHtml).join('');
       $('freeZoneList').querySelectorAll('.free-zone-card').forEach(c => c.addEventListener('click', () => {
         if (FREE_INFO && !FREE_INFO.qualified) { showUnlockFree(FREE_INFO.minRecharge, 'lock'); return; }
@@ -3648,6 +3659,7 @@
       else box.insertAdjacentHTML('beforeend', html);
       const more = list.length >= 24 && (SHOP_PAGE * 24) < (res.total || 0);
       $('shopMoreBtn').style.display = more ? '' : 'none';
+      syncFreeZone(); // 分类/搜索/排序/翻页/免费专区任一变化后，重新判断免费福利区是否该出现
     }
     // 搜索结果分类聚合 chips + 其他分区引导
     function renderKwChips(res) {
@@ -3678,9 +3690,7 @@
       box.querySelectorAll('[data-othersrc]').forEach(b => b.addEventListener('click', () => {
         SHOP_SOURCE = b.dataset.othersrc; SHOP_CID = ''; SHOP_PARENT = '';
         const cs = $('shopCatSel'); if (cs) cs.value = '';
-        loadShopSources(); loadShopCats(); loadShopProducts(true);
-        const fz = $('freeZone'); if (fz) fz.style.display = (SHOP_SOURCE === 'old') ? '' : 'none';
-        if (SHOP_SOURCE === 'old') loadFreeZone();
+        loadShopSources(); loadShopCats(); loadShopProducts(true); // 内含 syncFreeZone()
       }));
     }
     let ORDER_PRODUCT = null;
@@ -5237,7 +5247,7 @@
     $('shopSearch').addEventListener('blur', () => setTimeout(hideSuggest, 180));
     $('shopSearchBtn').addEventListener('click', () => { SHOP_KW = $('shopSearch').value.trim(); hideSuggest(); loadShopProducts(true); pushShopHistory(SHOP_KW); });
     $('shopSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { SHOP_KW = $('shopSearch').value.trim(); hideSuggest(); loadShopProducts(true); pushShopHistory(SHOP_KW); } if (e.key === 'Escape') hideSuggest(); });
-    $('shopClearBtn').addEventListener('click', () => { $('shopSearch').value = ''; SHOP_KW = ''; SHOP_CID = ''; SHOP_SORT = 'default'; SHOP_FREE = false; syncShopFilterUI(); renderShopCats(); loadShopProducts(true); });
+    $('shopClearBtn').addEventListener('click', () => { $('shopSearch').value = ''; SHOP_KW = ''; SHOP_CID = ''; SHOP_PARENT = ''; SHOP_SORT = 'default'; SHOP_FREE = false; syncShopFilterUI(); renderShopCats(); loadShopProducts(true); });
     document.querySelectorAll('.sf-btn[data-sort]').forEach(b => b.addEventListener('click', () => { SHOP_SORT = b.dataset.sort; syncShopFilterUI(); loadShopProducts(true); }));
     $('shopFreeBtn').addEventListener('click', () => { SHOP_FREE = !SHOP_FREE; syncShopFilterUI(); loadShopProducts(true); });
     $('shopMoreBtn').addEventListener('click', () => { SHOP_PAGE++; loadShopProducts(false); });
