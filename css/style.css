@@ -1392,3 +1392,8 @@ span.ai-warn { color: #92400e; }
   .wl-row { grid-template-columns: 64px 1fr auto; }
   .wl-time { display: none; }
 }
+
+/* 已读/未读标记（R73） */
+.rd { font-size: 11px; font-weight: 400; }
+.rd-ok { color: #4caf50; }
+.rd-no { color: #b0b0b0; }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=57" />
+  <link rel="stylesheet" href="css/style.css?v=58" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -2813,7 +2813,7 @@
           '<span class="msg-dot"></span>' +
           '<div class="msg-body">' +
             '<div class="msg-top">' +
-              '<span class="msg-tag">' + (me ? '我的回复' : (m.read ? '客服通知 · 已读' : '客服通知 · 未读')) + '</span>' +
+              '<span class="msg-tag">' + (me ? ('我的回复 · ' + (m.read_admin ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>')) : (m.read ? '客服通知 · 已读' : '客服通知 · 未读')) + '</span>' +
               '<span class="msg-time">' + fmtTime(m.created_at) + '</span>' +
             '</div>' +
             '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
@@ -2859,9 +2859,10 @@
       box.innerHTML = msgs.map(m => {
         const mine = m.role === meRole;
         const att = chatAttachmentHtml(m);
+        const rd = mine ? ((m.role === 'user' ? m.read_by_admin : m.read_by_user) ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>') : '';
         return '<div class="chat-row ' + (mine ? 'me' : 'them') + '">' +
           '<div class="chat-bubble">' + (m.content ? escapeHtml(m.content) + (att ? '<br/>' : '') : '') + att + '</div>' +
-          '<div class="chat-time">' + (m.role === 'admin' ? '客服 · ' : '我 · ') + fmtTime(m.created_at) + '</div>' +
+          '<div class="chat-time">' + (m.role === 'admin' ? '客服 · ' : '我 · ') + fmtTime(m.created_at) + (rd ? ' · ' + rd : '') + '</div>' +
         '</div>';
       }).join('');
       box.scrollTop = box.scrollHeight;
@@ -3595,31 +3596,34 @@
         '<div class="conv' + (c.phone === MSG_THREAD_PHONE ? ' active' : '') + '" onclick="openMsgThread(\'' + escapeHtml(c.phone) + '\')">' +
           '<div class="conv-top"><span class="conv-phone hl">' + escapeHtml(c.phone) + '</span>' +
             (c.unread ? '<span class="conv-dot">' + c.unread + '</span>' : '') + '</div>' +
-          '<div class="conv-last">' + (c.last_dir === 'to_admin' ? '<b>用户：</b>' : '我：') + escapeHtml(String(c.last || '').slice(0, 40)) + '</div>' +
+          '<div class="conv-last">' + (c.last_dir === 'to_admin' ? '<b>用户：</b>' : ('我：' + (c.lastMineRead ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>'))) + escapeHtml(String(c.last || '').slice(0, 40)) + '</div>' +
           '<div class="conv-time">' + fmtTime(c.last_at) + '</div>' +
         '</div>'
       ).join('');
     }
 
-    async function openMsgThread(phone) {
+    async function openMsgThread(phone, silent) {
       MSG_THREAD_PHONE = phone;
       $('msgConvWho').innerHTML = '用户：<b class="hl">' + escapeHtml(phone) + '</b>（打开即标为已读）';
-      $('msgThread').innerHTML = '<div class="loading">加载中…</div>';
+      const b = $('msgThread');
+      const nearBtm = b.scrollHeight - b.scrollTop - b.clientHeight < 120;
+      if (!silent) b.innerHTML = '<div class="loading">加载中…</div>';
       const res = await api('admin/message/thread', { phone }, true);
-      if (!res.ok) { $('msgThread').innerHTML = '<div class="empty">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
+      if (!res.ok) { b.innerHTML = '<div class="empty">' + escapeHtml(res.msg || '加载失败') + '</div>'; return; }
       const list = res.messages || [];
-      $('msgThread').innerHTML = list.length ? list.map(m => {
+      b.innerHTML = list.length ? list.map(m => {
         const me = m.direction !== 'to_admin';
+        const rd = me ? (m.read ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>') : '';
         return '<div class="msg-item ' + (me ? 'me' : 'them') + '">' +
           '<span class="msg-dot"></span>' +
           '<div class="msg-body">' +
-            '<div class="msg-top"><span class="msg-tag">' + (me ? '我（管理员）' : '用户') + '</span>' +
+            '<div class="msg-top"><span class="msg-tag">' + (me ? ('我（管理员） · ' + rd) : '用户') + '</span>' +
               '<span class="msg-time">' + fmtTime(m.created_at) + '</span></div>' +
             '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
           '</div>' +
         '</div>';
       }).join('') : '<div class="empty">暂无消息</div>';
-      const b = $('msgThread'); b.scrollTop = b.scrollHeight;
+      if (!silent || nearBtm) b.scrollTop = b.scrollHeight;
       loadAdminMessages();
     }
 
@@ -5054,7 +5058,7 @@
         '<div class="conv' + (c.phone === CS_PHONE ? ' active' : '') + '" onclick="openConv(\'' + escapeHtml(c.phone) + '\')">' +
           '<div class="conv-top"><span class="conv-phone">' + escapeHtml(c.phone) + '</span>' +
           (c.unread > 0 ? '<span class="conv-dot">' + c.unread + '</span>' : '') + '</div>' +
-          '<div class="conv-last">' + (c.last_role === 'admin' ? '我：' : '') + escapeHtml(c.last) + '</div>' +
+          '<div class="conv-last">' + (c.last_role === 'admin' ? ('我：' + (c.lastMineRead ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>')) : '') + escapeHtml(c.last) + '</div>' +
           '<div class="conv-time">' + fmtTime(c.last_at) + '</div>' +
         '</div>'
       ).join('');
@@ -5566,6 +5570,7 @@
       else if (currentView === 'users') loadUsers();
       else if (currentView === 'messages') loadMessages();
       else if (currentView === 'chat') loadChat();
+      else if (currentView === 'msgAdmin' && MSG_THREAD_PHONE) openMsgThread(MSG_THREAD_PHONE, true);
       else if (currentView === 'cs') refreshCsMsgs();
     }, 12000);
   </script>
