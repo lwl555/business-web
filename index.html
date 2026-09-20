@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=61" />
+  <link rel="stylesheet" href="css/style.css?v=62" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -435,6 +435,10 @@
             <button class="btn btn-primary btn-sm" id="csSendBtn">发送</button>
           </div>
           <div class="chat-attach" id="csAttach"></div>
+          <div class="sent-panel">
+            <div class="sent-head"><span>📦 补单记录（客服发给用户的订单）</span><button class="btn btn-ghost btn-xs" id="csSentRefresh">刷新</button></div>
+            <div id="csSentOrders" class="sent-list"><div class="t-meta">点「刷新」查看</div></div>
+          </div>
           <div class="cs-tools">
             <input id="csToPhone" class="grow" placeholder="指定用户手机号（可给任意用户发消息）…" />
             <button class="btn btn-ghost btn-sm" id="csSendToBtn">指定发送</button>
@@ -550,6 +554,7 @@
         <button class="sf-btn" data-days="365">近一年</button>
         <button class="sf-btn" data-days="3650">全部历史</button>
         <span class="t-meta">卡片是<b>全部历史累计</b>；下方「按日」跟随所选区间</span>
+        <button class="btn btn-ghost btn-sm" id="incExportBtn">📥 导出明细 CSV（Excel 可开）</button>
       </div>
       <div class="inc-cards" id="incCards"></div>
       <div id="incBody"><div class="loading">加载中…</div></div>
@@ -2228,7 +2233,7 @@
       else if (v === 'messages') loadMessages();
       else if (v === 'users') loadUsers();
       else if (v === 'msgAdmin') loadAdminMessages();
-      else if (v === 'cs') loadConversations();
+      else if (v === 'cs') { loadConversations(); loadSentOrders(); }
       else if (v === 'pay') loadRecharges();
       else if (v === 'tasks') { loadAdminTasks(); loadDashboard(); loadIncome(); if (typeof loadUsageOnDash === 'function') loadUsageOnDash(); }
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
@@ -5678,6 +5683,63 @@
         loadIncome(Number(b.dataset.days));
       }));
     }
+    // 导出收入明细 CSV（加 BOM 让 Excel 正确识别中文）
+    async function exportIncomeCsv() {
+      const m = $('incCards');
+      const res = await api('admin/income/export', { days: INC_DAYS }, true);
+      if (!res.ok) { alert(res.msg || '导出失败'); return; }
+      const rows = res.rows || [];
+      if (!rows.length) { alert('该区间没有收入记录'); return; }
+      const head = ['订单号', '时间', '用户手机号', '项目', '规格', '类型', '状态', '实扣(元)', '赠送余额(元)', '可提现余额(元)'];
+      const kindMap = { product: '商品单', manual: '手动需求', makeup: '补单' };
+      const stMap = { pending_review: '待审核', approved: '已受理', completed: '已完成', rejected: '已拒绝' };
+      const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const lines = [head.map(esc).join(',')];
+      let sum = 0;
+      rows.forEach(t => {
+        sum += Number(t.deduction || 0);
+        lines.push([t.id, (t.created_at || '').replace('T', ' ').slice(0, 19), t.uid, t.product_name || t.type, t.product_spec || '',
+          kindMap[t.order_kind] || t.order_kind || '', stMap[t.status] || t.status, Number(t.deduction || 0).toFixed(2),
+          Number(t.pay_gift || 0).toFixed(2), Number(t.pay_balance || 0).toFixed(2)].map(esc).join(','));
+      });
+      lines.push(['合计', '', '', '', '', '', '', sum.toFixed(2), '', ''].map(esc).join(','));
+      const csv = '\ufeff' + lines.join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '收入明细_' + INC_DAYS + '天_' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+      if (m) { /* no-op */ }
+    }
+    if ($('incExportBtn')) $('incExportBtn').addEventListener('click', exportIncomeCsv);
+
+    // 补单记录（后台可查/撤回未支付的）
+    async function loadSentOrders() {
+      const box = $('csSentOrders'); if (!box) return;
+      box.innerHTML = '<div class="t-meta">加载中…</div>';
+      const res = await api('admin/sentorder/list', {}, true);
+      if (!res.ok) { box.innerHTML = '<div class="t-meta">加载失败</div>'; return; }
+      const list = (res.orders || []).slice(0, 30);
+      if (!list.length) { box.innerHTML = '<div class="t-meta">还没有补单记录</div>'; return; }
+      const stMap = { pending: '待支付', paid: '已支付', cancelled: '已撤回' };
+      box.innerHTML = list.map(o =>
+        '<div class="sent-row">' +
+          '<span class="badge ' + (o.status === 'paid' ? 'b-completed' : o.status === 'pending' ? 'b-pending_review' : 'b-rejected') + '">' + (stMap[o.status] || o.status) + '</span>' +
+          '<span class="sent-title">' + escapeHtml(o.title) + '</span>' +
+          '<span class="sent-amt">¥' + Number(o.amount).toFixed(2) + '</span>' +
+          '<span class="t-meta">' + escapeHtml(maskPh(o.uid)) + ' · ' + fmtTime(o.created_at) + '</span>' +
+          (o.status === 'pending' ? '<button class="btn btn-ghost btn-xs" onclick="cancelSentOrder(\'' + escapeHtml(o.id) + '\')">撤回</button>' : '') +
+        '</div>').join('');
+    }
+    async function cancelSentOrder(id) {
+      if (!confirm('撤回这张补单？用户将无法再支付。')) return;
+      const r = await api('admin/sentorder/cancel', { id }, true);
+      if (r.ok) { loadSentOrders(); alert('已撤回'); } else alert(r.msg || '撤回失败');
+    }
+    window.cancelSentOrder = cancelSentOrder;
+    if ($('csSentRefresh')) $('csSentRefresh').addEventListener('click', loadSentOrders);
+
     if ($('pushTestBtn')) $('pushTestBtn').addEventListener('click', async () => {
       const m = $('pushMsg'); m.className = 'msg'; m.textContent = '保存并发送中…';
       await saveSettings();
@@ -6092,7 +6154,11 @@
     setInterval(() => {
       if ($('appBox').style.display === 'none') return;
       if (!isAdmin) { loadUnread(); loadChatUnread(); loadMyOrdersBadge(); }
-      else { loadConversations(); loadAdminBadges(); }
+      else {
+        // 减负：会话列表/线程只在对应页面停留时轮询（其余靠角标接口拿未读数）
+        if (currentView === 'cs' || currentView === 'msgAdmin') loadConversations();
+        loadAdminBadges();
+      }
       if (currentView === 'work') loadTasks();
       else if (currentView === 'tasks') loadAdminTasks();
       else if (currentView === 'pay') loadRecharges();

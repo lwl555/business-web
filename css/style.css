@@ -1451,3 +1451,11 @@ span.ai-warn { color: #92400e; }
 .inc-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #34d399, #059669); border-radius: 4px; }
 .push-events { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0 10px; }
 .push-help { background: #f8fafc; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 10px; line-height: 1.7; }
+
+/* 补单记录面板（R77） */
+.sent-panel { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.sent-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.sent-list { max-height: 200px; overflow: auto; }
+.sent-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.sent-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sent-amt { font-weight: 600; color: #c2410c; white-space: nowrap; }
