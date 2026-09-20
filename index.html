@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=59" />
+  <link rel="stylesheet" href="css/style.css?v=60" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -120,7 +120,9 @@
       </div>
       <div class="actions">
         <span class="top-balance" id="topBalance">¥0.00</span>
+        <button class="btn btn-ghost btn-sm" id="topOrdersBtn" title="我的订单">📋<span class="hide-sm"> 我的订单</span><span class="btn-badge" id="topOrdersBadge" style="display:none">0</span></button>
         <button class="btn btn-primary btn-sm" id="topRechargeBtn"><span class="hide-sm">💰 </span>充值</button>
+        <button class="btn btn-ghost btn-sm" id="soundBtn" title="消息声音提醒开关（点击切换）">🔔</button>
         <button class="btn btn-ghost btn-sm" id="logoutBtn">退出</button>
       </div>
     </div>
@@ -166,6 +168,7 @@
           <span class="t-meta">积分 <b id="myPoints">0</b></span>
           <span class="t-meta" id="streakTip"></span>
           <button class="btn btn-ghost btn-sm" id="checkinBtn">签到</button>
+          <button class="btn btn-ghost btn-sm" id="ordersBtn">📋 我的订单<span class="btn-badge" id="ordersBadge" style="display:none">0</span></button>
           <button class="btn btn-ghost btn-sm" id="walletBtn">钱包</button>
           <button class="btn btn-primary btn-sm" id="rechargeBtn">充值</button>
         </div>
@@ -290,6 +293,24 @@
       <div id="taskList" class="task-list"><div class="loading">加载中…</div></div>
     </div>
 
+    <!-- ---------- 我的订单（用户端） ---------- -->
+    <div class="view" id="view-orders" style="display:none">
+      <div class="section-title">我的订单</div>
+      <div class="t-meta" style="margin-bottom:10px">你提交的全部订单与进度都在这里。<b>待支付补单</b>可直接在本页支付；补单由客服专属下单，会带「补单」标记。</div>
+      <div class="as-stat" id="orderStat"></div>
+      <div id="payOrders"></div>
+      <div class="order-filters" id="orderFilters">
+        <button class="sf-btn active" data-ost="all">全部</button>
+        <button class="sf-btn" data-ost="pending_review">待审核</button>
+        <button class="sf-btn" data-ost="approved">已受理</button>
+        <button class="sf-btn" data-ost="completed">已完成</button>
+        <button class="sf-btn" data-ost="makeup">🎁 补单</button>
+        <button class="sf-btn" data-ost="rejected">已拒绝</button>
+        <button class="btn btn-ghost btn-sm" id="orderRefresh">刷新</button>
+      </div>
+      <div id="orderList" class="task-list"><div class="loading">加载中…</div></div>
+    </div>
+
     <!-- ---------- 我的消息（用户端） ---------- -->
     <div class="view" id="view-messages" style="display:none">
       <div class="section-title">我的消息</div>
@@ -381,9 +402,16 @@
         <div class="cs-panel">
           <div class="t-meta" id="msgConvWho" style="margin-bottom:8px">未选择用户</div>
           <div class="chat-box" id="msgThread"><div class="empty">请从左侧选择一个用户</div></div>
+          <div class="preset-chips" id="msgPresetChips"><span class="t-meta">预设文字加载中…</span></div>
           <div class="chat-input">
             <input id="msgAdmReply" placeholder="输入回复内容，按回车发送…" />
             <button class="btn btn-primary btn-sm" id="msgAdmSend">发送</button>
+          </div>
+          <div class="cs-tools">
+            <input id="msgToPhone" class="grow" placeholder="指定用户手机号（可发给任意用户）…" />
+            <button class="btn btn-ghost btn-sm" id="msgSendToBtn">指定发送</button>
+            <button class="btn btn-green btn-sm" id="msgOrderBtn">📦 发订单</button>
+            <button class="btn btn-red btn-sm" id="msgRedpackBtn">🧧 发红包</button>
           </div>
         </div>
       </div>
@@ -407,6 +435,12 @@
             <button class="btn btn-primary btn-sm" id="csSendBtn">发送</button>
           </div>
           <div class="chat-attach" id="csAttach"></div>
+          <div class="cs-tools">
+            <input id="csToPhone" class="grow" placeholder="指定用户手机号（可给任意用户发消息）…" />
+            <button class="btn btn-ghost btn-sm" id="csSendToBtn">指定发送</button>
+            <button class="btn btn-green btn-sm" id="csOrderBtn">📦 发订单</button>
+            <button class="btn btn-red btn-sm" id="csRedpackBtn">🧧 发红包</button>
+          </div>
           <div class="preset-manage">
             <input id="csNewPreset" class="grow" placeholder="新增一条预设文字…" />
             <button class="btn btn-ghost btn-sm" id="csAddPresetBtn">加为预设</button>
@@ -1269,6 +1303,32 @@
     </div>
   </div>
 
+  <div class="modal" id="sendOrderModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">📦 给用户发订单（补单）</div>
+      <div class="t-meta">发给指定用户的专属订单，用户只需支付；不一定走商品列表，后台会记为「补单」，方便区分普通订单。</div>
+      <div class="field"><label>用户手机号 *</label><input id="soPhone" placeholder="如 13800138000" /></div>
+      <div class="field"><label>订单标题 *</label><input id="soTitle" placeholder="如：抖音粉丝 1000 个（补单）" /></div>
+      <div class="field"><label>金额（元）*</label><input id="soAmount" type="number" min="0.01" step="0.01" placeholder="如 25.00" /></div>
+      <div class="field"><label>说明（选填，会展示给用户）</label><textarea id="soNote" rows="2" placeholder="如：需要用户填写抖音号 / 作品链接"></textarea></div>
+      <div class="msg" id="soMsg"></div>
+      <div class="actions"><button class="btn btn-ghost" id="soClose">取消</button><button class="btn btn-primary" id="soSend">发送订单</button></div>
+    </div>
+  </div>
+
+  <div class="modal" id="redpackModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">🧧 给用户发红包（补偿）</div>
+      <div class="t-meta">直接到账并通知用户：<b>现金红包</b>进「赠送余额」（下单可直接抵扣），<b>积分红包</b>进积分账户。</div>
+      <div class="field"><label>用户手机号 *</label><input id="rpPhone" placeholder="如 13800138000" /></div>
+      <div class="field"><label>红包类型</label><select id="rpUnit"><option value="gift">现金红包（赠送余额，元）</option><option value="points">积分红包（积分）</option></select></div>
+      <div class="field"><label>数量 *</label><input id="rpAmount" type="number" min="0.01" step="0.01" placeholder="如 5.00" /></div>
+      <div class="field"><label>原因（选填）</label><input id="rpReason" placeholder="如：订单延迟补偿 / 售后补偿" /></div>
+      <div class="msg" id="rpMsg"></div>
+      <div class="actions"><button class="btn btn-ghost" id="rpClose">取消</button><button class="btn btn-primary" id="rpSend">发红包</button></div>
+    </div>
+  </div>
+
   <div class="modal" id="orderModal" style="display:none">
     <div class="modal-box">
       <div class="modal-title" id="omName">商品下单</div>
@@ -2032,6 +2092,7 @@
       { id: 'offers', label: '🎯 任务中心', roles: ['user'] },
       { id: 'coupons', label: '🎟 领券中心', roles: ['user'] },
       { id: 'shop', label: '商品下单', roles: ['user'] },
+      { id: 'orders', label: '📋 我的订单', roles: ['user'] },
       { id: 'wallet', label: '钱包', roles: ['user'] },
       { id: 'invite', label: '邀请好友', roles: ['user'] },
       { id: 'pricing', label: '价格表', roles: ['user'] },
@@ -2052,13 +2113,40 @@
       { id: 'ann', label: '公告管理', roles: ['admin'] },
       { id: 'old', label: '旧平台', roles: ['admin'] },
     ];
-    const VIEW_IDS = ['work', 'offers', 'coupons', 'couponsAdm', 'ops', 'shop', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
+    const VIEW_IDS = ['work', 'offers', 'coupons', 'couponsAdm', 'ops', 'shop', 'orders', 'wallet', 'invite', 'pricing', 'users', 'msgAdmin', 'pay', 'tasks', 'rules', 'pricingAdmin', 'products', 'withdrawals', 'aftersales', 'ann', 'old', 'messages', 'chat', 'cs'];
+
+    // 后台所有待处理项角标（R75：一次拉全部计数）
+    const ADMIN_BADGES = { tasks: 0, recharges: 0, withdrawals: 0, aftersales: 0, claims: 0, msgs: 0, chats: 0, sentorders: 0 };
+    async function loadAdminBadges() {
+      if (!isAdmin) return;
+      const res = await api('admin/badges', {}, true);
+      if (!res.ok) return;
+      ADMIN_BADGES.tasks = res.tasks || 0;
+      ADMIN_BADGES.recharges = res.recharges || 0;
+      ADMIN_BADGES.withdrawals = res.withdrawals || 0;
+      ADMIN_BADGES.aftersales = res.aftersales || 0;
+      ADMIN_BADGES.claims = res.claims || 0;
+      ADMIN_BADGES.msgs = res.msgs || 0;
+      ADMIN_BADGES.chats = res.chats || 0;
+      ADMIN_BADGES.sentorders = res.sentorders || 0;
+      ADM_MSG_UNREAD = res.msgs || 0;
+      CS_UNREAD = res.chats || 0;
+      // 声音：新消息优先用「消息音」，其他待处理用「订单音」
+      notifyOnChange('admMsg', ADMIN_BADGES.msgs + ADMIN_BADGES.chats, 'msg');
+      notifyOnChange('admOrd', ADMIN_BADGES.tasks + ADMIN_BADGES.recharges + ADMIN_BADGES.withdrawals + ADMIN_BADGES.aftersales + ADMIN_BADGES.claims + ADMIN_BADGES.sentorders, 'order');
+      renderNav();
+    }
 
     function navBadge(id) {
       if (id === 'messages') return MSG_UNREAD;
       if (id === 'chat') return CHAT_UNREAD;
       if (id === 'cs') return CS_UNREAD;
       if (id === 'msgAdmin') return ADM_MSG_UNREAD;
+      if (id === 'tasks') return ADMIN_BADGES.tasks;
+      if (id === 'pay') return ADMIN_BADGES.recharges;
+      if (id === 'withdrawals') return ADMIN_BADGES.withdrawals;
+      if (id === 'aftersales') return ADMIN_BADGES.aftersales;
+      if (id === 'ops') return ADMIN_BADGES.claims;
       return 0;
     }
 
@@ -2091,6 +2179,7 @@
       else if (v === 'coupons') loadCoupons();
       else if (v === 'couponsAdm') loadCouponsAdmin();
       else if (v === 'shop') loadShop();
+      else if (v === 'orders') loadOrders();
       else if (v === 'wallet') loadWallet();
       else if (v === 'invite') loadInvite();
       else if (v === 'chat') loadChat();
@@ -2123,8 +2212,10 @@
       switchView('work');
       loadUiConfig();
       renderMarquee(); // 管理员/用户切换后重新判断是否显示
-      if (!isAdmin) { loadUnread(); loadChatUnread(); }
-      else { loadConversations(); loadPresets(); loadAdmMsgUnread(); }
+      const _ob = $('topOrdersBtn'); if (_ob) _ob.style.display = isAdmin ? 'none' : '';
+      syncSoundBtn();
+      if (!isAdmin) { loadUnread(); loadChatUnread(); loadMyOrdersBadge(); }
+      else { loadConversations(); loadPresets(); loadAdmMsgUnread(); loadAdminBadges(); }
     }
 
     // ==================== 问候横幅（按时段 + 励志语轮播） ====================
@@ -2549,11 +2640,153 @@
       }
     });
 
+    // ==================== 声音提醒（R75） ====================
+    let SOUND_OFF = false;
+    try { SOUND_OFF = localStorage.getItem('biz_sound_off') === '1'; } catch (e) {}
+    let AC = null;
+    const SND_PREV = { msg: -1, chat: -1, order: -1, adm: -1 };
+    function ensureAudio() {
+      if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+      return AC;
+    }
+    function playNotify(kind) {
+      if (SOUND_OFF) return;
+      const ac = ensureAudio(); if (!ac) return;
+      try {
+        if (ac.state === 'suspended') ac.resume();
+        const base = ac.currentTime;
+        const seq = (kind === 'order' ? [[660, 0], [990, 0.13], [1320, 0.26]] : [[880, 0], [1180, 0.13]]);
+        seq.forEach(([f, t]) => {
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, base + t);
+          g.gain.exponentialRampToValueAtTime(0.16, base + t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, base + t + 0.28);
+          o.connect(g); g.connect(ac.destination);
+          o.start(base + t); o.stop(base + t + 0.3);
+        });
+      } catch (e) {}
+    }
+    // 数量变大才响（首次拿到基线不响，避免一登录就叮）
+    function notifyOnChange(key, now, kind) {
+      const prev = SND_PREV[key];
+      SND_PREV[key] = now;
+      if (prev >= 0 && now > prev) playNotify(kind || 'msg');
+    }
+    function syncSoundBtn() {
+      const b = $('soundBtn');
+      if (b) { b.textContent = SOUND_OFF ? '🔇' : '🔔'; b.title = SOUND_OFF ? '声音提醒已关闭（点击开启）' : '声音提醒已开启（点击关闭）'; }
+    }
+    function toggleSound() {
+      SOUND_OFF = !SOUND_OFF;
+      try { localStorage.setItem('biz_sound_off', SOUND_OFF ? '1' : '0'); } catch (e) {}
+      syncSoundBtn();
+      if (!SOUND_OFF) playNotify('msg');
+    }
+    window.addEventListener('click', () => { const ac = ensureAudio(); if (ac && ac.state === 'suspended') ac.resume(); }, { passive: true });
+
+    // 消息卡片（补单 / 红包）——用户端与管理端共用
+    function msgCardHtml(m, forUser) {
+      const meta = m.meta || {};
+      if (m.kind === 'order') {
+        const amt = Number(meta.amount || 0);
+        return '<div class="chat-card order-card">' +
+          '<div class="cc-title">📦 补单：' + escapeHtml(meta.title || '') + '</div>' +
+          '<div class="cc-amount">¥' + amt.toFixed(2) + '</div>' +
+          (meta.note ? '<div class="cc-note">' + escapeHtml(meta.note) + '</div>' : '') +
+          '<div class="cc-meta">订单号 ' + escapeHtml(meta.sent_id || '') + '</div>' +
+          (forUser
+            ? '<button class="btn btn-primary btn-sm" onclick="paySentOrder(\'' + escapeHtml(meta.sent_id || '') + '\',' + amt + ')">去支付</button>'
+            : '<span class="t-meta">用户支付后自动生成补单</span>') +
+        '</div>';
+      }
+      if (m.kind === 'redpack') {
+        const isPts = String(meta.unit) === 'points';
+        return '<div class="chat-card rp-card">' +
+          '<div class="cc-title">🧧 客服红包</div>' +
+          '<div class="cc-amount">' + (isPts ? ('+' + intFmt(Number(meta.amount || 0)) + ' 积分') : ('+¥' + Number(meta.amount || 0).toFixed(2))) + '</div>' +
+          (meta.reason ? '<div class="cc-note">' + escapeHtml(meta.reason) + '</div>' : '') +
+          '<div class="cc-meta">' + (isPts ? '已计入积分账户' : '已计入赠送余额（下单可抵扣）') + '</div>' +
+        '</div>';
+      }
+      return '';
+    }
+
+    // ==================== 我的订单（用户端） ====================
+    let ORDER_FILTER = 'all', ORDERS_CACHE = [], PAY_ORDERS_CACHE = [];
+    function setOrdersBadge(n) {
+      ['ordersBadge', 'topOrdersBadge'].forEach(id => {
+        const el = $(id);
+        if (el) { el.style.display = n > 0 ? '' : 'none'; el.textContent = n; }
+      });
+    }
+    async function loadOrders() {
+      const [t, so] = await Promise.all([api('tasks', { phone: PHONE }), api('user/sentorders', { phone: PHONE })]);
+      ORDERS_CACHE = (t.ok && t.tasks) || [];
+      PAY_ORDERS_CACHE = (so.ok && so.orders) || [];
+      setOrdersBadge(PAY_ORDERS_CACHE.length);
+      const pendingPay = PAY_ORDERS_CACHE.reduce((s, o) => s + Number(o.amount || 0), 0);
+      const doing = ORDERS_CACHE.filter(x => x.status === 'pending_review' || x.status === 'approved').length;
+      const makeup = ORDERS_CACHE.filter(x => x.order_kind === 'makeup').length;
+      $('orderStat').innerHTML =
+        '<span class="as-stat-item' + (PAY_ORDERS_CACHE.length ? ' hot' : '') + '">待支付补单 <b>' + PAY_ORDERS_CACHE.length + '</b> 笔（合计 ¥' + pendingPay.toFixed(2) + '）</span>' +
+        '<span class="as-stat-item">进行中 <b>' + doing + '</b></span>' +
+        '<span class="as-stat-item">累计订单 <b>' + ORDERS_CACHE.length + '</b></span>' +
+        '<span class="as-stat-item">其中补单 <b>' + makeup + '</b></span>';
+      renderPayOrders();
+      applyOrderFilter();
+    }
+    function renderPayOrders() {
+      const box = $('payOrders');
+      if (!box) return;
+      if (!PAY_ORDERS_CACHE.length) { box.innerHTML = ''; return; }
+      box.innerHTML = PAY_ORDERS_CACHE.map(o =>
+        '<div class="pay-order">' +
+          '<div class="po-head"><span class="badge b-makeup">待支付补单</span><span class="t-meta hl">' + escapeHtml(o.id) + '</span></div>' +
+          '<div class="t-type">' + escapeHtml(o.title) + '</div>' +
+          (o.note ? '<div class="t-desc">' + escapeHtml(o.note) + '</div>' : '') +
+          '<div class="t-kv"><span><i>应付</i><b class="hl">¥' + Number(o.amount).toFixed(2) + '</b></span>' +
+            '<span><i>来源</i>客服 ' + escapeHtml(o.created_by || '') + '</span><span><i>时间</i>' + fmtTime(o.created_at) + '</span></div>' +
+          '<div class="actions">' +
+            '<button class="btn btn-primary btn-sm" onclick="paySentOrder(\'' + o.id + '\',' + Number(o.amount) + ')">立即支付 ¥' + Number(o.amount).toFixed(2) + '</button>' +
+            '<span class="t-meta">余额不足可先充值；补单不额外收费</span>' +
+          '</div>' +
+        '</div>').join('');
+    }
+    async function paySentOrder(id, amount) {
+      if (ORDER_BLOCKED) { /* noop */ }
+      if (!confirm('确认支付这笔补单 ¥' + Number(amount).toFixed(2) + '？将从余额扣除（先扣赠送余额）。')) return;
+      const res = await api('sentorder/pay', { phone: PHONE, id });
+      if (res.ok) {
+        alert('支付成功，订单号 ' + res.task_id + '，客服会尽快处理');
+        loadPoints(); loadOrders(); loadTasks();
+      } else if (res.insufficient) {
+        showLackWallet(res.wallet);
+      } else alert(res.msg || '支付失败');
+    }
+    window.paySentOrder = paySentOrder;
+    function applyOrderFilter() {
+      let list = ORDERS_CACHE.slice();
+      if (ORDER_FILTER === 'makeup') list = list.filter(t => t.order_kind === 'makeup');
+      else if (ORDER_FILTER !== 'all') list = list.filter(t => t.status === ORDER_FILTER);
+      renderTasks(list, false, 'orderList');
+      if (!list.length) $('orderList').innerHTML = '<div class="empty">' + (ORDER_FILTER === 'makeup' ? '还没有补单' : '该分类下暂无订单') + '</div>';
+    }
+    async function loadMyOrdersBadge() {
+      if (isAdmin || !PHONE) return;
+      const res = await api('user/sentorders', { phone: PHONE });
+      if (!res.ok) return;
+      const n = (res.orders || []).length;
+      notifyOnChange('order', n, 'order');
+      setOrdersBadge(n);
+    }
+
     // ==================== 我的任务 ====================
     function badge(status) { return '<span class="badge b-' + status + '">' + (STATUS_TEXT[status] || status) + '</span>'; }
-    function renderTasks(tasks, adminMode) {
+    function renderTasks(tasks, adminMode, boxId) {
       tasks = Array.isArray(tasks) ? tasks : [];
-      const box = adminMode ? $('list') : $('taskList');
+      const box = $(boxId || (adminMode ? 'list' : 'taskList'));
+      if (!box) return;
       if (adminMode && ADMIN_TASK_FILTER && ADMIN_TASK_FILTER !== 'all') {
         tasks = tasks.filter(t => t.status === ADMIN_TASK_FILTER);
       }
@@ -2631,7 +2864,7 @@
             (balEnough ? '' : ' <b class="err-txt">⚠ 不足，还差 ¥' + Math.max(0, estNeed - uTotal).toFixed(2) + '</b>') + '</span>'
           : '';
         return '<div class="task">' +
-          '<div class="t-head">' + badge(t.status) + '<span class="t-meta hl">' + t.id + '</span></div>' +
+          '<div class="t-head">' + badge(t.status) + (t.order_kind === 'makeup' ? '<span class="badge b-makeup">补单</span>' : '') + '<span class="t-meta hl">' + t.id + '</span></div>' +
           '<div class="t-type">' + escapeHtml(t.type) + '</div>' +
           productHtml +
           (t.description ? '<div class="t-desc">' + escapeHtml(t.description) + '</div>' : '') +
@@ -2821,7 +3054,7 @@
               '<span class="msg-tag">' + (me ? ('我的回复 · ' + (m.read_admin ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>')) : (m.read ? '客服通知 · 已读' : '客服通知 · 未读')) + '</span>' +
               '<span class="msg-time">' + fmtTime(m.created_at) + '</span>' +
             '</div>' +
-            '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
+            '<div class="msg-text">' + (msgCardHtml(m, true) || escapeHtml(m.content)) + '</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -2844,7 +3077,7 @@
     async function loadUnread() {
       if (isAdmin || !PHONE) return;
       const res = await api('user/messages/unread', { phone: PHONE });
-      if (res.ok) { MSG_UNREAD = res.unread || 0; renderNav(); }
+      if (res.ok) { notifyOnChange('msg', res.unread || 0); MSG_UNREAD = res.unread || 0; renderNav(); }
     }
 
     // ==================== 客服聊天：气泡渲染（用户 / 管理员共用） ====================
@@ -2865,8 +3098,9 @@
         const mine = m.role === meRole;
         const att = chatAttachmentHtml(m);
         const rd = mine ? ((m.role === 'user' ? m.read_by_admin : m.read_by_user) ? '<span class="rd rd-ok">已读</span>' : '<span class="rd rd-no">未读</span>') : '';
+        const card = msgCardHtml(m, meRole === 'user');
         return '<div class="chat-row ' + (mine ? 'me' : 'them') + '">' +
-          '<div class="chat-bubble">' + (m.content ? escapeHtml(m.content) + (att ? '<br/>' : '') : '') + att + '</div>' +
+          '<div class="chat-bubble">' + (card ? card : ((m.content ? escapeHtml(m.content) + (att ? '<br/>' : '') : '') + att)) + '</div>' +
           '<div class="chat-time">' + (m.role === 'admin' ? '客服 · ' : '我 · ') + fmtTime(m.created_at) + (rd ? ' · ' + rd : '') + '</div>' +
         '</div>';
       }).join('');
@@ -2937,7 +3171,7 @@
     async function loadChatUnread() {
       if (isAdmin || !PHONE) return;
       const res = await api('user/chat/unread', { phone: PHONE });
-      if (res.ok) { CHAT_UNREAD = res.unread || 0; renderNav(); }
+      if (res.ok) { notifyOnChange('chat', res.unread || 0); CHAT_UNREAD = res.unread || 0; renderNav(); }
     }
 
     // ==================== 邀请好友 ====================
@@ -3665,7 +3899,7 @@
           '<div class="msg-body">' +
             '<div class="msg-top"><span class="msg-tag">' + (me ? ('我（管理员） · ' + rd) : '用户') + '</span>' +
               '<span class="msg-time">' + fmtTime(m.created_at) + '</span></div>' +
-            '<div class="msg-text">' + escapeHtml(m.content) + '</div>' +
+            '<div class="msg-text">' + (msgCardHtml(m, false) || escapeHtml(m.content)) + '</div>' +
           '</div>' +
         '</div>';
       }).join('') : '<div class="empty">暂无消息</div>';
@@ -4884,6 +5118,18 @@
       }
     }
 
+    // 我的订单 / 声音提醒 事件绑定
+    if ($('ordersBtn')) $('ordersBtn').addEventListener('click', () => switchView('orders'));
+    if ($('topOrdersBtn')) $('topOrdersBtn').addEventListener('click', () => switchView('orders'));
+    if ($('orderRefresh')) $('orderRefresh').addEventListener('click', () => loadOrders());
+    document.querySelectorAll('#orderFilters .sf-btn[data-ost]').forEach(b => b.addEventListener('click', () => {
+      ORDER_FILTER = b.dataset.ost;
+      document.querySelectorAll('#orderFilters .sf-btn[data-ost]').forEach(x => x.classList.toggle('active', x === b));
+      applyOrderFilter();
+    }));
+    if ($('soundBtn')) $('soundBtn').addEventListener('click', toggleSound);
+    syncSoundBtn();
+
     // 商品相关事件绑定
     $('gotoShop').addEventListener('click', () => switchView('shop'));
     function getShopHistory() {
@@ -5179,28 +5425,113 @@
 
     async function loadPresets() {
       const res = await api('admin/chat/presets', {}, true);
-      const chips = $('presetChips');
-      if (!res.ok) { chips.innerHTML = ''; return; }
+      if (!res.ok) {
+        ['presetChips', 'msgPresetChips'].forEach(id => { const b = $(id); if (b) b.innerHTML = ''; });
+        return;
+      }
       const list = res.presets || [];
-      chips.innerHTML = '<span class="t-meta">预设：</span>' + list.map(p =>
+      const html = '<span class="t-meta">预设：</span>' + list.map(p =>
         '<span class="preset-chip" data-preset="' + escapeHtml(p.content) + '">' + escapeHtml(p.content) +
         '<i class="preset-del" data-id="' + p.id + '" title="删除">×</i></span>'
       ).join('');
-      chips.querySelectorAll('.preset-chip').forEach(chip => {
-        chip.addEventListener('click', (e) => {
-          if (e.target.classList.contains('preset-del')) return;
-          const inp = $('csReply'); inp.value = chip.dataset.preset; inp.focus();
+      // 客服消息 / 用户消息 两个界面共用同一套预设话术
+      [['presetChips', 'csReply'], ['msgPresetChips', 'msgAdmReply']].forEach(pair => {
+        const box = $(pair[0]);
+        if (!box) return;
+        box.innerHTML = html;
+        box.querySelectorAll('.preset-chip').forEach(chip => {
+          chip.addEventListener('click', (e) => {
+            if (e.target.classList.contains('preset-del')) return;
+            const inp = $(pair[1]); if (!inp) return;
+            inp.value = chip.dataset.preset; inp.focus();
+          });
         });
-      });
-      chips.querySelectorAll('.preset-del').forEach(x => {
-        x.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!confirm('删除这条预设文字？')) return;
-          const r = await api('admin/chat/preset/delete', { id: x.dataset.id }, true);
-          if (r.ok) loadPresets(); else alert(r.msg || '删除失败');
+        box.querySelectorAll('.preset-del').forEach(x => {
+          x.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('删除这条预设文字？')) return;
+            const r = await api('admin/chat/preset/delete', { id: x.dataset.id }, true);
+            if (r.ok) loadPresets(); else alert(r.msg || '删除失败');
+          });
         });
       });
     }
+
+    // ==================== 指定用户发送 / 发订单（补单） / 发红包 ====================
+    async function sendToSpecified(phoneInputId, replyInputId) {
+      const phone = $(phoneInputId).value.trim();
+      const content = $(replyInputId).value.trim();
+      if (!/^\d{6,15}$/.test(phone)) { alert('请填写正确的用户手机号'); return; }
+      if (!content) { alert('请先在回复框输入要发送的内容'); return; }
+      const res = await api('admin/message/send', { phone, content }, true);
+      if (res.ok) {
+        $(replyInputId).value = '';
+        alert('已发送给 ' + phone + '（客服消息 / 用户消息 两个界面都能看到）');
+        MSG_THREAD_PHONE = phone;
+        loadAdminMessages(); loadConversations(); loadAdminBadges();
+      } else alert(res.msg || '发送失败');
+    }
+    function openSendOrder(phone) {
+      const p = phone || CS_PHONE || MSG_THREAD_PHONE || '';
+      $('soPhone').value = p; $('soTitle').value = ''; $('soAmount').value = ''; $('soNote').value = '';
+      $('soMsg').className = 'msg'; $('soMsg').textContent = '';
+      $('sendOrderModal').style.display = 'flex';
+    }
+    async function submitSendOrder() {
+      const msg = $('soMsg'); msg.className = 'msg'; msg.textContent = '';
+      const phone = $('soPhone').value.trim();
+      const title = $('soTitle').value.trim();
+      const amount = Number($('soAmount').value);
+      const note = $('soNote').value.trim();
+      if (!/^\d{6,15}$/.test(phone)) { msg.className = 'msg err'; msg.textContent = '请填写正确的用户手机号'; return; }
+      if (!title) { msg.className = 'msg err'; msg.textContent = '请填写订单标题'; return; }
+      if (!isFinite(amount) || amount < 0.01) { msg.className = 'msg err'; msg.textContent = '金额需不小于 0.01 元'; return; }
+      const btn = $('soSend'); btn.disabled = true;
+      try {
+        const res = await api('admin/sentorder/create', { phone, title, amount, note }, true);
+        if (!res.ok) { msg.className = 'msg err'; msg.textContent = res.msg || '发送失败'; return; }
+        $('sendOrderModal').style.display = 'none';
+        alert('订单已发给用户（订单号 ' + res.order.id + '）\n用户支付后将自动生成「补单」订单，可在任务审核里看到。');
+        if (phone === CS_PHONE) refreshCsMsgs();
+        if (phone === MSG_THREAD_PHONE) openMsgThread(phone, true);
+        loadAdminBadges();
+      } finally { btn.disabled = false; }
+    }
+    function openRedpack(phone) {
+      const p = phone || CS_PHONE || MSG_THREAD_PHONE || '';
+      $('rpPhone').value = p; $('rpAmount').value = ''; $('rpReason').value = '';
+      $('rpMsg').className = 'msg'; $('rpMsg').textContent = '';
+      $('redpackModal').style.display = 'flex';
+    }
+    async function submitRedpack() {
+      const msg = $('rpMsg'); msg.className = 'msg'; msg.textContent = '';
+      const phone = $('rpPhone').value.trim();
+      const unit = $('rpUnit').value;
+      const amount = Number($('rpAmount').value);
+      const reason = $('rpReason').value.trim();
+      if (!/^\d{6,15}$/.test(phone)) { msg.className = 'msg err'; msg.textContent = '请填写正确的用户手机号'; return; }
+      if (!isFinite(amount) || amount <= 0) { msg.className = 'msg err'; msg.textContent = '红包数量需大于 0'; return; }
+      const btn = $('rpSend'); btn.disabled = true;
+      try {
+        const res = await api('admin/user/redpack', { phone, unit, amount, reason }, true);
+        if (!res.ok) { msg.className = 'msg err'; msg.textContent = res.msg || '发送失败'; return; }
+        $('redpackModal').style.display = 'none';
+        alert('红包已发放给 ' + phone + (unit === 'points' ? ('（积分 +' + amount + '）') : ('（赠送余额 +¥' + amount.toFixed(2) + '）')));
+        if (phone === CS_PHONE) refreshCsMsgs();
+        if (phone === MSG_THREAD_PHONE) openMsgThread(phone, true);
+        loadAdminBadges();
+      } finally { btn.disabled = false; }
+    }
+    if ($('msgSendToBtn')) $('msgSendToBtn').addEventListener('click', () => sendToSpecified('msgToPhone', 'msgAdmReply'));
+    if ($('csSendToBtn')) $('csSendToBtn').addEventListener('click', () => sendToSpecified('csToPhone', 'csReply'));
+    if ($('msgOrderBtn')) $('msgOrderBtn').addEventListener('click', () => openSendOrder(MSG_THREAD_PHONE));
+    if ($('msgRedpackBtn')) $('msgRedpackBtn').addEventListener('click', () => openRedpack(MSG_THREAD_PHONE));
+    if ($('csOrderBtn')) $('csOrderBtn').addEventListener('click', () => openSendOrder(CS_PHONE));
+    if ($('csRedpackBtn')) $('csRedpackBtn').addEventListener('click', () => openRedpack(CS_PHONE));
+    if ($('soClose')) $('soClose').addEventListener('click', () => $('sendOrderModal').style.display = 'none');
+    if ($('soSend')) $('soSend').addEventListener('click', submitSendOrder);
+    if ($('rpClose')) $('rpClose').addEventListener('click', () => $('redpackModal').style.display = 'none');
+    if ($('rpSend')) $('rpSend').addEventListener('click', submitRedpack);
     $('csAddPresetBtn').addEventListener('click', async () => {
       const inp = $('csNewPreset');
       const content = inp.value.trim();
@@ -5639,8 +5970,8 @@
 
     setInterval(() => {
       if ($('appBox').style.display === 'none') return;
-      if (!isAdmin) { loadUnread(); loadChatUnread(); }
-      else loadConversations();
+      if (!isAdmin) { loadUnread(); loadChatUnread(); loadMyOrdersBadge(); }
+      else { loadConversations(); loadAdminBadges(); }
       if (currentView === 'work') loadTasks();
       else if (currentView === 'tasks') loadAdminTasks();
       else if (currentView === 'pay') loadRecharges();

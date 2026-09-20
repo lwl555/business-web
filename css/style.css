@@ -1409,3 +1409,20 @@ span.ai-warn { color: #92400e; }
 .hot-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .hot-chip.other { border-style: dashed; }
 .empty-hots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+
+/* 我的订单 / 补单 / 红包卡片 / 声音开关（R75） */
+.btn-badge { display: inline-block; margin-left: 5px; min-width: 16px; padding: 1px 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; line-height: 1.4; text-align: center; }
+.b-makeup { background: #fff1e6; color: #c2410c; }
+.order-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 10px; }
+.pay-order { border: 1px solid var(--brand); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(120deg, #f5d061, #e8a13a, #fff3c4, #e8a13a) border-box; background-size: 300% 300%; animation: goldFlow 6s linear infinite; }
+.pay-order .po-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.chat-card { border-radius: 10px; padding: 10px 12px; background: #fff; border: 1px solid var(--line); min-width: 200px; }
+.chat-card.order-card { border-color: #f5d061; background: #fffdf5; }
+.chat-card.rp-card { border-color: #f9b6c8; background: #fff6f8; }
+.cc-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.cc-amount { font-size: 20px; font-weight: 700; margin: 4px 0; color: #c2410c; }
+.rp-card .cc-amount { color: #dc2626; }
+.cc-note { font-size: 12px; color: var(--text-2); margin-bottom: 4px; }
+.cc-meta { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.cs-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.cs-tools input { flex: 1; min-width: 160px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
