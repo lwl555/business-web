@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=58" />
+  <link rel="stylesheet" href="css/style.css?v=59" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -563,6 +563,10 @@
           <div class="msg" id="mqSaved" style="margin:6px 0 0"></div>
         </div>
 
+      <div class="section-title" style="margin-top:22px">商品搜索热门词</div>
+      <label class="inline-field">热门词（逗号分隔，留空=默认）<input id="setShopHot" style="width:340px" placeholder="抖音,快手,小红书,会员,粉丝,点赞,直播间,播放量" /></label>
+      <div class="t-meta" style="margin:-4px 0 10px">显示在商品下单页搜索框下方（最多 10 个），用户点击直接搜该词；搜索无结果时也会展示这些词供一键重搜。随下方「保存设置」一起保存。</div>
+
       <div class="section-title" style="margin-top:22px">积分设置</div>
       <div class="rate-add">
         <label class="inline-field">每天签到得
@@ -766,7 +770,7 @@
       <div class="shop-sources" id="shopSources"></div>
       <div class="shop-toolbar">
         <select id="shopCatSel" class="shop-catsel"><option value="">全部分类</option></select>
-        <input id="shopSearch" placeholder="搜索商品名称，如：抖音 点赞…" />
+        <span class="shop-search-wrap"><input id="shopSearch" placeholder="搜索商品名称，如：抖音 点赞…" autocomplete="off" /><div class="shop-suggest" id="shopSuggest" style="display:none"></div></span>
         <button class="btn btn-primary btn-sm" id="shopSearchBtn">搜索</button>
         <button class="btn btn-ghost btn-sm" id="shopClearBtn">清空</button>
         <span class="t-meta" id="shopCount"></span>
@@ -782,6 +786,7 @@
         </div>
         <div class="shop-hot" id="shopHot"></div>
       </div>
+      <div class="kw-chips" id="kwChips" style="display:none"></div>
       <div class="cant-find-bar" id="cantFindBar">
         <span>🔍 没找到想要的商品？平台有 7000+ 商品，若有遗漏可手动提交需求，管理员人工报价处理</span>
         <button class="btn btn-primary btn-sm" id="cantFindTopBtn">手动提交需求</button>
@@ -3349,13 +3354,54 @@
       SHOP_PPY = res.pointsPerYuan || 100;
       $('shopTier').textContent = res.tier || '';
       $('shopCount').textContent = '共 ' + intFmt(res.total || 0) + ' 个商品';
+      if (res.hot !== undefined && res.hot !== SHOP_HOT_RAW) { SHOP_HOT_RAW = res.hot; renderShopHot(); }
       const list = res.products || [];
       const html = list.map(productCardHtml).join('');
       const box = $('shopList');
-      if (reset) box.innerHTML = html || ('<div class="empty">没有找到商品，换个关键词试试<br /><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="goManualSubmit()">📝 手动提交需求</button></div>');
+      if (reset) {
+        box.innerHTML = html || ('<div class="empty">没有找到商品，换个关键词试试' +
+          '<div class="empty-hots">' + shopHotList().slice(0, 6).map(k => '<button class="hot-chip" data-hot="' + escapeHtml(k) + '">' + escapeHtml(k) + '</button>').join('') + '</div>' +
+          '<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="goManualSubmit()">📝 手动提交需求</button></div>');
+        box.querySelectorAll('[data-hot]').forEach(b => b.addEventListener('click', () => { SHOP_KW = b.dataset.hot; $('shopSearch').value = SHOP_KW; hideSuggest(); loadShopProducts(true); pushShopHistory(SHOP_KW); }));
+        renderKwChips(res);
+      }
       else box.insertAdjacentHTML('beforeend', html);
       const more = list.length >= 24 && (SHOP_PAGE * 24) < (res.total || 0);
       $('shopMoreBtn').style.display = more ? '' : 'none';
+    }
+    // 搜索结果分类聚合 chips + 其他分区引导
+    function renderKwChips(res) {
+      const box = $('kwChips');
+      if (!box) return;
+      const chips = [];
+      if (SHOP_KW && res.cats && res.cats.length > 1) {
+        chips.push('<span class="sf-lbl">分类</span>');
+        chips.push('<button class="hot-chip' + (!SHOP_CID && !SHOP_PARENT ? ' active' : '') + '" data-cat="">全部</button>');
+        res.cats.forEach(c => chips.push('<button class="hot-chip' + (SHOP_CID === c.cid ? ' active' : '') + '" data-cat="' + escapeHtml(c.cid) + '">' + escapeHtml(c.name) + ' ' + intFmt(c.n) + '</button>'));
+      }
+      if (SHOP_KW && res.otherSources && res.otherSources.length) {
+        res.otherSources.forEach(o => {
+          const s = SHOP_SOURCES.find(x => x.key === o.source) || {};
+          chips.push('<button class="hot-chip other" data-othersrc="' + escapeHtml(o.source) + '">🔍 在「' + escapeHtml(s.name || o.source) + '」还有 ' + intFmt(o.total) + ' 个相关商品 →</button>');
+        });
+      }
+      if (chips.length) { box.style.display = ''; box.innerHTML = chips.join(''); bindKwChips(); }
+      else { box.style.display = 'none'; box.innerHTML = ''; }
+    }
+    function bindKwChips() {
+      const box = $('kwChips');
+      box.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
+        SHOP_CID = b.dataset.cat; SHOP_PARENT = '';
+        renderShopCatSelect();
+        loadShopProducts(true);
+      }));
+      box.querySelectorAll('[data-othersrc]').forEach(b => b.addEventListener('click', () => {
+        SHOP_SOURCE = b.dataset.othersrc; SHOP_CID = ''; SHOP_PARENT = '';
+        const cs = $('shopCatSel'); if (cs) cs.value = '';
+        loadShopSources(); loadShopCats(); loadShopProducts(true);
+        const fz = $('freeZone'); if (fz) fz.style.display = (SHOP_SOURCE === 'old') ? '' : 'none';
+        if (SHOP_SOURCE === 'old') loadFreeZone();
+      }));
     }
     let ORDER_PRODUCT = null;
     async function openOrder(id) {
@@ -4850,9 +4896,14 @@
       try { localStorage.setItem('biz_shop_history', JSON.stringify(h)); } catch (e) {}
       renderShopHistory();
     }
+    let SHOP_HOT_RAW = '';
+    function shopHotList() {
+      const u = String(SHOP_HOT_RAW || '').split(/[,，]/).map(s => s.trim()).filter(Boolean).slice(0, 10);
+      return u.length ? u : SHOP_HOT;
+    }
     function renderShopHot() {
       const box = $('shopHot');
-      box.innerHTML = '<span class="sf-lbl">热门</span>' + SHOP_HOT.map(k => '<button class="hot-chip" data-kw="' + escapeHtml(k) + '">' + escapeHtml(k) + '</button>').join('');
+      box.innerHTML = '<span class="sf-lbl">热门</span>' + shopHotList().map(k => '<button class="hot-chip" data-kw="' + escapeHtml(k) + '">' + escapeHtml(k) + '</button>').join('');
       box.querySelectorAll('.hot-chip').forEach(b => b.addEventListener('click', () => { SHOP_KW = b.dataset.kw; $('shopSearch').value = SHOP_KW; loadShopProducts(true); pushShopHistory(SHOP_KW); }));
     }
     function renderShopHistory() {
@@ -4868,8 +4919,32 @@
       document.querySelectorAll('.sf-btn[data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === SHOP_SORT));
       $('shopFreeBtn').classList.toggle('active', SHOP_FREE);
     }
-    $('shopSearchBtn').addEventListener('click', () => { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); pushShopHistory(SHOP_KW); });
-    $('shopSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { SHOP_KW = $('shopSearch').value.trim(); loadShopProducts(true); pushShopHistory(SHOP_KW); } });
+    // ==================== 搜索联想（输入即提示分类 / 商品） ====================
+    let SUG_TIMER = 0, SUG_SEQ = 0;
+    function hideSuggest() { const d = $('shopSuggest'); if (d) { d.style.display = 'none'; d.innerHTML = ''; } }
+    async function shopSuggest() {
+      const q = $('shopSearch').value.trim();
+      const d = $('shopSuggest');
+      if (!q) { hideSuggest(); return; }
+      const seq = ++SUG_SEQ;
+      const res = await api('shop/suggest', { kw: q, source: SHOP_SOURCE });
+      if (seq !== SUG_SEQ || !res.ok) return;
+      if (!(res.cats || []).length && !(res.prods || []).length) { hideSuggest(); return; }
+      d.innerHTML =
+        ((res.cats || []).length ? '<div class="sg-lbl">分类</div>' + res.cats.map(c => '<div class="sg-item" data-sg="' + escapeHtml(c) + '">📁 ' + escapeHtml(c) + '</div>').join('') : '') +
+        ((res.prods || []).length ? '<div class="sg-lbl">商品（点击直接下单）</div>' + res.prods.map(p => '<div class="sg-item" data-sg="' + escapeHtml(p.name) + '" data-pid="' + escapeHtml(p.id) + '">🔍 ' + escapeHtml(p.name) + '</div>').join('') : '');
+      d.style.display = '';
+      d.querySelectorAll('.sg-item').forEach(it => it.addEventListener('click', () => {
+        hideSuggest();
+        if (it.dataset.pid && PHONE) { openOrder(it.dataset.pid); return; }
+        $('shopSearch').value = it.dataset.sg; SHOP_KW = it.dataset.sg;
+        loadShopProducts(true); pushShopHistory(SHOP_KW);
+      }));
+    }
+    $('shopSearch').addEventListener('input', () => { clearTimeout(SUG_TIMER); SUG_TIMER = setTimeout(shopSuggest, 250); });
+    $('shopSearch').addEventListener('blur', () => setTimeout(hideSuggest, 180));
+    $('shopSearchBtn').addEventListener('click', () => { SHOP_KW = $('shopSearch').value.trim(); hideSuggest(); loadShopProducts(true); pushShopHistory(SHOP_KW); });
+    $('shopSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { SHOP_KW = $('shopSearch').value.trim(); hideSuggest(); loadShopProducts(true); pushShopHistory(SHOP_KW); } if (e.key === 'Escape') hideSuggest(); });
     $('shopClearBtn').addEventListener('click', () => { $('shopSearch').value = ''; SHOP_KW = ''; SHOP_CID = ''; SHOP_SORT = 'default'; SHOP_FREE = false; syncShopFilterUI(); renderShopCats(); loadShopProducts(true); });
     document.querySelectorAll('.sf-btn[data-sort]').forEach(b => b.addEventListener('click', () => { SHOP_SORT = b.dataset.sort; syncShopFilterUI(); loadShopProducts(true); }));
     $('shopFreeBtn').addEventListener('click', () => { SHOP_FREE = !SHOP_FREE; syncShopFilterUI(); loadShopProducts(true); });
@@ -5416,6 +5491,7 @@
       $('setWdLimit').value = (s.withdraw_daily_limit != null ? s.withdraw_daily_limit : 3);
       $('setHlColor').value = (s.highlight_color || '#dc2626');
       $('setNewGift').value = (s.new_user_gift_points != null ? s.new_user_gift_points : 100);
+      if ($('setShopHot')) $('setShopHot').value = (s.shop_hot || '');
     }
     async function saveSettings() {
       const msg = $('setMsg'); msg.className = 'msg ok'; msg.textContent = '';
@@ -5452,6 +5528,7 @@
         rechargeEtaMin: $('setRcEta') ? $('setRcEta').value : undefined,
         rechargeServiceTime: $('setRcSvc') ? $('setRcSvc').value : undefined,
         adminNotifyPhone: $('setRcAdmin') ? $('setRcAdmin').value : undefined,
+        shopHot: $('setShopHot') ? $('setShopHot').value : undefined,
         freeQuotaMode: $('setQuotaMode') ? $('setQuotaMode').value : undefined,
         freeQuotaShowTotal: $('setQuotaShowTotal') ? $('setQuotaShowTotal').value : undefined,
         freeQuotaShowLeft: $('setQuotaShowLeft') ? $('setQuotaShowLeft').value : undefined,

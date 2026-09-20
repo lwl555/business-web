@@ -1397,3 +1397,15 @@ span.ai-warn { color: #92400e; }
 .rd { font-size: 11px; font-weight: 400; }
 .rd-ok { color: #4caf50; }
 .rd-no { color: #b0b0b0; }
+
+/* 搜索联想 + 结果分类 chips（R74） */
+.shop-search-wrap { position: relative; flex: 1; min-width: 150px; display: flex; }
+.shop-search-wrap input { flex: 1; width: 100%; }
+.shop-suggest { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.10); z-index: 60; max-height: 260px; overflow: auto; padding: 4px 0; }
+.sg-lbl { font-size: 11px; color: var(--muted); padding: 4px 12px 2px; }
+.sg-item { padding: 7px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sg-item:hover { background: #fdf2f8; }
+.kw-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 4px; }
+.hot-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.hot-chip.other { border-style: dashed; }
+.empty-hots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
