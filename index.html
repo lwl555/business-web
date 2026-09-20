@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=60" />
+  <link rel="stylesheet" href="css/style.css?v=61" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -541,6 +541,18 @@
         <button class="btn btn-ghost btn-sm" id="bulkRejectBtn">🧹 一键关闭「余额不足」的待审单</button>
         <button class="btn btn-ghost btn-sm" id="dashRefreshBtn">刷新数据</button>
       </div>
+
+      <div class="section-title" style="margin-top:22px">💰 收入总览（历史）</div>
+      <div class="inc-bar" id="incBar">
+        <button class="sf-btn active" data-days="30">近 30 天</button>
+        <button class="sf-btn" data-days="7">近 7 天</button>
+        <button class="sf-btn" data-days="90">近 90 天</button>
+        <button class="sf-btn" data-days="365">近一年</button>
+        <button class="sf-btn" data-days="3650">全部历史</button>
+        <span class="t-meta">卡片是<b>全部历史累计</b>；下方「按日」跟随所选区间</span>
+      </div>
+      <div class="inc-cards" id="incCards"></div>
+      <div id="incBody"><div class="loading">加载中…</div></div>
       <div class="section-title" style="margin-top:22px">任务审核</div>
       <div class="t-meta" style="margin-bottom:10px">点下方分类筛选：<b>待审核</b>（一审）→ <b>待完成</b>（二审）→ <b>已完成</b> / <b>已拒绝</b>。卡片内显示商品信息与用户余额是否够扣。</div>
       <div class="stats stats-click" id="stats"></div>
@@ -600,6 +612,36 @@
       <div class="section-title" style="margin-top:22px">商品搜索热门词</div>
       <label class="inline-field">热门词（逗号分隔，留空=默认）<input id="setShopHot" style="width:340px" placeholder="抖音,快手,小红书,会员,粉丝,点赞,直播间,播放量" /></label>
       <div class="t-meta" style="margin:-4px 0 10px">显示在商品下单页搜索框下方（最多 10 个），用户点击直接搜该词；搜索无结果时也会展示这些词供一键重搜。随下方「保存设置」一起保存。</div>
+
+      <div class="section-title" style="margin-top:22px">📣 消息推送（不打开网站也能收到）</div>
+      <div class="t-meta" style="margin:-4px 0 10px">新订单、用户消息、充值/提现申请、售后、补单支付 → 直接推到你手机（微信 / 钉钉 / iOS）。<b>填好先点「保存设置」，再点「测试推送」</b>，手机收到即配置成功。</div>
+      <label class="chk inline-field"><input type="checkbox" id="setPushOn" /> 启用外部推送</label>
+      <label class="inline-field">推送方式<select id="setPushType" class="num">
+        <option value="off">关闭</option>
+        <option value="wecom">企业微信群机器人（Webhook）</option>
+        <option value="dingtalk">钉钉群机器人（Webhook）</option>
+        <option value="serverchan">Server酱（SendKey → 微信）</option>
+        <option value="pushplus">PushPlus（Token → 微信）</option>
+        <option value="bark">Bark（key → iOS 推送）</option>
+        <option value="custom">自定义 Webhook（POST JSON）</option>
+      </select></label>
+      <label class="inline-field">Key / Webhook<input id="setPushKey" style="width:360px" placeholder="企业微信/钉钉填完整 Webhook 地址；Server酱填 SendKey；PushPlus 填 token；Bark 填 key" /></label>
+      <div class="push-events" id="pushEvents">
+        <span class="t-meta">推送这些事件：</span>
+        <label class="chk"><input type="checkbox" data-pev="order" /> 新订单</label>
+        <label class="chk"><input type="checkbox" data-pev="msg" /> 用户消息</label>
+        <label class="chk"><input type="checkbox" data-pev="recharge" /> 充值申请</label>
+        <label class="chk"><input type="checkbox" data-pev="withdraw" /> 提现申请</label>
+        <label class="chk"><input type="checkbox" data-pev="aftersale" /> 售后申请</label>
+        <label class="chk"><input type="checkbox" data-pev="paid" /> 补单支付</label>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" id="pushTestBtn">📤 测试推送</button>
+        <span class="msg" id="pushMsg"></span>
+      </div>
+      <div class="t-meta push-help">
+        <b>怎么拿 Key：</b>① <b>企业微信</b>：群 → 右上角设置 → 群机器人 → 添加 → 复制 Webhook 地址（最省事，推荐）；② <b>钉钉</b>：群设置 → 智能群助手 → 添加机器人 → 自定义 → 复制 Webhook；③ <b>Server酱</b>：sct.ftqq.com 微信扫码登录 → 复制 SendKey（免费，消息进微信）；④ <b>PushPlus</b>：pushplus.plus 微信登录 → 一对一推送 token；⑤ <b>Bark</b>：App Store 装 Bark → 复制 key（iOS）。
+      </div>
 
       <div class="section-title" style="margin-top:22px">积分设置</div>
       <div class="rate-add">
@@ -2188,7 +2230,7 @@
       else if (v === 'msgAdmin') loadAdminMessages();
       else if (v === 'cs') loadConversations();
       else if (v === 'pay') loadRecharges();
-      else if (v === 'tasks') { loadAdminTasks(); loadDashboard(); if (typeof loadUsageOnDash === 'function') loadUsageOnDash(); }
+      else if (v === 'tasks') { loadAdminTasks(); loadDashboard(); loadIncome(); if (typeof loadUsageOnDash === 'function') loadUsageOnDash(); }
       else if (v === 'rules') { loadRatesAdmin(); loadSettings(); }
       else if (v === 'ann') loadAnnouncementsAdmin();
       else if (v === 'old') loadOldFrame();
@@ -5574,7 +5616,77 @@
         '<span class="ub-item">上次清理：' + (res.lastClean ? fmtTime(res.lastClean) : '待执行') + '</span>' +
         (res.dbPct >= 80 || res.stPct >= 80 ? '<span class="ub-item warn">⚠️ 已接近上限，建议清理或升级</span>' : '');
     }
-    $('dashRefreshBtn').addEventListener('click', () => { loadDashboard(); loadUsage(); });
+    // ==================== 收入总览（历史收入 + 订单明细） ====================
+    let INC_DAYS = 30;
+    function maskPh(p) { const s = String(p || ''); return s.length >= 11 ? (s.slice(0, 3) + '****' + s.slice(-4)) : s; }
+    async function loadIncome(days) {
+      if (days) INC_DAYS = days;
+      const box = $('incBody'); if (!box) return;
+      box.innerHTML = '<div class="loading">加载中…</div>';
+      const res = await api('admin/income', { days: INC_DAYS }, true);
+      if (!res.ok) { $('incCards').innerHTML = ''; box.innerHTML = '<div class="empty">加载失败：' + escapeHtml(res.msg || '') + '</div>'; return; }
+      const r = res.report || {};
+      const money = (v) => '¥' + Number(v || 0).toFixed(2);
+      $('incCards').innerHTML = [
+        ['累计订单收入（全部历史）', money(r.income), 'ok'],
+        ['累计充值到账', money(r.rechargeApproved), 'ok'],
+        ['累计退款', money(r.refund), Number(r.refund) > 0 ? 'warn' : ''],
+        ['净收入', money(r.net), 'ok'],
+        ['有效订单数', intFmt(r.orders), ''],
+        ['其中补单', intFmt(r.makeupCount) + ' 笔 · ' + money(r.makeupAmount), ''],
+        ['待审充值金额', money(r.rechargePending), Number(r.rechargePending) > 0 ? 'warn' : ''],
+        ['收款拆分', '赠送 ' + money(r.payGift) + ' ｜ 现金 ' + money(r.payBalance), ''],
+      ].map(a => '<div class="inc-card' + (a[2] ? ' ' + a[2] : '') + '"><div class="ic-val">' + a[1] + '</div><div class="ic-lbl">' + a[0] + '</div></div>').join('');
+      const day = r.byDay || [];
+      const maxA = Math.max(0.01, ...day.map(d => Number(d.income || 0) + Number(d.recharge || 0)));
+      const dayRows = day.length ? day.slice().reverse().map(d => {
+        const tot = Number(d.income || 0) + Number(d.recharge || 0);
+        const w = Math.max(2, Math.round(tot / maxA * 100));
+        return '<tr><td>' + d.d + '</td><td class="num">' + d.orders + '</td><td class="num">' + money(d.income) + '</td>' +
+          '<td class="num">' + money(d.recharge) + '</td><td class="num"><b>' + money(tot) + '</b></td>' +
+          '<td><div class="inc-bar"><i style="width:' + w + '%"></i></div></td></tr>';
+      }).join('') : '<tr><td colspan="6" class="empty-cell">该区间暂无数据</td></tr>';
+      const stMap = { pending_review: '待审核', approved: '已受理', completed: '已完成', rejected: '已拒绝' };
+      const kdMap = { product: '商品单', manual: '手动需求', makeup: '补单' };
+      const stRows = (r.byStatus || []).map(x => '<tr><td>' + (stMap[x.status] || x.status) + '</td><td class="num">' + intFmt(x.n) + '</td><td class="num">' + money(x.amt) + '</td></tr>').join('');
+      const kdRows = (r.byKind || []).map(x => '<tr><td>' + (kdMap[x.kind] || x.kind) + '</td><td class="num">' + intFmt(x.n) + '</td><td class="num">' + money(x.amt) + '</td></tr>').join('');
+      const topRows = (r.topProducts || []).map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(String(x.name || '').slice(0, 40)) + '</td><td class="num">' + intFmt(x.n) + '</td><td class="num">' + money(x.amt) + '</td></tr>').join('');
+      const recRows = (res.recent || []).map(t =>
+        '<tr><td class="mono">' + escapeHtml(t.id) + '</td><td>' + fmtTime(t.created_at) + '</td>' +
+        '<td>' + escapeHtml(maskPh(t.uid)) + '</td>' +
+        '<td>' + escapeHtml(String(t.product_name || t.type || '').slice(0, 26)) + (t.spec ? '<span class="t-meta">（' + escapeHtml(t.spec) + '）</span>' : '') + '</td>' +
+        '<td>' + (t.order_kind === 'makeup' ? '<span class="badge b-makeup">补单</span>' : '') + '</td>' +
+        '<td class="num"><b>' + money(t.deduction) + '</b></td>' +
+        '<td class="num t-meta">' + money(t.pay_gift) + ' / ' + money(t.pay_balance) + '</td></tr>').join('');
+      box.innerHTML =
+        '<div class="inc-grid">' +
+          '<div class="inc-panel"><div class="inc-title">按日收入（近 ' + INC_DAYS + ' 天）</div>' +
+            '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>日期</th><th class="num">订单数</th><th class="num">订单收入</th><th class="num">充值到账</th><th class="num">合计</th><th></th></tr></thead><tbody>' + dayRows + '</tbody></table></div></div>' +
+          '<div class="inc-panel"><div class="inc-title">订单结构（全部历史）</div>' +
+            '<table class="inc-table"><tbody>' + (stRows || '<tr><td class="empty-cell">暂无</td></tr>') + '</tbody></table>' +
+            '<div class="inc-title" style="margin-top:12px">收入类型</div>' +
+            '<table class="inc-table"><tbody>' + (kdRows || '<tr><td class="empty-cell">暂无</td></tr>') + '</tbody></table></div>' +
+        '</div>' +
+        '<div class="inc-panel" style="margin-top:12px"><div class="inc-title">收入 Top 10（按金额）</div>' +
+          '<table class="inc-table"><thead><tr><th>#</th><th>项目</th><th class="num">笔数</th><th class="num">金额</th></tr></thead><tbody>' + (topRows || '<tr><td colspan="4" class="empty-cell">暂无</td></tr>') + '</tbody></table></div>' +
+        '<div class="inc-panel" style="margin-top:12px"><div class="inc-title">最近 100 笔收入明细</div>' +
+          '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>订单号</th><th>时间</th><th>用户</th><th>项目</th><th></th><th class="num">实扣</th><th class="num">赠送/现金</th></tr></thead><tbody>' + (recRows || '<tr><td colspan="7" class="empty-cell">暂无</td></tr>') + '</tbody></table></div></div>';
+    }
+    if ($('incBar')) {
+      $('incBar').querySelectorAll('.sf-btn[data-days]').forEach(b => b.addEventListener('click', () => {
+        $('incBar').querySelectorAll('.sf-btn').forEach(x => x.classList.toggle('active', x === b));
+        loadIncome(Number(b.dataset.days));
+      }));
+    }
+    if ($('pushTestBtn')) $('pushTestBtn').addEventListener('click', async () => {
+      const m = $('pushMsg'); m.className = 'msg'; m.textContent = '保存并发送中…';
+      await saveSettings();
+      const r = await api('admin/push/test', {}, true);
+      if (r.ok) { m.className = 'msg ok'; m.textContent = '已通过「' + r.type + '」发送，请查看手机是否收到（没收到就检查 Key 是否正确）'; }
+      else { m.className = 'msg err'; m.textContent = r.msg || '发送失败'; }
+    });
+
+    $('dashRefreshBtn').addEventListener('click', () => { loadDashboard(); loadUsage(); loadIncome(); });
     loadUsageOnDash = loadUsage;
     $('bulkRejectBtn').addEventListener('click', async () => {
       const nl = String.fromCharCode(10);
@@ -5822,6 +5934,12 @@
       $('setHlColor').value = (s.highlight_color || '#dc2626');
       $('setNewGift').value = (s.new_user_gift_points != null ? s.new_user_gift_points : 100);
       if ($('setShopHot')) $('setShopHot').value = (s.shop_hot || '');
+      if ($('setPushOn')) {
+        $('setPushOn').checked = String(s.push_enabled) === '1';
+        $('setPushType').value = ['off', 'wecom', 'dingtalk', 'serverchan', 'pushplus', 'bark', 'custom'].indexOf(s.push_type) >= 0 ? s.push_type : 'off';
+        $('setPushKey').value = (s.push_key || '');
+        document.querySelectorAll('#pushEvents [data-pev]').forEach(c => { c.checked = String(s['push_ev_' + c.dataset.pev]) !== '0'; });
+      }
     }
     async function saveSettings() {
       const msg = $('setMsg'); msg.className = 'msg ok'; msg.textContent = '';
@@ -5859,6 +5977,10 @@
         rechargeServiceTime: $('setRcSvc') ? $('setRcSvc').value : undefined,
         adminNotifyPhone: $('setRcAdmin') ? $('setRcAdmin').value : undefined,
         shopHot: $('setShopHot') ? $('setShopHot').value : undefined,
+        pushEnabled: $('setPushOn') ? ($('setPushOn').checked ? '1' : '0') : undefined,
+        pushType: $('setPushType') ? $('setPushType').value : undefined,
+        pushKey: $('setPushKey') ? $('setPushKey').value : undefined,
+        pushEvents: (function () { const o = {}; document.querySelectorAll('#pushEvents [data-pev]').forEach(c => { o[c.dataset.pev] = c.checked; }); return o; })(),
         freeQuotaMode: $('setQuotaMode') ? $('setQuotaMode').value : undefined,
         freeQuotaShowTotal: $('setQuotaShowTotal') ? $('setQuotaShowTotal').value : undefined,
         freeQuotaShowLeft: $('setQuotaShowLeft') ? $('setQuotaShowLeft').value : undefined,
