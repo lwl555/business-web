@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=62" />
+  <link rel="stylesheet" href="css/style.css?v=63" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -5640,7 +5640,7 @@
         ['有效订单数', intFmt(r.orders), ''],
         ['其中补单', intFmt(r.makeupCount) + ' 笔 · ' + money(r.makeupAmount), ''],
         ['待审充值金额', money(r.rechargePending), Number(r.rechargePending) > 0 ? 'warn' : ''],
-        ['收款拆分', '赠送 ' + money(r.payGift) + ' ｜ 现金 ' + money(r.payBalance), ''],
+        ['收款拆分', '<span class="ic-line">赠送 <b>' + money(r.payGift) + '</b></span><span class="ic-line cash">现金 <b>' + money(r.payBalance) + '</b></span>', ''],
       ].map(a => '<div class="inc-card' + (a[2] ? ' ' + a[2] : '') + '"><div class="ic-val">' + a[1] + '</div><div class="ic-lbl">' + a[0] + '</div></div>').join('');
       const day = r.byDay || [];
       const maxA = Math.max(0.01, ...day.map(d => Number(d.income || 0) + Number(d.recharge || 0)));
@@ -5663,19 +5663,22 @@
         '<td>' + (t.order_kind === 'makeup' ? '<span class="badge b-makeup">补单</span>' : '') + '</td>' +
         '<td class="num"><b>' + money(t.deduction) + '</b></td>' +
         '<td class="num t-meta">' + money(t.pay_gift) + ' / ' + money(t.pay_balance) + '</td></tr>').join('');
+      const recTotal = Number(res.recentTotal || (res.recent || []).length);
+      const dayHint = day.length > 8 ? '<div class="inc-hint">共 ' + day.length + ' 天有数据，表格可上下滚动查看全部 ↕</div>' : '';
+      const recHint = (res.recent || []).length > 10 ? '<div class="inc-hint">共 ' + intFmt(recTotal) + ' 笔，显示最近 ' + (res.recent || []).length + ' 笔，表格可上下滚动 ↕（需要全量请点上方「导出明细 CSV」）</div>' : '';
       box.innerHTML =
         '<div class="inc-grid">' +
-          '<div class="inc-panel"><div class="inc-title">按日收入（近 ' + INC_DAYS + ' 天）</div>' +
-            '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>日期</th><th class="num">订单数</th><th class="num">订单收入</th><th class="num">充值到账</th><th class="num">合计</th><th></th></tr></thead><tbody>' + dayRows + '</tbody></table></div></div>' +
+          '<div class="inc-panel"><div class="inc-title">按日收入（近 ' + INC_DAYS + ' 天' + (day.length ? ' · 有数据 ' + day.length + ' 天' : '') + '）</div>' +
+            '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>日期</th><th class="num">订单数</th><th class="num">订单收入</th><th class="num">充值到账</th><th class="num">合计</th><th></th></tr></thead><tbody>' + dayRows + '</tbody></table></div>' + dayHint + '</div>' +
           '<div class="inc-panel"><div class="inc-title">订单结构（全部历史）</div>' +
-            '<table class="inc-table"><tbody>' + (stRows || '<tr><td class="empty-cell">暂无</td></tr>') + '</tbody></table>' +
+            '<div class="inc-scroll"><table class="inc-table"><tbody>' + (stRows || '<tr><td class="empty-cell">暂无</td></tr>') + '</tbody></table></div>' +
             '<div class="inc-title" style="margin-top:12px">收入类型</div>' +
-            '<table class="inc-table"><tbody>' + (kdRows || '<tr><td class="empty-cell">暂无</td></tr>') + '</tbody></table></div>' +
+            '<div class="inc-scroll"><table class="inc-table"><tbody>' + (kdRows || '<tr><td class="empty-cell">暂无</td></tr>') + '</tbody></table></div></div>' +
         '</div>' +
         '<div class="inc-panel" style="margin-top:12px"><div class="inc-title">收入 Top 10（按金额）</div>' +
-          '<table class="inc-table"><thead><tr><th>#</th><th>项目</th><th class="num">笔数</th><th class="num">金额</th></tr></thead><tbody>' + (topRows || '<tr><td colspan="4" class="empty-cell">暂无</td></tr>') + '</tbody></table></div>' +
-        '<div class="inc-panel" style="margin-top:12px"><div class="inc-title">最近 100 笔收入明细</div>' +
-          '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>订单号</th><th>时间</th><th>用户</th><th>项目</th><th></th><th class="num">实扣</th><th class="num">赠送/现金</th></tr></thead><tbody>' + (recRows || '<tr><td colspan="7" class="empty-cell">暂无</td></tr>') + '</tbody></table></div></div>';
+          '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>#</th><th>项目</th><th class="num">笔数</th><th class="num">金额</th></tr></thead><tbody>' + (topRows || '<tr><td colspan="4" class="empty-cell">暂无</td></tr>') + '</tbody></table></div></div>' +
+        '<div class="inc-panel" style="margin-top:12px"><div class="inc-title">收入明细（有效订单，共 ' + intFmt(recTotal) + ' 笔）</div>' +
+          '<div class="inc-scroll"><table class="inc-table"><thead><tr><th>订单号</th><th>时间</th><th>用户</th><th>项目</th><th></th><th class="num">实扣</th><th class="num">赠送/现金</th></tr></thead><tbody>' + (recRows || '<tr><td colspan="7" class="empty-cell">暂无</td></tr>') + '</tbody></table></div>' + recHint + '</div>';
     }
     if ($('incBar')) {
       $('incBar').querySelectorAll('.sf-btn[data-days]').forEach(b => b.addEventListener('click', () => {
