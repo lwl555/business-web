@@ -3566,7 +3566,8 @@
       const fz = $('freeZone'); if (!fz) return;
       if (!freeZoneAllowed()) { fz.style.display = 'none'; FREE_ZONE_SHOWN = false; return; }
       if (FREE_ZONE_SHOWN) return; // 已经显示过就不重复请求
-      loadFreeZone();
+      fz.style.display = '';       // 先乐观显示（内容区显示「加载中」），避免接口慢时福利区迟迟不出现；
+      loadFreeZone();              // 若最终没免费商品，loadFreeZone 会把整块隐藏回去
     }
     async function loadFreeZone() {
       const box = $('freeZone'); if (!box) return;
