@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=65" />
+  <link rel="stylesheet" href="css/style.css?v=66" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -614,6 +614,45 @@
         <label class="inline-field">自定义在线<input id="setStatsOnline" class="num" type="number" min="0" /><span>人</span></label>
         <label class="inline-field">最近到账文案（选填）<input id="setStatsRecent" style="width:260px" placeholder="留空=自动显示最近一笔真实到账" /></label>
         <div class="msg" id="onlineSaved" style="margin:0 0 10px"></div>
+
+        <div class="free-rule-title" style="margin-top:18px">💬 客服微信（用户端顶栏「联系客服」）</div>
+        <div class="t-meta" style="margin:0 0 10px">
+          这里控制用户点击顶栏 <b>💬 联系客服</b> 时弹出的二维码与提示。改完点页面底部「保存设置」。
+        </div>
+        <div class="svc-admin">
+          <img id="svcAdminPreview" class="svc-admin-qr" src="img/wechat-service.png" alt="客服二维码预览" />
+          <div class="svc-admin-side">
+            <label class="btn btn-ghost btn-sm" for="svcQrFile">📷 上传新二维码</label>
+            <input type="file" id="svcQrFile" accept="image/*" style="display:none" />
+            <button type="button" class="btn btn-ghost btn-sm" id="svcQrReset">恢复默认图</button>
+            <div class="msg" id="svcQrMsg"></div>
+            <div class="t-meta">建议用微信「保存图片」的原始码，长按可识别。<br />上传后立即生效（自动保存到公开图床）。</div>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>在线状态</label>
+            <select id="setServiceOnline">
+              <option value="auto">自动（你在后台有操作即在线，5 分钟内算在线）</option>
+              <option value="on">强制显示在线</option>
+              <option value="off">强制显示离线（提醒用户加微信）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>服务时段</label>
+            <input id="setServiceHours" placeholder="9-23" />
+            <span class="t-meta">格式「开始-结束」，如 9-23（仅用于提示文案）</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>在线时提示文案（留空用默认）</label>
+          <input id="setServiceNote" placeholder="例如：客服在线中，有问题直接说～" />
+        </div>
+        <div class="field">
+          <label>离线时提示文案（留空用默认）</label>
+          <input id="setServiceNoteOff" placeholder="例如：现在不在线，加微信 138xxxx 找我更快" />
+        </div>
+        <div class="t-meta" style="margin:0 0 8px">当前线上状态：<b id="svcAdminState">—</b></div>
         <div class="t-meta" id="onlineRealBox" style="margin:0 0 10px"></div>
         <div class="field" style="margin:0 0 10px">
           <label>效果预览（用户端顶部就是这个样子）</label>
@@ -1606,7 +1645,10 @@
         document.documentElement.style.setProperty('--hl', HL_COLOR);
       }
       if (res.ok && res.marquee) { MQ_CFG = res.marquee; renderMarquee(); }
+      if (res.ok && res.service) { UI_SERVICE = res.service; }
     }
+    let UI_SERVICE = null;      // 客服配置（二维码 / 在线状态 / 提示文案），来自 ui/config
+    let SVC_QR_VALUE = '';      // 后台当前选用的客服二维码（空 = 用站内默认图）
 
     // ==================== 领券中心 ====================
     let CP_LIST = [];
@@ -2545,7 +2587,7 @@
         return '<div class="task">' +
           '<div class="t-head">' + badge + '<span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
           '<div class="t-type">充值 ¥' + Number(r.amount) + ' → 到账 ¥' + Number(r.amount).toFixed(2) + '</div>' + etaLine +
-          (r.pay_account ? '<div class="t-meta">付款账号：' + payAcctHtml(r.pay_account) + '</div>' : '') +
+          ((r.pay_account || r.pay_method) ? '<div class="t-meta">付款账号：' + (r.pay_method ? ('<span class="badge ' + (r.pay_method === '微信' ? 'b-wx' : (r.pay_method === '支付宝' ? 'b-ali' : 'b-pending_review')) + '">' + escapeHtml(r.pay_method) + '</span> ') : '') + escapeHtml(r.pay_account || '') + '</div>' : '') +
           (r.proof ? '<div class="thumbs">' + proofHtml + '</div>' : '<div>' + proofHtml + '</div>') +
           (r.note ? '<div class="t-meta">管理员备注：' + escapeHtml(r.note) + '</div>' : '') +
         '</div>';
@@ -3469,13 +3511,20 @@
     }
     function openService() {
       const m = $('serviceModal'); if (!m) return;
-      const online = svcOnlineNow();
+      // 优先用后端下发的真实在线状态（admin 心跳 5 分钟内 = 在线）；拿不到时按服务时段兜底
+      const cfg = UI_SERVICE || {};
+      const online = (typeof cfg.online === 'boolean') ? cfg.online : svcOnlineNow();
+      const qr = cfg.qr || 'img/wechat-service.png';
+      const qrEl = $('svcQr');
+      if (qrEl) qrEl.setAttribute('src', qr);
+      const dlEl = $('svcDownload');
+      if (dlEl) dlEl.setAttribute('href', qr);
       const st = $('svcStatus');
       if (st) {
         st.className = 'svc-status ' + (online ? 'on' : 'off');
         st.innerHTML = online
-          ? ('🟢 <b>客服在线中</b>（服务时间 ' + SVC_HOURS.start + ':00-' + SVC_HOURS.end + ':00）　也可以直接在平台「客服消息」里发消息，回复更快')
-          : ('🌙 <b>现在是非服务时间</b>（客服 ' + SVC_HOURS.start + ':00-' + SVC_HOURS.end + ':00）　客服可能不在线，<b>建议直接扫码加微信</b>，看到消息会第一时间处理');
+          ? ('🟢 <b>' + escapeHtml(cfg.note || '客服在线中，也可以直接在平台「客服消息」里发消息，回复更快') + '</b>')
+          : ('🌙 <b>' + escapeHtml(cfg.noteOff || '客服当前不在线，建议直接扫码加微信，看到消息会第一时间处理') + '</b>');
       }
       const nt = $('svcNote');
       if (nt) nt.innerHTML = '📌 加微信时备注「<b>平台下单</b>」通过更快；充值、订单进度、售后都能直接微信找我。平台内「客服消息」我也会看，只是回复可能慢一点。';
@@ -3505,6 +3554,51 @@
       const acc = $('rcAccount');
       if (acc) acc.placeholder = isWx ? '你付款用的微信昵称或手机号' : '你付款用的支付宝账号或昵称';
     }
+    // 后台上传客服二维码（传到公开桶 biz-public，未登录用户也能看到）
+    async function uploadServiceQr(file) {
+      const msg = $('svcQrMsg');
+      if (!file) return;
+      if (msg) { msg.className = 'msg'; msg.textContent = '正在压缩上传…'; }
+      try {
+        let f = file;
+        if (typeof compressImage === 'function') { try { f = await compressImage(file, 900, 0.88); } catch (e) { f = file; } }
+        let ext = ((f.name || '').split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+        const path = 'service/wechat-qr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+        const r = await fetch(window.SUPABASE_URL + '/storage/v1/object/biz-public/' + path, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY, 'apikey': window.SUPABASE_ANON_KEY, 'Content-Type': f.type || 'image/png', 'x-upsert': 'false' },
+          body: f
+        });
+        if (!r.ok) throw new Error('上传失败（' + r.status + '）');
+        const url = window.SUPABASE_URL + '/storage/v1/object/public/biz-public/' + path;
+        SVC_QR_VALUE = url;
+        if ($('svcAdminPreview')) $('svcAdminPreview').src = url;
+        const save = await api('admin/settings/save', { serviceQr: url }, true);
+        if (!save.ok) throw new Error(save.msg || '保存失败');
+        await loadUiConfig();
+        if (msg) { msg.className = 'msg ok'; msg.textContent = '✅ 已上传并生效'; }
+      } catch (e) {
+        if (msg) { msg.className = 'msg err'; msg.textContent = e.message || '上传失败'; }
+      }
+    }
+    function refreshSvcAdminState() {
+      const el = $('svcAdminState'); if (!el) return;
+      api('ui/config', {}).then(r => {
+        if (!r.ok || !r.service) { el.textContent = '—'; return; }
+        const s = r.service;
+        el.innerHTML = (s.online ? '🟢 在线' : '🌙 离线') + '（' + escapeHtml(s.mode === 'auto' ? '自动判断' : '手动设置') + '，服务时段 ' + escapeHtml(s.hours || '') + '）';
+      }).catch(() => { el.textContent = '—'; });
+    }
+    if ($('svcQrFile')) $('svcQrFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) uploadServiceQr(f); e.target.value = ''; });
+    if ($('svcQrReset')) $('svcQrReset').addEventListener('click', async () => {
+      SVC_QR_VALUE = '';
+      if ($('svcAdminPreview')) $('svcAdminPreview').src = 'img/wechat-service.png';
+      const msg = $('svcQrMsg');
+      const r = await api('admin/settings/save', { serviceQr: '' }, true);
+      if (msg) { msg.className = r.ok ? 'msg ok' : 'msg err'; msg.textContent = r.ok ? '✅ 已恢复默认二维码' : (r.msg || '保存失败'); }
+      if (r.ok) await loadUiConfig();
+    });
+
     // 付款账号显示：把 [微信] / [支付宝] 前缀渲染成彩色标签（前后台通用）
     function payAcctHtml(acct) {
       const s = String(acct == null ? '' : acct);
@@ -5885,7 +5979,7 @@
           '<div class="t-head"><span class="badge ' + cls + '">' + (RC_STATUS[r.status] || r.status) + '</span><span class="t-meta">' + fmtTime(r.created_at) + '</span></div>' +
           '<div class="t-type">用户 ID：' + escapeHtml(r.phone) + ' ｜ 充值 ¥' + Number(r.amount) + ' → ' + Number(r.points) + ' 积分' +
             (r.status === 'pending' ? ('　<span class="t-meta">⏱ 已等待 ' + Math.max(0, Math.round((Date.now() - new Date(r.created_at).getTime()) / 60000)) + ' 分钟</span>') : '') + '</div>' +
-          (r.pay_account ? '<div class="t-meta">付款账号：' + payAcctHtml(r.pay_account) + '</div>' : '') +
+          ((r.pay_account || r.pay_method) ? '<div class="t-meta">付款账号：' + (r.pay_method ? ('<span class="badge ' + (r.pay_method === '微信' ? 'b-wx' : (r.pay_method === '支付宝' ? 'b-ali' : 'b-pending_review')) + '">' + escapeHtml(r.pay_method) + '</span> ') : '') + escapeHtml(r.pay_account || '') + '</div>' : '') +
           (r.proof ? '<div class="thumbs">' + proofHtml + '</div>' : '<div>' + proofHtml + '</div>') +
           (r.note ? '<div class="t-meta">备注：' + escapeHtml(r.note) + '</div>' : '') +
           actions + '</div>';
@@ -6082,6 +6176,13 @@
           $('setMqOn').checked = (s.marquee_enabled !== false);
           $('setMqSpeed').value = (s.marquee_speed != null ? s.marquee_speed : 30);
           $('setMqText').value = (s.marquee_text || '');
+          SVC_QR_VALUE = (s.service_qr || '');
+          if ($('svcAdminPreview')) $('svcAdminPreview').src = SVC_QR_VALUE || 'img/wechat-service.png';
+          if ($('setServiceOnline')) $('setServiceOnline').value = s.service_online || 'auto';
+          if ($('setServiceHours')) $('setServiceHours').value = s.service_hours || '9-23';
+          if ($('setServiceNote')) $('setServiceNote').value = s.service_note || '';
+          if ($('setServiceNoteOff')) $('setServiceNoteOff').value = s.service_note_off || '';
+          refreshSvcAdminState();
           renderMqPreview();
         }
         if ($('setAiMargin')) {
@@ -6135,7 +6236,12 @@
         withdrawMinDays: $('setWdDays') ? $('setWdDays').value : undefined,
         withdrawNeedOrder: $('setWdOrders') ? $('setWdOrders').value : undefined,
         marqueeEnabled: $('setMqOn') ? ($('setMqOn').checked ? '1' : '0') : undefined,
-        marqueeText: $('setMqText') ? $('setMqText').value : undefined,
+          marqueeText: $('setMqText') ? $('setMqText').value : undefined,
+          serviceQr: SVC_QR_VALUE,
+          serviceOnline: $('setServiceOnline') ? $('setServiceOnline').value : undefined,
+          serviceNote: $('setServiceNote') ? $('setServiceNote').value : undefined,
+          serviceNoteOff: $('setServiceNoteOff') ? $('setServiceNoteOff').value : undefined,
+          serviceHours: $('setServiceHours') ? $('setServiceHours').value : undefined,
         marqueeSpeed: $('setMqSpeed') ? $('setMqSpeed').value : undefined,
         aiTargetMargin: $('setAiMargin') ? $('setAiMargin').value : undefined,
         aiMinMargin: $('setAiMinMargin') ? $('setAiMinMargin').value : undefined,

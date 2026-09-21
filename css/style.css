@@ -1297,7 +1297,7 @@ span.ai-warn { color: #92400e; }
 .mq-dot { color: #fdba74; margin: 0 10px; }
 @keyframes mqScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 /* 后台预览：不需要点击跳转 */
-.mq-preview { margin: 6px 0 0; cursor: default; }
+.mq-preview { margin: 6px 0 0; cursor: default; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .mq-track { animation: none; }
   .mq-view { overflow-x: auto; }
@@ -1517,4 +1517,21 @@ span.ai-warn { color: #92400e; }
 @media (max-width: 640px) {
   .svc-qr { width: 232px; }
   .pm-btn { font-size: 13px; padding: 8px 8px; }
+}
+
+
+/* ---------- R80b：后台客服微信配置 ---------- */
+.svc-admin { display: flex; gap: 16px; align-items: flex-start; margin: 0 0 12px; flex-wrap: wrap; }
+.svc-admin-qr { width: 160px; max-width: 44vw; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.svc-admin-side { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; flex: 1 1 200px; }
+.svc-admin-side .t-meta { line-height: 1.6; }
+.svc-admin-side label.btn { cursor: pointer; }
+
+
+/* ---------- R80b：后台设置页手机端防溢出 ---------- */
+@media (max-width: 640px) {
+  .inline-field { flex-wrap: wrap; row-gap: 4px; }
+  .inline-field input, .inline-field select { min-width: 0; max-width: 100%; }
+  .svc-admin { gap: 12px; }
+  .svc-admin-qr { width: 132px; }
 }
