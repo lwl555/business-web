@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=66" />
+  <link rel="stylesheet" href="css/style.css?v=67" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -1428,6 +1428,21 @@
       <div class="t-meta" id="omMeta"></div>
       <div class="field" id="omInputWrap"><label id="omInputLabel">输入项</label><input id="omInput" placeholder="可直接粘贴含链接的文字，系统会自动提取" /></div>
       <div class="t-meta link-hint" id="omLinkHint" style="display:none"></div>
+      <div class="field" id="omQtyWrap">
+        <label>购买数量 <span class="t-meta" id="omQtyTip">（可批量下单，数量越多越省事）</span></label>
+        <div class="qty-row">
+          <button type="button" class="qty-btn" id="omQtyMinus" aria-label="减少">−</button>
+          <input id="omQty" type="number" inputmode="numeric" min="1" max="9999" step="1" value="1" aria-label="购买数量" />
+          <button type="button" class="qty-btn" id="omQtyPlus" aria-label="增加">＋</button>
+          <span class="qty-quick" id="omQtyQuick">
+            <button type="button" class="qty-chip" data-q="1">1</button>
+            <button type="button" class="qty-chip" data-q="5">5</button>
+            <button type="button" class="qty-chip" data-q="10">10</button>
+            <button type="button" class="qty-chip" data-q="50">50</button>
+            <button type="button" class="qty-chip" data-q="100">100</button>
+          </span>
+        </div>
+      </div>
       <div class="field"><label>联系方式</label><input id="omContact" placeholder="手机号 / 微信号" /></div>
       <div class="order-summary" id="omSummary"></div>
       <div class="msg" id="omMsg"></div>
@@ -3721,9 +3736,10 @@
         (isFree ? '<div class="free-flag">免费</div>' : '') +
         (p.image ? '<div class="sc-img"><img loading="lazy" src="' + escapeHtml(p.image) + '" alt="" onerror="this.parentNode.style.display=\'none\'"></div>' : '') +
         '<div class="sc-body">' +
+          (Number(p.sales || 0) >= 30 ? '<div class="sc-hot">🔥 热销 ' + intFmt(p.sales) + '</div>' : '') +
           '<div class="sc-name">' + escapeHtml(p.name) + '</div>' +
           (p.spec ? '<div class="sc-spec">规格：' + escapeHtml(p.spec) + '</div>' : '') +
-          '<div class="sc-price">' + (isFree ? '<span class="sc-free">免费</span>' : ('¥' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span>')) + '</div>' +
+          '<div class="sc-price">' + (isFree ? '<span class="sc-free">免费</span>' : ('¥' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span> <span class="sc-unit">/ 件</span>')) + '</div>' +
           '<div class="sc-meta">' + (p.sales ? ('已售 ' + p.sales + ' ｜ ') : '') + (p.input ? ('需填：' + escapeHtml(p.input)) : '无需填写') + '</div>' +
           '<button class="btn btn-primary btn-sm sc-buy">下单</button>' +
         '</div>' +
@@ -3881,6 +3897,7 @@
       }));
     }
     let ORDER_PRODUCT = null;
+    let ORDER_QTY = 1;          // 当前下单数量（R81）
     async function openOrder(id) {
       const res = await api('shop/product', { phone: PHONE, id });
       if (!res.ok) { alert(res.msg || '加载失败'); return; }
@@ -3893,11 +3910,14 @@
       $('omInput').value = '';
       renderLinkHint('omLinkHint', '');
       $('omContact').value = PHONE;
-      const pts = Math.round(Number(p.price) * SHOP_PPY);
       const isFree = Number(p.price) <= 0;
+      ORDER_QTY = 1;
+      if ($('omQty')) $('omQty').value = '1';
+      if ($('omQtyWrap')) $('omQtyWrap').style.display = isFree ? 'none' : '';   // 免费福利按「个」计额度，不开放多件
       $('orderModal').classList.toggle('free-order', isFree);
       $('omSubmit').textContent = isFree ? '免费领取' : '提交订单';
-      $('omSummary').innerHTML = '<div>单价：<b>' + (isFree ? '免费' : ('¥' + Number(p.price) + '（≈' + intFmt(pts) + ' 积分）')) + '</b></div>' +
+      $('omSummary').innerHTML = '<div>单价：<b id="omUnitPrice">' + (isFree ? '免费' : ('¥' + Number(p.price) + '（≈' + intFmt(Math.round(Number(p.price) * SHOP_PPY)) + ' 积分）')) + '</b></div>' +
+        (isFree ? '' : '<div class="om-total"><span>合计</span><b id="omTotalAmt">¥' + Number(p.price).toFixed(2) + '</b><i id="omTotalPts">≈' + intFmt(Math.round(Number(p.price) * SHOP_PPY)) + ' 积分</i></div>') +
         (isFree ? ('<div class="om-free-tip">🎁 这是免费福利商品，提交后由管理员审核发放，不扣任何费用。' +
           (FREE_INFO && FREE_INFO.requirePaid ? '<b>付费用户专享</b>；' : '') +
           '每人每天限领 <b>' + ((FREE_INFO && FREE_INFO.perDay) || 1) + ' 个</b>' +
@@ -3928,19 +3948,50 @@
           '（审核通过会从余额扣掉），这部分不能再用于下新单。余额不足请先充值。</div>');
       }
 
-      // 余额不够抵扣 → 不允许提交（按「可用额度」判断，而不是账面余额）
-      const price = Number(p.price) || 0;
-      const short = +(price - MY_AVAILABLE).toFixed(2);
+      renderOrderAmount();
+      $('orderModal').style.display = 'flex';
+    }
+
+    // 数量 / 合计 / 余额联动（数量变化与打开弹窗都会走这里）
+    function orderUnit() { return ORDER_PRODUCT ? (Number(ORDER_PRODUCT.price) || 0) : 0; }
+    function renderOrderAmount() {
+      if (!ORDER_PRODUCT) return;
+      const unit = orderUnit();
+      const isFree = unit <= 0.01;
+      const qty = isFree ? 1 : ORDER_QTY;
+      const total = +(unit * qty).toFixed(2);
+      const pts = Math.round(total * SHOP_PPY);
+      const amtEl = $('omTotalAmt'), ptsEl = $('omTotalPts');
+      if (amtEl) amtEl.textContent = '¥' + total.toFixed(2);
+      if (ptsEl) ptsEl.textContent = '≈' + intFmt(pts) + ' 积分';
+      document.querySelectorAll('#omQtyQuick .qty-chip').forEach(c => c.classList.toggle('active', Number(c.dataset.q) === qty));
+      const msg = $('omMsg');
+      const short = +(total - MY_AVAILABLE).toFixed(2);
       ORDER_BLOCKED = (!isFree && short > 1e-9);
       if (ORDER_BLOCKED) {
-        $('omMsg').className = 'msg err';
-        $('omMsg').textContent = '可用余额不足：本单 ¥' + price.toFixed(2) + '，可用 ¥' + MY_AVAILABLE.toFixed(2) +
-          '，还差 ¥' + short.toFixed(2) + '，请先充值后再提交。';
+        if (msg) {
+          msg.className = 'msg err';
+          msg.textContent = '可用余额不足：本单 ¥' + total.toFixed(2) + '，可用 ¥' + MY_AVAILABLE.toFixed(2) +
+            '，还差 ¥' + short.toFixed(2) + '。可以减少数量，或点下面按钮先去充值。';
+        }
         $('omSubmit').textContent = '余额不足，去充值';
       } else {
         ORDER_BLOCKED = false;
+        if (msg) { msg.className = 'msg'; msg.textContent = ''; }
+        $('omSubmit').textContent = isFree ? '免费领取' : ('确认下单 ¥' + total.toFixed(2));
       }
-      $('orderModal').style.display = 'flex';
+    }
+    function setOrderQty(n) {
+      const isFree = orderUnit() <= 0.01;
+      if (isFree) { ORDER_QTY = 1; }
+      else {
+        let v = Math.floor(Number(n));
+        if (!isFinite(v) || v < 1) v = 1;
+        if (v > 9999) v = 9999;
+        ORDER_QTY = v;
+      }
+      if ($('omQty')) $('omQty').value = String(ORDER_QTY);
+      renderOrderAmount();
     }
     async function submitOrder() {
       if (ORDER_BLOCKED) { $('orderModal').style.display = 'none'; goRecharge(); return; }
@@ -3951,7 +4002,7 @@
       const msg = $('omMsg'); msg.className = 'msg'; msg.textContent = '';
       if (p.input && !inputValue) { msg.className = 'msg err'; msg.textContent = '请填写「' + p.input + '」'; return; }
       const btn = $('omSubmit'); btn.disabled = true;
-      const res = await api('shop/order', { phone: PHONE, id: p.id, inputValue, contact, link: extractLinks(inputValue).join('\n') });
+      const res = await api('shop/order', { phone: PHONE, id: p.id, qty: ORDER_QTY, inputValue, contact, link: extractLinks(inputValue).join('\n') });
       btn.disabled = false;
       if (res.ok) {
         $('orderModal').style.display = 'none'; loadPoints(); loadTasks();
@@ -5442,6 +5493,12 @@
     $('omClose').addEventListener('click', () => $('orderModal').style.display = 'none');
     $('omSubmit').addEventListener('click', submitOrder);
     $('omInput').addEventListener('input', () => renderLinkHint('omLinkHint', $('omInput').value));
+    // 数量选择：步进器 / 直接输入 / 快捷数量
+    if ($('omQtyMinus')) $('omQtyMinus').addEventListener('click', () => setOrderQty(ORDER_QTY - 1));
+    if ($('omQtyPlus')) $('omQtyPlus').addEventListener('click', () => setOrderQty(ORDER_QTY + 1));
+    if ($('omQty')) $('omQty').addEventListener('input', () => setOrderQty($('omQty').value));
+    if ($('omQtyQuick')) $('omQtyQuick').querySelectorAll('.qty-chip').forEach(c =>
+      c.addEventListener('click', () => setOrderQty(Number(c.dataset.q))));
     $('apSearchBtn').addEventListener('click', () => { AP_KW = $('apSearch').value.trim(); loadApList(true); });
     $('apSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { AP_KW = $('apSearch').value.trim(); loadApList(true); } });
     $('apCat').addEventListener('change', () => { AP_CID = $('apCat').value; loadApList(true); });
