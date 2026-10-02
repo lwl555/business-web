@@ -1579,3 +1579,143 @@ span.ai-warn { color: #92400e; }
   .om-total b { font-size: 20px; }
   .shop-card:hover { transform: none; }
 }
+
+/* ============================================================
+   R83：手机端弹窗防超高（内容太多时底部按钮看不到/点不到）
+   原因：.modal-box 原本只有 max-width 没有 max-height，且 .modal 居中，
+        内容一高就上下双向溢出被裁掉，底部按钮够不着。
+   方案：弹窗盒限高 + 盒内滚动 + 按钮行 sticky 常驻底部 + 触摸目标 ≥44px。
+   ============================================================ */
+@media (max-width: 760px) {
+  .modal {
+    padding: 12px;
+    align-items: center;
+    overflow-y: auto;              /* 盒子本身也超长时，遮罩层可整体滚动兜底 */
+    overscroll-behavior: contain;  /* 弹窗内滚动不带动背后的页面 */
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-box {
+    max-width: 100%;
+    max-height: 92vh;              /* 老浏览器回退 */
+    max-height: 92dvh;             /* 动态视口高度，手机地址栏收起/弹出都正确 */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 18px 18px 14px;
+  }
+  /* 按钮行常驻底部：无论内容多长，提交/取消永远可见可点 */
+  .modal-box .actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 12px -18px -14px;      /* 负边距贴住盒子左右与底部 */
+    padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 14px rgba(15, 23, 42, .05);
+  }
+  /* 费茨定律：手机端触摸目标不小于 44px，主按钮更宽更好点 */
+  .modal-box .actions .btn { min-height: 44px; padding: 11px 20px; }
+  .modal-box .actions > .btn:not(:only-child) { flex: 1 1 auto; }
+  /* 标题在长内容里保持可见 */
+  .modal-box .modal-title { position: sticky; top: -18px; z-index: 2; background: #fff; padding: 4px 0 8px; margin: -4px 0 4px; }
+  /* 弹窗内表格/长文本自己滚动，不撑破盒子 */
+  .modal-box table, .modal-box .inc-scroll, .modal-box .table-scroll { max-width: 100%; }
+  /* 关闭按钮更容易点中 */
+  .modal-box .modal-x { min-width: 40px; min-height: 40px; }
+}
+
+/* ============================================================
+   R83：AI 创作（图片/视频生成）
+   ============================================================ */
+.ai-quota { display: inline-block; margin-bottom: 10px; padding: 5px 12px; border-radius: 999px; background: #eef4ff; color: #2563eb; font-size: 13px; font-weight: 600; }
+.ai-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.ai-tab { flex: 1; padding: 11px 10px; border-radius: 10px; border: 1px solid var(--line); background: #fff; font-size: 14px; font-family: inherit; cursor: pointer; min-height: 44px; }
+.ai-tab.active { border-color: var(--brand); background: #eef4ff; color: #2563eb; font-weight: 600; }
+.ai-tab:disabled { cursor: not-allowed; }
+.ai-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-chip { min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 13px; font-family: inherit; cursor: pointer; color: var(--text); }
+.ai-chip.active { border-color: var(--brand); background: #eef4ff; color: #2563eb; font-weight: 600; }
+.ai-adv { margin: 4px 0 10px; }
+.ai-adv summary { cursor: pointer; font-size: 13px; color: var(--text-2); padding: 8px 0; min-height: 40px; display: flex; align-items: center; }
+.ai-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.ai-item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+.ai-item.err { border-color: #fecaca; background: #fff7f7; }
+.ai-item-p { font-size: 13px; font-weight: 600; margin-bottom: 8px; word-break: break-all; }
+.ai-shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ai-shot { position: relative; border-radius: 10px; overflow: hidden; background: #f1f5f9; }
+.ai-shot img { display: block; width: 100%; height: auto; }
+.ai-dl { position: absolute; right: 6px; bottom: 6px; background: rgba(15, 23, 42, .72); color: #fff; font-size: 12px; padding: 5px 9px; border-radius: 8px; text-decoration: none; min-height: 30px; display: inline-flex; align-items: center; }
+.ai-promo-box { text-align: center; }
+.ai-promo-ico { font-size: 46px; line-height: 1.1; }
+.ai-promo-list { text-align: left; margin: 12px 0 4px; padding-left: 20px; font-size: 13px; color: var(--text-2); }
+.ai-promo-list li { margin: 5px 0; }
+.ai-admin-stat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+.ai-stat { border: 1px solid var(--line); border-radius: 10px; padding: 9px 6px; text-align: center; background: #fff; }
+.ai-stat b { display: block; font-size: 17px; color: var(--brand); }
+.ai-stat span { font-size: 11px; color: var(--muted); }
+.ai-admin-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+.ai-log-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; }
+.ai-log-p { flex: 1; min-width: 90px; font-weight: 600; word-break: break-all; }
+.ai-log-m { color: var(--muted); }
+.ai-log-s.ok { color: #16a34a; font-weight: 600; }
+.ai-log-s.bad { color: #dc2626; font-weight: 600; }
+.ai-log-t { color: var(--muted); }
+@media (max-width: 640px) {
+  .ai-shots { grid-template-columns: repeat(2, 1fr); }
+  .ai-admin-stat { grid-template-columns: repeat(3, 1fr); }
+  .ai-chip { min-height: 44px; padding: 10px 14px; }
+  .ai-tab { min-height: 46px; }
+}
+
+/* ============================================================
+   R83：手机端商品浏览优化
+   依据：费茨定律（触摸目标 ≥44px、主操作要大而显眼）+ 竞品 A/B（网格优于单列、
+        无限滚动优于分页）+ 手机端不宜依赖 hover。
+   ============================================================ */
+@media (max-width: 640px) {
+  /* 1) 分类条吸顶：选完分类后往下滑仍能随时改，不用滚回顶部 */
+  .shop-subcats {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 0;
+    margin: 0 -12px 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  /* 2) 商品卡：名称最多两行，避免长名称把卡片撑得高低不一 */
+  .shop-card .sc-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 0;
+    font-size: 13.5px;
+  }
+  .shop-card .sc-img { height: 96px; }
+  /* 3) 价格更醒目 */
+  .shop-card .sc-price { font-size: 17px; }
+  /* 4) 下单按钮占满卡片宽度、触摸目标 ≥44px —— 手指最容易点中 */
+  .shop-card .sc-buy {
+    align-self: stretch;
+    width: 100%;
+    margin-top: 10px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+  }
+  /* 5) 卡片之间留够间距，避免误触相邻卡片 */
+  .shop-list { gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  /* 6) 搜索框更高更好点 */
+  .shop-toolbar input { min-height: 44px; font-size: 16px; /* 16px 可防止 iOS 聚焦时自动放大 */ }
+  .shop-toolbar .btn { min-height: 44px; }
+  /* 7) 「加载更多」做成整宽大按钮，符合无限滚动习惯 */
+  #shopMoreBtn { width: 100%; min-height: 48px; font-size: 15px; font-weight: 600; }
+  /* 8) 手机端不要 hover 效果（会变成误触） */
+  .shop-card:hover { transform: none; }
+}
