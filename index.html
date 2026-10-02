@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=67" />
+  <link rel="stylesheet" href="css/style.css?v=68" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -6420,8 +6420,10 @@
       if (PHONE) { isAdmin = false; showApp(); }
     })();
 
-    setInterval(() => {
+    // 轮询：页面不可见（切标签页 / 锁屏）时整轮跳过，回到前台立即补一次 —— 省请求也省流量
+    function pollOnce() {
       if ($('appBox').style.display === 'none') return;
+      if (document.hidden) return;
       if (!isAdmin) { loadUnread(); loadChatUnread(); loadMyOrdersBadge(); }
       else {
         // 减负：会话列表/线程只在对应页面停留时轮询（其余靠角标接口拿未读数）
@@ -6436,7 +6438,9 @@
       else if (currentView === 'chat') loadChat();
       else if (currentView === 'msgAdmin' && MSG_THREAD_PHONE) openMsgThread(MSG_THREAD_PHONE, true);
       else if (currentView === 'cs') refreshCsMsgs();
-    }, 12000);
+    }
+    setInterval(pollOnce, 12000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) pollOnce(); });
   </script>
 </body>
 </html>
