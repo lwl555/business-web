@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=70" />
+  <link rel="stylesheet" href="css/style.css?v=71" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -544,6 +544,9 @@
       <div class="ai-grid" id="aiHistory"><div class="loading">加载中…</div></div>
     </div>
 
+    <!-- AI 作品点击放大预览（图片 / 视频通用） -->
+    <div class="modal" id="aiPreview" style="display:none" onclick="if(event.target===this)closeAiPreview()"></div>
+
     <!-- AI 创作宣传弹窗（每天首次进入自动展示，可在后台关闭） -->
     <div class="modal" id="aiPromoModal" style="display:none">
       <div class="modal-box ai-promo-box">
@@ -750,6 +753,7 @@
           <button type="button" class="btn primary" id="aiAdminSave">保存 AI 设置</button>
           <button type="button" class="btn ghost" id="aiAdminRefresh">刷新生成记录</button>
           <button type="button" class="btn ghost" id="aiAdminClear">清空全部作品</button>
+          <button type="button" class="btn ghost" id="aiAdminPreviewPromo">👁 预览宣传弹窗</button>
         </div>
         <div class="msg" id="aiAdminMsg"></div>
         <div class="ai-admin-stat" id="aiAdminStat"></div>
@@ -2555,10 +2559,19 @@
           size: AI_SIZE, count: AI_COUNT, seed: seed,
         });
         if (!r.ok) { aiMsg(r.msg || '生成失败，请稍后重试', 'err'); return; }
-        aiMsg('生成成功' + (r.failed ? ('（' + r.failed + ' 张未成功）') : '') + '　剩余免费次数：' + (r.left != null ? r.left : '—'), 'ok');
-        loadAiHistory();
         const q = $('aiQuota');
         if (q && r.left != null) q.textContent = '今天还可免费生成 ' + r.left + ' 次（每天 ' + (r.limit || c.dailyLimit) + ' 次）';
+        // 视频是异步任务：提交成功后轮询直到完成
+        if (r.pending && r.id) {
+          aiMsg('视频已提交，生成中…（约 1-3 分钟，可以先去别处逛逛）');
+          loadAiHistory();
+          AI_BUSY = false;
+          if (btn) { btn.disabled = false; btn.textContent = '✨ 开始生成'; }
+          pollAiVideo(r.id, btn);
+          return;
+        }
+        aiMsg('生成成功' + (r.failed ? ('（' + r.failed + ' 张未成功）') : '') + '　剩余免费次数：' + (r.left != null ? r.left : '—'), 'ok');
+        loadAiHistory();
       } catch (e) {
         aiMsg('生成失败，请稍后重试', 'err');
       } finally {
@@ -2566,14 +2579,73 @@
         if (btn) { btn.disabled = false; btn.textContent = '✨ 开始生成'; }
       }
     }
+    // 视频异步任务轮询：每 8 秒查一次，最多约 5 分钟
+    const AI_POLL_TIMERS = {};
+    let AI_KIND_POLL_STOP = {};
+    async function pollAiVideo(id, btn) {
+      if (AI_POLL_TIMERS[id]) return;
+      let tries = 0;
+      const tick = async function () {
+        if (AI_KIND_POLL_STOP && AI_KIND_POLL_STOP[id]) { delete AI_POLL_TIMERS[id]; return; }
+        tries++;
+        try {
+          const r = await api('ai/poll', { phone: PHONE, id: id });
+          if (r.ok && r.done) {
+            delete AI_POLL_TIMERS[id];
+            aiMsg('视频生成完成 🎬', 'ok');
+            loadAiHistory();
+            return;
+          }
+          if (!r.ok) {
+            delete AI_POLL_TIMERS[id];
+            aiMsg(r.msg || '视频生成失败，请稍后重试', 'err');
+            loadAiHistory();
+            return;
+          }
+          if (tries >= 40) {
+            delete AI_POLL_TIMERS[id];
+            aiMsg('视频还在处理中，稍后可在下方「我的作品」查看', 'err');
+            loadAiHistory();
+            return;
+          }
+        } catch (e) { /* 网络抖动，下一轮继续 */ }
+        AI_POLL_TIMERS[id] = setTimeout(tick, 8000);
+      };
+      AI_POLL_TIMERS[id] = setTimeout(tick, 8000);
+    }
+
     function aiResultHtml(t) {
       const rs = Array.isArray(t.results) ? t.results : [];
+      if (t.status === 'processing') {
+        return '<div class="ai-item"><div class="ai-item-p">' + escapeHtml(t.prompt || '') + '</div>' +
+          '<div class="t-meta">🎬 视频生成中…（约 1-3 分钟，页面会自动刷新）</div>' +
+          '<div class="t-meta">提交于 ' + escapeHtml(String(t.created_at || '').slice(0, 16).replace('T', ' ')) + '</div></div>';
+      }
       if (!rs.length) return '<div class="ai-item err"><div class="ai-item-p">' + escapeHtml(t.prompt || '') + '</div><div class="t-meta">生成失败' + (t.err ? '：' + escapeHtml(t.err) : '') + '</div></div>';
-      const imgs = rs.map(function (x) {
-        return '<div class="ai-shot"><img loading="lazy" src="' + escapeHtml(x.url) + '" alt="生成结果" /><a class="ai-dl" href="' + escapeHtml(x.url) + '" download target="_blank">⬇️ 下载</a></div>';
+      const shots = rs.map(function (x, i) {
+        const isVid = String(x.mime || '').indexOf('video/') === 0;
+        const media = isVid
+          ? '<video src="' + escapeHtml(x.url) + '" muted loop playsinline preload="metadata" onclick="openAiPreview(\'' + escapeHtml(x.url) + '\',\'video\')"></video>'
+          : '<img loading="lazy" src="' + escapeHtml(x.url) + '" alt="生成结果" onclick="openAiPreview(\'' + escapeHtml(x.url) + '\',\'image\')" />';
+        const tag = isVid ? '🎬' : '🖼️';
+        return '<div class="ai-shot" data-idx="' + i + '">' + media
+          + '<span class="ai-shot-tag">' + tag + '</span>'
+          + '<a class="ai-dl" href="' + escapeHtml(x.url) + '" download target="_blank">⬇️ 下载</a></div>';
       }).join('');
-      return '<div class="ai-item"><div class="ai-item-p">' + escapeHtml(t.prompt || '') + '</div><div class="ai-shots">' + imgs + '</div><div class="t-meta">' + escapeHtml(String(t.created_at || '').slice(0, 16).replace('T', ' ')) + '</div></div>';
+      return '<div class="ai-item"><div class="ai-item-p">' + escapeHtml(t.prompt || '') + '</div><div class="ai-shots">' + shots + '</div><div class="t-meta">' + escapeHtml(String(t.created_at || '').slice(0, 16).replace('T', ' ')) + '</div></div>';
     }
+    // 点击放大预览（图片 / 视频通用）
+    function openAiPreview(url, type) {
+      const box = $('aiPreview');
+      if (!box) return;
+      if (type === 'video') {
+        box.innerHTML = '<video src="' + escapeHtml(url) + '" controls autoplay playsinline style="max-width:92vw;max-height:82vh;border-radius:12px"></video>';
+      } else {
+        box.innerHTML = '<img src="' + escapeHtml(url) + '" style="max-width:92vw;max-height:82vh;border-radius:12px" />';
+      }
+      box.style.display = 'flex';
+    }
+    function closeAiPreview() { const b = $('aiPreview'); if (b) { b.style.display = 'none'; b.innerHTML = ''; } }
     async function loadAiHistory() {
       const box = $('aiHistory');
       if (!box) return;
@@ -2625,7 +2697,7 @@
         set('setAiPromoTitle', s.ai_promo_title || '');
         set('setAiPromoText', s.ai_promo_text || '');
         const ks = $('aiKeyState');
-        if (ks) ks.textContent = s.ai_key ? '　✅ 已配置密钥（留空则不修改）' : '　⬜ 未配置密钥（图片生成不需要）';
+        if (ks) ks.textContent = s.ai_key ? '　✅ 已配置密钥（留空则不修改）' : '　⬜ 未配置密钥（图片生成不需要，但视频生成必须填）';
         const ke = $('setAiKey'); if (ke && s.ai_key) ke.placeholder = '已配置，如需更换请直接输入新密钥';
       } catch (e) { aiAdminMsg('读取设置失败', 'err'); }
       loadAiAdminLog();
@@ -2670,6 +2742,11 @@
         aiNotice: $('setAiNotice') ? $('setAiNotice').value : '',
       };
       if (key) body.aiKey = key;   // 留空 = 不修改，避免误清密钥
+      // 开启视频但未配密钥：给出明确提示，避免用户端看到无意义的失败
+      if (body.aiVideoOn === '1' && !key) {
+        const cur = ($('aiKeyState') ? $('aiKeyState').textContent : '') || '';
+        if (cur.indexOf('未配置') >= 0 && !confirm('视频生成已开启，但还没有填 Pollinations API Key，用户端视频会提示「需配置密钥」。仍要保存吗？')) return;
+      }
       aiAdminMsg('保存中…');
       try {
         const r = await api('admin/settings/save', body, true);
@@ -2685,10 +2762,21 @@
       aiAdminMsg('清理中…');
       try {
         const r = await api('admin/ai/clear', {}, true);
-        if (!r.ok) { aiAdminMsg('清理失败', 'err'); return; }
-        aiAdminMsg('已清理 ' + r.removed + ' 条记录 / ' + r.files + ' 个文件', 'ok');
+        if (!r.ok) { aiAdminMsg('清理失败：' + ((r.errs && r.errs[0]) || '未知错误'), 'err'); return; }
+        aiAdminMsg('已清理 ' + r.removed + ' 条记录 / ' + r.files + ' 个文件' + (r.orphans ? '（另清掉 ' + r.orphans + ' 个残留文件）' : ''), 'ok');
         loadAiAdminLog();
       } catch (e) { aiAdminMsg('清理失败，请重试', 'err'); }
+    }
+    // 后台预览宣传弹窗：用当前填写的标题/文案实时弹出，方便确认用户看到的样子
+    function previewAiPromo() {
+      const title = ($('setAiPromoTitle') ? $('setAiPromoTitle').value : '') || 'AI 创作上线';
+      const text = ($('setAiPromoText') ? $('setAiPromoText').value : '') || '输入一句话，免费生成图片';
+      const on = $('setAiPromoOn') ? $('setAiPromoOn').value === '1' : true;
+      const tEl = $('aiPromoTitle'), xEl = $('aiPromoText'), m = $('aiPromoModal');
+      if (tEl) tEl.textContent = title;
+      if (xEl) xEl.textContent = text;
+      if (!on) { aiAdminMsg('宣传开关当前为「关闭」，用户端不会弹出（下面仅作样式预览）', 'err'); }
+      if (m) m.style.display = 'flex';
     }
 
     function showApp() {
@@ -3344,6 +3432,8 @@
               '<span><i>商品</i><b class="hl">' + escapeHtml(t.product_name || t.type) + '</b></span>' +
               (t.product_spec ? '<span><i>规格</i>' + escapeHtml(t.product_spec) + '</span>' : '') +
               '<span><i>单价</i>¥' + Number(t.unit_price || 0).toFixed(2) + '</span>' +
+              '<span><i>数量</i><b class="' + (Number(t.qty || 1) > 1 ? 'hl' : '') + '">×' + (Number(t.qty) || 1) + '</b>' +
+                (Number(t.qty || 1) > 1 ? '　<i>合计</i><b class="hl">¥' + (Number(t.unit_price || 0) * (Number(t.qty) || 1)).toFixed(2) + '</b>' : '') + '</span>' +
               (t.input_value ? '<span><i>用户填写</i><b class="hl">' + escapeHtml(t.input_value) + '</b></span>' : '') +
             '</div>'
           : '';
@@ -5789,6 +5879,7 @@
     if ($('aiAdminSave')) $('aiAdminSave').addEventListener('click', saveAiAdmin);
     if ($('aiAdminRefresh')) $('aiAdminRefresh').addEventListener('click', loadAiAdmin);
     if ($('aiAdminClear')) $('aiAdminClear').addEventListener('click', clearAiAdmin);
+    if ($('aiAdminPreviewPromo')) $('aiAdminPreviewPromo').addEventListener('click', previewAiPromo);
     if ($('orderRefresh')) $('orderRefresh').addEventListener('click', () => loadOrders());
     document.querySelectorAll('#orderFilters .sf-btn[data-ost]').forEach(b => b.addEventListener('click', () => {
       ORDER_FILTER = b.dataset.ost;
