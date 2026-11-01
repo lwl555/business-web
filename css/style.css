@@ -1589,19 +1589,28 @@ span.ai-warn { color: #92400e; }
 @media (max-width: 760px) {
   .modal {
     padding: 12px;
-    align-items: center;
+    /* R86：不能用 align-items:center。flex 居中 + overflow 时，
+       超出部分的上方是负空间，滚不到（内容顶部永远看不见）。
+       改成 flex-start + box 的 margin:auto —— 空间够时仍居中，不够时自动贴顶可滚。 */
+    align-items: flex-start;
     overflow-y: auto;              /* 盒子本身也超长时，遮罩层可整体滚动兜底 */
     overscroll-behavior: contain;  /* 弹窗内滚动不带动背后的页面 */
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;           /* 只允许纵向手势，避免横向手势抢走滚动 */
   }
   .modal-box {
+    margin: auto;                  /* 空间足够时垂直居中；不够时 margin 归零，从顶部开始 */
     max-width: 100%;
-    max-height: 92vh;              /* 老浏览器回退 */
-    max-height: 92dvh;             /* 动态视口高度，手机地址栏收起/弹出都正确 */
+    max-height: calc(100vh - 24px);/* 老浏览器回退 */
+    max-height: calc(100dvh - 24px);/* 动态视口，地址栏收起/弹出都算得准 */
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    overscroll-behavior: contain;  /* 滚到顶/底后不把手势传给背后页面 */
+    touch-action: pan-y;
     padding: 18px 18px 14px;
+    /* 滚动条不占宽度，内容不抖 */
+    scrollbar-width: thin;
   }
   /* 按钮行常驻底部：无论内容多长，提交/取消永远可见可点 */
   .modal-box .actions {

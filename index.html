@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=71" />
+  <link rel="stylesheet" href="css/style.css?v=72" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -6904,6 +6904,67 @@
       else if (currentView === 'msgAdmin' && MSG_THREAD_PHONE) openMsgThread(MSG_THREAD_PHONE, true);
       else if (currentView === 'cs') refreshCsMsgs();
     }
+    // ==================== R86：弹窗滚动锁 ====================
+    // 背景：手机端弹窗（尤其「一审通过」这类长表单）内容超屏时滚不动，
+    //       手指一滑反而把背后的任务列表带着滚 —— 典型的 touch 滚动穿透。
+    // 做法：任意 .modal / #aiPreview 显示时，把 body 固定住（position:fixed + 负 top 记住位置），
+    //       关闭时原样恢复；同时拦截遮罩外的 touchmove，老内核浏览器也能兜住。
+    (function () {
+      var locked = false, lockY = 0, ticking = false;
+      var OVERLAYS = '.modal, #aiPreview';
+      function isShown(el) { return el && getComputedStyle(el).display !== 'none'; }
+      function anyOpen() {
+        var list = document.querySelectorAll(OVERLAYS);
+        for (var i = 0; i < list.length; i++) { if (isShown(list[i])) return true; }
+        return false;
+      }
+      function lock() {
+        if (locked) return;
+        var se = document.scrollingElement || document.documentElement;
+        lockY = window.pageYOffset || se.scrollTop || 0;
+        var b = document.body.style;
+        b.position = 'fixed';
+        b.top = (-lockY) + 'px';
+        b.left = '0';
+        b.right = '0';
+        b.width = '100%';
+        b.overflow = 'hidden';
+        // 注意：不要给 body 设 touch-action:none —— 它会让弹窗内部也无法触摸滚动（祖先相交规则）
+        locked = true;
+      }
+      function unlock() {
+        if (!locked) return;
+        var b = document.body.style;
+        b.position = ''; b.top = ''; b.left = ''; b.right = '';
+        b.width = ''; b.overflow = '';
+        locked = false;
+        window.scrollTo(0, lockY);
+      }
+      function sync() {
+        if (anyOpen()) lock(); else unlock();
+      }
+      // 所有弹窗都是改 el.style.display 开关的，用 MutationObserver 统一监听，不用逐个改打开/关闭代码
+      var obs = new MutationObserver(function () {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function () { ticking = false; sync(); });
+      });
+      obs.observe(document.body, { attributes: true, attributeFilter: ['style', 'class'], subtree: true });
+      // 弹窗打开时，遮罩（非 .modal-box）上的滑动直接吃掉，绝不传给背后页面
+      document.addEventListener('touchmove', function (e) {
+        if (!locked) return;
+        var t = e.target;
+        var box = t && t.closest ? t.closest('.modal-box') : null;
+        if (!box) { e.preventDefault(); return; }
+        // 在弹窗盒里：可滚动就交给浏览器；不可滚动（内容全展示）时也别让手势外溢
+        var canScroll = box.scrollHeight - box.clientHeight > 2;
+        if (!canScroll) e.preventDefault();
+      }, { passive: false });
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
+      else sync();
+      window.__syncOverlayLock = sync;
+    })();
+
     setInterval(pollOnce, 12000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pollOnce(); });
   </script>
