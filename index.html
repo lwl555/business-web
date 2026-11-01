@@ -5474,7 +5474,7 @@
             ' 个 · 新增 ' + created + ' · 更新 ' + updated + ' · 价格变动 ' + changed + ' · 下架 ' + removed);
           if (res.done) break;
         }
-        if (err) renderXyqBar('❌ 同步失败：' + escapeHtml(err), 'err');
+        if (err) renderXyqBar('❌ 同步失败：' + escapeHtml(err) + '<br>（上游站点拒绝了服务器直连，请在电脑上双击项目里的「同步商品.bat」完成同步）', 'err');
         else renderXyqBar('✅ 聚惠星选同步完成：新增 <b>' + created + '</b> 个、更新 ' + updated + ' 个、价格变动 ' + changed + ' 个、下架 ' + removed + ' 个（🔒 锁价商品价格保持不变）', 'ok');
         loadApList(true); loadApCats(); loadXyqInfo();
       } catch (e) { renderXyqBar('❌ 同步异常：' + escapeHtml(e.message || String(e)), 'err'); }
