@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>网络诊断 · 业务网</title>
+<style>
+  :root{--brand:#1d4ed8;--line:#e5e7eb;--bg:#f5f6f8;--card:#fff;--text:#111827;--muted:#6b7280;--ok:#16a34a;--bad:#dc2626;--warn:#d97706}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:16px;max-width:640px;margin:0 auto}
+  h1{font-size:19px;margin:4px 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:12px}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .dot{width:10px;height:10px;border-radius:50%;background:#d1d5db;flex:none}
+  .dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.wait{background:var(--warn);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.3}}
+  .info{flex:1;min-width:0}
+  .name{font-weight:600;font-size:14px}
+  .url{color:var(--muted);font-size:11px;word-break:break-all;margin-top:1px}
+  .res{font-size:12px;font-weight:600;text-align:right;flex:none;max-width:96px}
+  .res.ok{color:var(--ok)}.res.bad{color:var(--bad)}.res.wait{color:var(--warn)}
+  .verdict{margin-top:4px;padding:12px 14px;border-radius:8px;font-size:14px;line-height:1.7}
+  .verdict.blue{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+  .verdict.red{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  .verdict.green{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+  button{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:11px 20px;font-size:15px;font-weight:600;width:100%;margin-top:6px;cursor:pointer}
+  .tip{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.7}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+  <h1>网络诊断</h1>
+  <div class="sub">用来查清"移动数据网登不上"到底卡在哪。请用<strong>出问题的那张卡/网络</strong>打开本页，然后点下面按钮。</div>
+
+  <div class="card" id="list"></div>
+  <button id="run">开始检测（约 10 秒）</button>
+  <div id="verdict"></div>
+  <div class="tip">
+    说明：本页只做只读的网络连通测试，不发送任何账号密码，也不改动任何数据。<br>
+    检测项从最关键的 API 地址到对照网站依次测试，<strong>绿色=通，红色=被挡</strong>。
+  </div>
+
+<script>
+const TESTS = [
+  { name: '① 主接口（现在用的）', url: 'https://wcnssyiqitugqfmcbdhe.functions.supabase.co/business-api' },
+  { name: '② 备用接口（换条路）', url: 'https://wcnssyiqitugqfmcbdhe.supabase.co/functions/v1/business-api' },
+  { name: '③ 图片存储域名', url: 'https://wcnssyiqitugqfmcbdhe.supabase.co/storage/v1/object/public/biz-uploads/' },
+  { name: '④ 网站本身（对照）', url: 'https://lwl555.github.io/business-web/config.js' },
+  { name: '⑤ 国内网站（对照）', url: 'https://www.baidu.com' },
+];
+
+const list = document.getElementById('list');
+const verdict = document.getElementById('verdict');
+
+function render(){
+  list.innerHTML = TESTS.map((t,i)=>
+    '<div class="row"><span class="dot" id="dot'+i+'"></span>'+
+    '<div class="info"><div class="name">'+t.name+'</div><div class="url">'+t.url+'</div></div>'+
+    '<div class="res" id="res'+i+'">待检测</div></div>'
+  ).join('');
+}
+
+async function testOne(t, i){
+  const dot = document.getElementById('dot'+i), res = document.getElementById('res'+i);
+  dot.className='dot wait'; res.className='res wait'; res.textContent='检测中…';
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), 8000);
+  const t0 = Date.now();
+  try{
+    const opt = { method: i<=1 ? 'POST' : 'GET', signal: ctl.signal, cache:'no-store' };
+    if(i<=1){ opt.headers={'Content-Type':'application/json'}; opt.body=JSON.stringify({endpoint:'ui/config'}); }
+    const r = await fetch(t.url+(i==0||i==1?'':''), opt);
+    await r.text().catch(()=>{});
+    clearTimeout(timer);
+    const ms = Date.now()-t0;
+    dot.className='dot ok'; res.className='res ok'; res.textContent='通 '+ms+'ms';
+    return { ok:true, ms };
+  }catch(e){
+    clearTimeout(timer);
+    const msg = e.name==='AbortError' ? '超时' : '被挡';
+    dot.className='dot bad'; res.className='res bad'; res.textContent=msg;
+    return { ok:false, err:e.message };
+  }
+}
+
+document.getElementById('run').addEventListener('click', async ()=>{
+  render(); verdict.innerHTML='';
+  const results=[];
+  for(let i=0;i<TESTS.length;i++){ results.push(await testOne(TESTS[i], i)); }
+
+  const mainOk=results[0].ok, altOk=results[1].ok, siteOk=results[3].ok, cnOk=results[4].ok;
+  let html='', cls='blue';
+  if(!siteOk){
+    cls='red';
+    html='<strong>网站本身就打不开</strong><br>这不是登录的问题，是 GitHub Pages 在当前网络下不通。先解决网站访问。';
+  }else if(mainOk){
+    cls='green';
+    html='<strong>主接口是通的 ✅</strong><br>当前网络下 API 能正常访问。如果这时登录仍失败，问题可能不在网络，请把本页截图发我。';
+  }else if(altOk){
+    cls='green';
+    html='<strong>找到可用线路：备用接口 ✅</strong><br>主接口被挡、但备用接口能通。这个好办——我把前端改成"自动切换"，你的手机就能自动走备用线路，不用迁移、不动服务器。把本页截图发我即可。';
+  }else{
+    cls='red';
+    html='<strong>两个 Supabase 接口都被挡了</strong><br>运营商是按 <code>supabase.co</code> 整个域名掐的，换子域名没用。<br>网站能开、国内网站能开，说明只有 Supabase 这一条路被封。这种情况要绕开，只能加一层国内能访问的转发入口（不改后端、不迁移数据，但需要一个国内入口）。把本页截图发我。';
+  }
+  verdict.innerHTML='<div class="verdict '+cls+'">'+html+'</div>';
+});
+
+render();
+</script>
+</body>
+</html>
