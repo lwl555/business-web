@@ -62,27 +62,31 @@ function render(){
   ).join('');
 }
 
+// 用 fetch 的 no-cors 模式探测：只判断"网络层能不能连到这个域名"，不读返回内容。
+// 连上 → 返回 opaque 响应（不抛错）；被掐 → 抛异常。不会被跨域(CORS)策略误判成"被挡"——
+// 之前百度那条就是普通的 cors fetch 被浏览器拦下误报的。
+function probe(url, timeoutMs){
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), timeoutMs);
+  const t0 = Date.now();
+  return fetch(url + (url.indexOf('?')>=0?'&':'?') + '_t=' + Date.now(), {
+    mode:'no-cors', signal:ctl.signal, cache:'no-store'
+  }).then(resp=>{
+    clearTimeout(timer);
+    return { ok:true, ms:Date.now()-t0 };
+  }).catch(e=>{
+    clearTimeout(timer);
+    return { ok:false, why: e.name==='AbortError'?'超时':'被挡', err:e.message };
+  });
+}
+
 async function testOne(t, i){
   const dot = document.getElementById('dot'+i), res = document.getElementById('res'+i);
   dot.className='dot wait'; res.className='res wait'; res.textContent='检测中…';
-  const ctl = new AbortController();
-  const timer = setTimeout(()=>ctl.abort(), 8000);
-  const t0 = Date.now();
-  try{
-    const opt = { method: i<=1 ? 'POST' : 'GET', signal: ctl.signal, cache:'no-store' };
-    if(i<=1){ opt.headers={'Content-Type':'application/json'}; opt.body=JSON.stringify({endpoint:'ui/config'}); }
-    const r = await fetch(t.url+(i==0||i==1?'':''), opt);
-    await r.text().catch(()=>{});
-    clearTimeout(timer);
-    const ms = Date.now()-t0;
-    dot.className='dot ok'; res.className='res ok'; res.textContent='通 '+ms+'ms';
-    return { ok:true, ms };
-  }catch(e){
-    clearTimeout(timer);
-    const msg = e.name==='AbortError' ? '超时' : '被挡';
-    dot.className='dot bad'; res.className='res bad'; res.textContent=msg;
-    return { ok:false, err:e.message };
-  }
+  const r = await probe(t.url, 8000);
+  if(r.ok){ dot.className='dot ok'; res.className='res ok'; res.textContent='通 '+r.ms+'ms'; }
+  else { dot.className='dot bad'; res.className='res bad'; res.textContent=r.why; }
+  return r;
 }
 
 document.getElementById('run').addEventListener('click', async ()=>{
@@ -90,7 +94,7 @@ document.getElementById('run').addEventListener('click', async ()=>{
   const results=[];
   for(let i=0;i<TESTS.length;i++){ results.push(await testOne(TESTS[i], i)); }
 
-  const mainOk=results[0].ok, altOk=results[1].ok, siteOk=results[3].ok, cnOk=results[4].ok;
+  const mainOk=results[0].ok, altOk=results[1].ok, storageOk=results[2].ok, siteOk=results[3].ok, cnOk=results[4].ok;
   let html='', cls='blue';
   if(!siteOk){
     cls='red';
@@ -103,7 +107,7 @@ document.getElementById('run').addEventListener('click', async ()=>{
     html='<strong>找到可用线路：备用接口 ✅</strong><br>主接口被挡、但备用接口能通。这个好办——我把前端改成"自动切换"，你的手机就能自动走备用线路，不用迁移、不动服务器。把本页截图发我即可。';
   }else{
     cls='red';
-    html='<strong>两个 Supabase 接口都被挡了</strong><br>运营商是按 <code>supabase.co</code> 整个域名掐的，换子域名没用。<br>网站能开、国内网站能开，说明只有 Supabase 这一条路被封。这种情况要绕开，只能加一层国内能访问的转发入口（不改后端、不迁移数据，但需要一个国内入口）。把本页截图发我。';
+    html='<strong>所有 Supabase 地址都被挡了</strong><br>主接口、备用接口、图片存储全军覆没，说明运营商是按 <code>supabase.co</code> 整个域名掐的，换子域名没用。（GitHub 网站 '+(siteOk?'能通':'也不通')+'，国内网站 '+(cnOk?'能通':'不通')+'）<br>这种情况要在"不迁移后端、不动数据"的前提下解决，只能加一层国内能访问的转发门口，让手机先连到国内门口、再由门口转发到 Supabase。把本页截图发我。';
   }
   verdict.innerHTML='<div class="verdict '+cls+'">'+html+'</div>';
 });
