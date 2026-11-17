@@ -37,6 +37,7 @@
   <div class="card" id="list"></div>
   <button id="run">开始检测（约 10 秒）</button>
   <div id="verdict"></div>
+  <div class="card" id="browserInfo" style="margin-top:12px"></div>
   <div class="tip">
     说明：本页只做只读的网络连通测试，不发送任何账号密码，也不改动任何数据。<br>
     检测项从最关键的 API 地址到对照网站依次测试，<strong>绿色=通，红色=被挡</strong>。
@@ -111,6 +112,19 @@ document.getElementById('run').addEventListener('click', async ()=>{
   }
   verdict.innerHTML='<div class="verdict '+cls+'">'+html+'</div>';
 });
+
+// 顺带报告浏览器信息：Chrome/Edge ≥115 支持 ECH（加密域名），是零改动绕开"按域名掐断"的关键
+(function(){
+  const ua=navigator.userAgent;
+  const isChrome=/Chrome\/(\d+)/.exec(ua), isEdg=/Edg\/(\d+)/.exec(ua), isFF=/Firefox\/(\d+)/.exec(ua);
+  const ver=isEdg?+isEdg[1]:isChrome?+isChrome[1]:0;
+  let advice;
+  if(isFF){ advice='Firefox '+isFF[1]+'：ECH 支持较新版本，可尝试在地址栏输入 about:config 搜 network.dns.echconfig.enabled 确认为 true。'; }
+  else if(ver>=115){ advice='Chrome/Edge '+ver+' ✅ 支持 ECH（加密域名）。若仍被挡，说明运营商连 ECH 也拦，需走"国内门口"方案。'; }
+  else if(ver>0){ advice='Chrome/Edge '+ver+' 版本偏低，ECH 需 115 以上。建议升级浏览器或换 Chrome 再试。'; }
+  else { advice='当前浏览器：'+ua.slice(0,80)+'。建议换 Chrome 或 Edge 最新版再试。'; }
+  document.getElementById('browserInfo').innerHTML='<div class="name">你的浏览器</div><div class="url" style="color:var(--text);font-size:12px;line-height:1.7">'+advice+'</div>';
+})();
 
 render();
 </script>
