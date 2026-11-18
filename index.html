@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=77" />
+  <link rel="stylesheet" href="css/style.css?v=78" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -4473,11 +4473,10 @@
       ORDER_BLOCKED = (!isFree && short > 1e-9);
       if (ORDER_BLOCKED) {
         if (msg) {
-          msg.className = 'msg err';
-          msg.textContent = '可用余额不足：本单 ¥' + total.toFixed(2) + '，可用 ¥' + MY_AVAILABLE.toFixed(2) +
-            '，还差 ¥' + short.toFixed(2) + '。可以减少数量，或点下面按钮先去充值。';
+          msg.className = 'msg msg-gentle';
+          msg.innerHTML = '还差 <b>¥' + short.toFixed(2) + '</b>（本单 ¥' + total.toFixed(2) + '，可用 ¥' + MY_AVAILABLE.toFixed(2) + '）。可调少数量，或去充值后再下单。';
         }
-        $('omSubmit').textContent = '余额不足，去充值';
+        $('omSubmit').textContent = '去充值';
       } else {
         ORDER_BLOCKED = false;
         if (msg) { msg.className = 'msg'; msg.textContent = ''; }

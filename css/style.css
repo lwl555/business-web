@@ -1982,3 +1982,62 @@ body.modal-open .apptab { transform: translateY(100%) !important; pointer-events
   /* 收缩后页面底部不用再留那么大空白（用 class 控制 body padding 切换） */
   body.no-admin.tab-collapsed { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ============================================================
+   R91：首页头图轻量化 + 克制过渡动画 + 余额提示收敛
+   仅用户端手机（body.no-admin），管理端保持原样。
+   ============================================================ */
+@media (max-width: 640px) {
+  /* ---------- 1) 首页问候横幅：深蓝大块 → 轻量白底卡片 ---------- */
+  body.no-admin .greet-banner {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--brand);
+    border-radius: 10px;
+    padding: 13px 16px;
+    margin-bottom: 14px;
+    box-shadow: none;
+    color: var(--text);
+  }
+  body.no-admin .greet-hello { font-size: 17px; font-weight: 600; }
+  body.no-admin .greet-sub { font-size: 12px; color: var(--muted); }
+  body.no-admin .greet-quote {
+    font-size: 12px; color: var(--muted-2); font-style: normal;
+  }
+
+  /* ---------- 2) 视图切换：轻微淡入上移（克制，0.22s） ---------- */
+  body.no-admin .view[style*="display: none"] { animation: none; }
+  body.no-admin .view:not([style*="display: none"]) {
+    animation: viewFadeIn .22s ease-out;
+  }
+  @keyframes viewFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* 弹窗：轻微缩放淡入（不用弹跳/回弹，保持商务克制） */
+  body.no-admin .modal:not([style*="display: none"]) .modal-box {
+    animation: modalSoftIn .2s ease-out;
+  }
+  @keyframes modalSoftIn {
+    from { opacity: 0; transform: translateY(8px) scale(.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ---------- 3) 余额不足提示：温和浅黄底，收敛刺眼大红 ---------- */
+  body.no-admin .msg.msg-gentle {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  body.no-admin .msg.msg-gentle b { color: #b45309; }
+}
+/* 减少动态效果偏好：直接关掉动画（无障碍） */
+@media (prefers-reduced-motion: reduce) {
+  body.no-admin .view:not([style*="display: none"]),
+  body.no-admin .modal:not([style*="display: none"]) .modal-box { animation: none; }
+}
