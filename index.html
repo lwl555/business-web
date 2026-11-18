@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=75" />
+  <link rel="stylesheet" href="css/style.css?v=76" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -4233,15 +4233,16 @@
     function productCardHtml(p) {
       const isFree = Number(p.price) <= 0 && SHOP_SOURCE === 'old';
       const pts = isFree ? 0 : Math.round(Number(p.price) * SHOP_PPY);
+      // 电商风：卡片只放「图 + 标题 + 价格 + 已售 + 下单」——规格/需填下单弹窗里都有，卡片不重复
+      const salesTxt = Number(p.sales || 0) > 0 ? ('已售 ' + intFmt(p.sales)) : '';
       return '<div class="shop-card' + (isFree ? ' free-card' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
         (isFree ? '<div class="free-flag">免费</div>' : '') +
+        (Number(p.sales || 0) >= 30 ? '<div class="sc-hot">热销</div>' : '') +
         (p.image ? '<div class="sc-img"><img loading="lazy" src="' + escapeHtml(p.image) + '" alt="" onerror="this.parentNode.style.display=\'none\'"></div>' : '') +
         '<div class="sc-body">' +
-          (Number(p.sales || 0) >= 30 ? '<div class="sc-hot">🔥 热销 ' + intFmt(p.sales) + '</div>' : '') +
           '<div class="sc-name">' + escapeHtml(p.name) + '</div>' +
-          (p.spec ? '<div class="sc-spec">规格：' + escapeHtml(p.spec) + '</div>' : '') +
-          '<div class="sc-price">' + (isFree ? '<span class="sc-free">免费</span>' : ('¥' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span> <span class="sc-unit">/ 件</span>')) + '</div>' +
-          '<div class="sc-meta">' + (p.sales ? ('已售 ' + p.sales + ' ｜ ') : '') + (p.input ? ('需填：' + escapeHtml(p.input)) : '无需填写') + '</div>' +
+          '<div class="sc-price">' + (isFree ? '<span class="sc-free">免费</span>' : ('<span class="sc-cur">¥</span>' + Number(p.price) + ' <span class="sc-pts">≈' + intFmt(pts) + ' 积分</span>')) + '</div>' +
+          (salesTxt ? '<div class="sc-meta">' + salesTxt + '</div>' : '') +
           '<button class="btn btn-primary btn-sm sc-buy">下单</button>' +
         '</div>' +
       '</div>';
