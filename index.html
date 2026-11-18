@@ -5540,10 +5540,12 @@
       XYQ_INFO = res;
       renderXyqBar('🏬 聚惠星选：商品 ' + intFmt(res.total) + ' 个（在售 ' + intFmt(res.active) + '）' +
         ' ｜ 计价：供货价 ×' + (1 + (res.markup || 0) / 100).toFixed(2) +
+        ' + ¥' + Number(res.extra || 0).toFixed(2) +
         ' ｜ 上次同步：' + (res.lastSync ? fmtTime(res.lastSync) : '从未同步') +
         (res.running ? (' ｜ <b>同步进行中（第 ' + res.page + ' 页）</b>') : '') +
         ' ｜ <label class="chk"><input type="checkbox" id="xyqAutoChk"' + (res.autoSync ? ' checked' : '') + ' /> 自动同步</label>' +
-        ' ｜ <button class="btn btn-ghost btn-xs" id="xyqMarkupBtn">调整加价率</button>');
+        ' ｜ <button class="btn btn-ghost btn-xs" id="xyqMarkupBtn">调整加价率</button>' +
+        ' <button class="btn btn-ghost btn-xs" id="xyqExtraBtn">调整固定加价</button>');
       $('apXyqSyncBtn').style.display = '';
       const chk = $('xyqAutoChk');
       if (chk) chk.addEventListener('change', async e => {
@@ -5554,9 +5556,19 @@
       if (mb) mb.addEventListener('click', async () => {
         const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
         const v = prompt('聚惠星选商品加价率（%）：' + nl + '当前 ' + (res.markup || 0) + '%' + nl2 +
-          '说明：用户价 = 供货价 × (1 + 加价率)。改完下次同步生效（已锁价商品不受影响）。', res.markup || 0);
+          '说明：用户价 = 供货价 × (1 + 加价率) + 固定加价。改完下次同步生效（已锁价商品不受影响）。', res.markup || 0);
         if (v === null) return;
         const r = await api('admin/settings/save', { xyqMarkup: v }, true);
+        if (r.ok) { alert('已保存，下次同步生效'); loadXyqInfo(); } else alert(r.msg || '保存失败');
+      });
+      const eb = $('xyqExtraBtn');
+      if (eb) eb.addEventListener('click', async () => {
+        const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
+        const v = prompt('聚惠星选每单固定加价（元）：' + nl + '当前 ¥' + Number(res.extra || 0).toFixed(2) + nl2 +
+          '说明：低价商品按百分比加价赚不到钱（成本几毛只赚几分），用固定金额兜底。' + nl +
+          '用户价 = 供货价 × (1 + 加价率) + 固定加价。改完下次同步生效。', Number(res.extra || 0).toFixed(2));
+        if (v === null) return;
+        const r = await api('admin/settings/save', { xyqExtra: v }, true);
         if (r.ok) { alert('已保存，下次同步生效'); loadXyqInfo(); } else alert(r.msg || '保存失败');
       });
     }
@@ -5564,8 +5576,8 @@
       const nl = String.fromCharCode(10), nl2 = String.fromCharCode(10, 10);
       alert('聚惠星选同步说明' + nl2 +
         '该货源站只支持 http 协议，云端无法直接访问，因此改为「在你电脑上抓取 → 推送到平台」的方式：' + nl2 +
-        '① 双击运行工作目录里的  xyq-sync.bat（或命令行执行 node xyq-sync.mjs）' + nl +
-        '② 脚本会自动抓取最新商品并推送到平台（约 3 分钟）' + nl +
+        '① 双击运行项目根目录的  同步商品.bat（约 4 分钟）' + nl +
+        '② 脚本会自动抓取最新商品并推送到平台' + nl +
         '③ 新增商品自动上架、价格变动自动更新、源头下架的商品自动下架' + nl +
         '④ 🔒 你手工锁价的商品不会被动价格' + nl2 +
         '建议：用 Windows「任务计划程序」设置每天定时运行一次，全自动。');
