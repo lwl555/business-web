@@ -2546,8 +2546,18 @@
       const b = $('topAiBtn');
       if (b) b.style.display = on ? '' : 'none';
     }
-    function aiChip(label, active, onClick) {
+    function aiChip(label, active) {
       return '<button type="button" class="ai-chip' + (active ? ' active' : '') + '">' + escapeHtml(label) + '</button>';
+    }
+    // 渲染后逐个绑定点击。原实现 aiChip 收了回调却没用，导致比例/风格/数量全部点不动。
+    function bindAiChips(el, list, onPick) {
+      if (!el) return;
+      const btns = el.querySelectorAll('.ai-chip');
+      for (let i = 0; i < btns.length && i < list.length; i++) {
+        (function (btn, item) {
+          btn.addEventListener('click', function () { onPick(item); });
+        })(btns[i], list[i]);
+      }
     }
     function renderAiOptions() {
       const c = aiCfg();
@@ -2555,15 +2565,18 @@
       if (!sizesEl) return;
       const sizes = (c.sizes && c.sizes.length) ? c.sizes : [{ key: '1:1', label: '方形 1:1' }];
       if (!sizes.some(x => x.key === AI_SIZE)) AI_SIZE = sizes[0].key;
-      sizesEl.innerHTML = sizes.map(x => aiChip(x.label, x.key === AI_SIZE, function () { AI_SIZE = x.key; renderAiOptions(); })).join('');
+      sizesEl.innerHTML = sizes.map(x => aiChip(x.label, x.key === AI_SIZE)).join('');
+      bindAiChips(sizesEl, sizes, function (x) { AI_SIZE = x.key; renderAiOptions(); });
       const styles = (c.styles && c.styles.length) ? c.styles : [{ key: 'none', label: '不加风格' }];
       if (!styles.some(x => x.key === AI_STYLE)) AI_STYLE = 'none';
-      stylesEl.innerHTML = styles.map(x => aiChip(x.label, x.key === AI_STYLE, function () { AI_STYLE = x.key; renderAiOptions(); })).join('');
+      stylesEl.innerHTML = styles.map(x => aiChip(x.label, x.key === AI_STYLE)).join('');
+      bindAiChips(stylesEl, styles, function (x) { AI_STYLE = x.key; renderAiOptions(); });
       const maxN = Math.max(1, Number(c.maxCount) || 1);
       if (AI_COUNT > maxN) AI_COUNT = maxN;
       let nums = [];
       for (let i = 1; i <= maxN; i++) nums.push(i);
-      cntEl.innerHTML = nums.map(n => aiChip(n + ' 张', n === AI_COUNT, function () { AI_COUNT = n; renderAiOptions(); })).join('');
+      cntEl.innerHTML = nums.map(n => aiChip(n + ' 张', n === AI_COUNT)).join('');
+      bindAiChips(cntEl, nums, function (n) { AI_COUNT = n; renderAiOptions(); });
       const tip = $('aiCountTip');
       if (tip) tip.textContent = maxN > 1 ? '（免费模型限流，多张需排队约 ' + ((maxN - 1) * 16) + ' 秒）' : '';
       // 视频不可用时提示并禁用
