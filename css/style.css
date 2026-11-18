@@ -2041,3 +2041,79 @@ body.modal-open .apptab { transform: translateY(100%) !important; pointer-events
   body.no-admin .view:not([style*="display: none"]),
   body.no-admin .modal:not([style*="display: none"]) .modal-box { animation: none; }
 }
+
+/* ============================================================
+   R92：下单弹窗圆润化 + 整体缩小 + 字号收敛
+   根因：.modal-box 写的是 border-radius: var(--radius)，但 :root 只定义了
+        --r: 8px，--radius 这个变量从未定义 → 声明无效、圆角回退为 0（纯方角）。
+   范围：仅用户端手机（body.no-admin），管理端保持原样。
+   保留：盒内滚动 / 按钮行 sticky 常驻 / 触摸目标 ≥40px。
+   ============================================================ */
+@media (max-width: 640px) {
+  /* 外框四周留白加大：弹窗不再是顶天立地的大方块 */
+  body.no-admin .modal {
+    padding: 28px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  body.no-admin .modal .modal-box {
+    /* 圆润：显式给圆角，不再依赖那个未定义的变量 */
+    border-radius: 18px;
+    padding: 16px 16px 14px;
+    /* 缩小：上下各留约 28px；内容超出时依旧在盒内滚动 */
+    max-height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 14px 44px rgba(15, 23, 42, .18);
+  }
+
+  /* ---- 字号整体降一档：标题 → 字段 → 辅助文字 ---- */
+  body.no-admin .modal-box .modal-title {
+    font-size: 15px;
+    line-height: 1.45;
+    font-weight: 600;
+    top: -16px;                  /* 跟随新的盒内边距 */
+    padding: 4px 0 8px;
+    margin: -4px 0 4px;
+  }
+  body.no-admin .modal-box .t-meta { font-size: 11.5px; }
+  body.no-admin .modal-box .field { margin: 0 0 12px; }
+  body.no-admin .modal-box .field label { font-size: 12.5px; margin-bottom: 5px; }
+  body.no-admin .modal-box input,
+  body.no-admin .modal-box textarea,
+  body.no-admin .modal-box select {
+    font-size: 13px;
+    padding: 8px 11px;
+    border-radius: 8px;
+  }
+  body.no-admin .modal-box .order-summary {
+    font-size: 12px;
+    line-height: 1.65;
+    padding: 8px 10px;
+    margin: 6px 0;
+  }
+  body.no-admin .modal-box .msg { font-size: 12px; }
+
+  /* 数量控件：视觉收小，但保留可点面积 */
+  body.no-admin .modal-box .qty-row { gap: 6px; }
+  body.no-admin .modal-box .qty-btn {
+    width: 32px; height: 32px; flex: 0 0 32px;
+    font-size: 16px; border-radius: 8px;
+  }
+  body.no-admin .modal-box #omQty { width: 60px; height: 32px; font-size: 14px; border-radius: 8px; }
+  body.no-admin .modal-box .qty-chip { min-width: 32px; padding: 4px 8px; font-size: 12px; }
+
+  /* 合计：价格数字降一档，不抢标题的视觉重心 */
+  body.no-admin .modal-box .om-total { margin: 8px 0 2px; padding: 8px 10px; border-radius: 9px; }
+  body.no-admin .modal-box .om-total span { font-size: 12px; }
+  body.no-admin .modal-box .om-total b { font-size: 18px; }
+  body.no-admin .modal-box .om-total i { font-size: 11px; }
+
+  /* 底部按钮行：跟随新内边距，底边贴合外框圆角 */
+  body.no-admin .modal-box .actions {
+    margin: 10px -16px -14px;
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-radius: 0 0 18px 18px;
+  }
+  body.no-admin .modal-box .actions .btn {
+    min-height: 42px;            /* 字号缩小，可点面积仍够 */
+    font-size: 13.5px;
+    padding: 10px 16px;
+  }
+}
