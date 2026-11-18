@@ -1765,3 +1765,173 @@ span.ai-warn { color: #92400e; }
   /* 5) 页面说明文字：行高舒服一点 */
   .section-title + .t-meta, .shop-toolbar + .shop-filters { line-height: 1.6; }
 }
+
+/* ============================================================
+   R87：前台用户端电商 APP 化重塑
+   底部固定 Tab + 顶部精简 + 我的页功能宫格（仅手机端用户，管理端不受影响）
+   ============================================================ */
+
+/* 底部 Tab 默认隐藏（管理端 / PC 端靠顶部导航） */
+.apptab { display: none; }
+
+@media (max-width: 640px) {
+  body.no-admin {
+    /* 给底部 Tab 留位置，避免遮住最后一行内容 */
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  /* 用户端手机：隐藏顶部一大排导航标签，改用底部 Tab + 我的页宫格 */
+  body.no-admin #nav { display: none !important; }
+
+  /* 顶部栏精简：品牌缩小、去掉描述副标题占高 */
+  body.no-admin .topbar { padding-bottom: 12px; margin-bottom: 14px; gap: 8px; }
+  body.no-admin .topbar .logo { width: 36px; height: 36px; font-size: 16px; }
+  body.no-admin .topbar .subtitle { display: none; }
+  body.no-admin .topbar .actions { gap: 6px; }
+  body.no-admin .topbar .actions .btn { padding: 6px 9px; }
+  /* 声音开关在手机上意义不大，隐藏 */
+  body.no-admin #soundBtn { display: none !important; }
+
+  /* ---------- 底部固定 Tab ---------- */
+  body.no-admin .apptab {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 90;
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: #fff;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -2px 12px rgba(15, 23, 42, .04);
+  }
+  body.no-admin .apptab-item {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 11px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.no-admin .apptab-item.active { color: var(--brand); }
+  body.no-admin .apptab-ico {
+    position: relative;
+    width: 24px; height: 24px;
+    display: inline-flex;
+  }
+  body.no-admin .apptab-ico svg { width: 24px; height: 24px; display: block; }
+  body.no-admin .apptab-lbl { line-height: 1.2; }
+  body.no-admin .apptab-badge {
+    position: absolute;
+    top: -4px; right: -8px;
+    min-width: 15px;
+    padding: 0 4px;
+    height: 15px;
+    border-radius: 8px;
+    background: var(--danger, #dc2626);
+    color: #fff;
+    font-size: 10px;
+    font-style: normal;
+    line-height: 15px;
+    text-align: center;
+  }
+
+  /* ---------- 我的页功能宫格 ---------- */
+  .mine-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 6px 10px;
+    margin-bottom: 16px;
+  }
+  .mine-grid button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--text, #1f2937);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mine-grid .mg-ico {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: block;
+    position: relative;
+    background: #eff6ff;
+  }
+  .mine-grid .mg-ico::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px; height: 18px;
+    background: var(--brand);
+    border-radius: 4px;
+    opacity: .85;
+  }
+  .mine-grid .mg-task::after   { border-radius: 3px; box-shadow: 0 -5px 0 -2px var(--brand), 0 5px 0 -2px var(--brand); }
+  .mine-grid .mg-coupon::after { border-radius: 4px; clip-path: polygon(0 0,100% 0,100% 100%,50% 78%,0 100%); }
+  .mine-grid .mg-price::after  { border-radius: 50%; }
+  .mine-grid .mg-invite::after { clip-path: polygon(50% 0,62% 38%,100% 38%,69% 61%,80% 100%,50% 77%,20% 100%,31% 61%,0 38%,38% 38%); border-radius: 0; }
+  .mine-grid .mg-msg::after    { border-radius: 5px; clip-path: polygon(0 0,100% 0,100% 75%,55% 75%,25% 100%,25% 75%,0 75%); }
+  .mine-grid .mg-chat::after   { border-radius: 9px 9px 9px 2px; }
+  .mine-grid .mg-ai::after     { clip-path: polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%); border-radius: 0; }
+  .mine-grid .mg-more::after   { width: 20px; height: 4px; border-radius: 2px; box-shadow: 0 -6px 0 var(--brand), 0 6px 0 var(--brand); background: var(--brand); }
+}
+
+/* ============================================================
+   R88：商品页电商风重排（仅手机端用户）
+   用 flex order 调整区块顺序，不改 DOM/id/JS，功能全保留。
+   目标：搜索→来源→分类→排序→商品（大图双列），运营提示类下移。
+   ============================================================ */
+@media (max-width: 640px) {
+  body.no-admin #view-shop { display: flex; flex-direction: column; }
+  body.no-admin #view-shop > .section-title:first-child { order: 0; }
+  body.no-admin #view-shop > .t-meta:first-of-type { order: 1; margin-bottom: 8px; }
+  body.no-admin #view-shop > .shop-toolbar  { order: 2; }
+  body.no-admin #view-shop > .shop-sources  { order: 3; }
+  body.no-admin #view-shop > .shop-cats     { order: 4; }
+  body.no-admin #view-shop > .shop-subcats  { order: 5; }
+  body.no-admin #view-shop > .shop-filters  { order: 6; }
+  body.no-admin #view-shop > .kw-chips      { order: 7; }
+  body.no-admin #view-shop > .shop-list     { order: 8; }
+  body.no-admin #view-shop > div:last-child { order: 9; } /* 加载更多 */
+  /* 运营提示类内容下移到商品之后，不占据首屏 */
+  body.no-admin #view-shop > .cant-find-bar { order: 20; }
+  body.no-admin #view-shop > .shop-history  { order: 21; }
+  body.no-admin #view-shop > .free-zone     { order: 22; }
+
+  /* 商品卡：大图 + 精简信息（电商风） */
+  body.no-admin .shop-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  body.no-admin .shop-card { border-radius: 12px; border-color: #eef1f5; }
+  body.no-admin .shop-card .sc-img { height: 0; padding-bottom: 100%; position: relative; background: #f6f7f9; }
+  body.no-admin .shop-card .sc-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  body.no-admin .shop-card .sc-body { padding: 9px 10px 11px; gap: 5px; }
+  body.no-admin .shop-card .sc-name { font-size: 13px; line-height: 1.4; -webkit-line-clamp: 2; }
+  /* 规格信息在网格里显得杂，弱化（保留 DOM，仅缩小） */
+  body.no-admin .shop-card .sc-spec { font-size: 10.5px; color: var(--muted-2); }
+  /* 价格与积分分层：价格大且红，积分另起一行弱化 */
+  body.no-admin .shop-card .sc-price { font-size: 18px; }
+  body.no-admin .shop-card .sc-pts { display: block; font-size: 11px; color: var(--muted-2); margin-top: 1px; }
+  /* 下单按钮：商务蓝、圆角pill、整宽 */
+  body.no-admin .shop-card .sc-buy {
+    min-height: 38px; border-radius: 999px; margin-top: 8px;
+    font-size: 13px; font-weight: 600;
+  }
+
+  /* 顶部说明文字在 APP 风里略显冗长，精简展示 */
+  body.no-admin #view-shop > .t-meta:first-of-type { font-size: 12px; }
+}

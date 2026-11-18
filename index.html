@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=73" />
+  <link rel="stylesheet" href="css/style.css?v=75" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -994,6 +994,17 @@
 
     <!-- ---------- 钱包（用户端） ---------- -->
     <div class="view" id="view-wallet" style="display:none">
+      <!-- 电商 APP 风：我的页功能宫格（收纳顶部导航的次要入口） -->
+      <div class="mine-grid">
+        <button type="button" data-view="offers"><i class="mg-ico mg-task"></i><span>任务中心</span></button>
+        <button type="button" data-view="coupons"><i class="mg-ico mg-coupon"></i><span>领券中心</span></button>
+        <button type="button" data-view="pricing"><i class="mg-ico mg-price"></i><span>价格表</span></button>
+        <button type="button" data-view="invite"><i class="mg-ico mg-invite"></i><span>邀请好友</span></button>
+        <button type="button" data-view="messages"><i class="mg-ico mg-msg"></i><span>消息</span></button>
+        <button type="button" data-view="chat"><i class="mg-ico mg-chat"></i><span>在线客服</span></button>
+        <button type="button" id="mineAiBtn"><i class="mg-ico mg-ai"></i><span>AI 创作</span></button>
+        <button type="button" data-view="work"><i class="mg-ico mg-more"></i><span>更多</span></button>
+      </div>
       <div class="section-title">我的钱包</div>
       <div class="wallet-cards">
         <div class="w-card"><div class="w-num" id="wTotal">¥0.00</div><div class="w-lbl">总余额</div></div>
@@ -1772,6 +1783,9 @@
     </div>
   </div>
 
+  <!-- 电商 APP 风：底部固定 Tab（仅手机端用户可见，管理端保持原导航） -->
+  <nav class="apptab" id="appTab" aria-label="主导航"></nav>
+
   <script>
     // ==================== 通用 ====================
     const STATUS_TEXT = {
@@ -2430,6 +2444,39 @@
       return 0;
     }
 
+    // 底部 Tab 图标（线性 SVG，选中态用 currentColor）
+    const TAB_ICONS = {
+      home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+      shop: '<path d="M4 5h16l1 4H3zM5 9v11h14V9M9 20v-6h6v6"/>',
+      orders: '<path d="M6 3h9l3 3v15H6zM14 3v4h4M9 12h6M9 16h6"/>',
+      mine: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'
+    };
+    const APP_TABS = [
+      { view: 'work', key: 'home', label: '首页' },
+      { view: 'shop', key: 'shop', label: '商品' },
+      { view: 'orders', key: 'orders', label: '订单', badge: () => Number(document.getElementById('topOrdersBadge')?.textContent || 0) },
+      { view: 'wallet', key: 'mine', label: '我的' }
+    ];
+    function renderAppTab() {
+      const box = $('appTab');
+      if (!box) return;
+      // 管理端不显示底部 Tab（后台沿用顶部导航）
+      if (isAdmin) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      box.innerHTML = APP_TABS.map(t => {
+        const b = t.badge ? t.badge() : 0;
+        const active = t.view === currentView;
+        return '<button type="button" class="apptab-item' + (active ? ' active' : '') + '" data-view="' + t.view + '">' +
+          '<span class="apptab-ico">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + TAB_ICONS[t.key] + '</svg>' +
+            (b > 0 ? '<i class="apptab-badge">' + (b > 99 ? '99+' : b) + '</i>' : '') +
+          '</span><span class="apptab-lbl">' + t.label + '</span></button>';
+      }).join('');
+      box.querySelectorAll('.apptab-item').forEach(el => {
+        el.addEventListener('click', () => switchView(el.dataset.view));
+      });
+    }
+
     function renderNav() {
       const box = $('nav');
       box.innerHTML = NAV.filter(n => n.roles.includes(isAdmin ? 'admin' : 'user')).map(n => {
@@ -2440,6 +2487,7 @@
       box.querySelectorAll('.nav-item').forEach(el => {
         el.addEventListener('click', () => switchView(el.dataset.view));
       });
+      renderAppTab();
     }
 
     function switchView(v) {
@@ -2602,9 +2650,9 @@
             loadAiHistory();
             return;
           }
-          if (tries >= 40) {
+          if (tries >= 120) {
             delete AI_POLL_TIMERS[id];
-            aiMsg('视频还在处理中，稍后可在下方「我的作品」查看', 'err');
+            aiMsg('视频仍在官方队列处理中，稍后进入本页会自动继续查询', 'err');
             loadAiHistory();
             return;
           }
@@ -2618,7 +2666,7 @@
       const rs = Array.isArray(t.results) ? t.results : [];
       if (t.status === 'processing') {
         return '<div class="ai-item"><div class="ai-item-p">' + escapeHtml(t.prompt || '') + '</div>' +
-          '<div class="t-meta">🎬 视频生成中…（约 1-3 分钟，页面会自动刷新）</div>' +
+          '<div class="t-meta">🎬 视频生成中…（官方队列处理，进入本页会自动查询）</div>' +
           '<div class="t-meta">提交于 ' + escapeHtml(String(t.created_at || '').slice(0, 16).replace('T', ' ')) + '</div></div>';
       }
       if (!rs.length) return '<div class="ai-item err"><div class="ai-item-p">' + escapeHtml(t.prompt || '') + '</div><div class="t-meta">生成失败' + (t.err ? '：' + escapeHtml(t.err) : '') + '</div></div>';
@@ -2657,6 +2705,10 @@
         const items = r.items || [];
         if (!items.length) { box.innerHTML = '<div class="t-meta">还没有作品，试试上面写一句话吧～</div>'; return; }
         box.innerHTML = items.map(aiResultHtml).join('');
+        // 有 processing 的视频任务时自动续轮询：用户关页后再进来也能等到出片
+        items.forEach((t) => {
+          if (t && t.status === 'processing' && t.id && !AI_POLL_TIMERS[t.id]) pollAiVideo(t.id, null);
+        });
       } catch (e) {
         box.innerHTML = '<div class="t-meta">加载失败</div>';
       }
@@ -2786,6 +2838,7 @@
       document.body.classList.remove('page-entry');
       document.body.classList.remove('page-viewer');
       $('appBox').style.display = 'block';
+      document.body.classList.toggle('no-admin', !isAdmin);
       $('whoami').textContent = isAdmin ? ('管理员：' + PHONE) : ('我的 ID：' + PHONE);
       if (!isAdmin && !$('contact').value) $('contact').value = PHONE;
       currentView = 'work';
@@ -5864,6 +5917,14 @@
     if ($('ordersBtn')) $('ordersBtn').addEventListener('click', () => switchView('orders'));
     if ($('topOrdersBtn')) $('topOrdersBtn').addEventListener('click', () => switchView('orders'));
     if ($('topAiBtn')) $('topAiBtn').addEventListener('click', () => switchView('ai'));
+    // 我的页功能宫格（事件委托）
+    const mineGrid = document.querySelector('.mine-grid');
+    if (mineGrid) mineGrid.addEventListener('click', (e) => {
+      const aiBtn = e.target.closest('#mineAiBtn');
+      if (aiBtn) { switchView('ai'); return; }
+      const b = e.target.closest('[data-view]');
+      if (b) switchView(b.dataset.view);
+    });
     if ($('aiGo')) $('aiGo').addEventListener('click', doAiGenerate);
     if ($('aiPromoClose')) $('aiPromoClose').addEventListener('click', closeAiPromo);
     if ($('aiPromoGo')) $('aiPromoGo').addEventListener('click', () => { closeAiPromo(); switchView('ai'); });
