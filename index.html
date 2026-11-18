@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <title>业务网 · 统一工作台</title>
-  <link rel="stylesheet" href="css/style.css?v=76" />
+  <link rel="stylesheet" href="css/style.css?v=77" />
   <script src="config.js"></script>
 </head>
 <body class="page-entry">
@@ -2497,6 +2497,7 @@
         if (el) el.style.display = (id === v) ? '' : 'none';
       });
       renderNav();
+      if (typeof window.__resetAppTab === 'function') window.__resetAppTab();
       if (v === 'work') {
         renderGreeting(); loadRates(); loadPoints(); loadChannels(); loadAnnouncements(); loadTasks();
         loadPlatformStats(); loadRecentRecharges(); loadCouponEntry();
@@ -7003,7 +7004,13 @@
         window.scrollTo(0, lockY);
       }
       function sync() {
-        if (anyOpen()) lock(); else unlock();
+        if (anyOpen()) {
+          lock();
+          document.body.classList.add('modal-open');
+        } else {
+          unlock();
+          document.body.classList.remove('modal-open');
+        }
       }
       // 所有弹窗都是改 el.style.display 开关的，用 MutationObserver 统一监听，不用逐个改打开/关闭代码
       var obs = new MutationObserver(function () {
@@ -7025,6 +7032,35 @@
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
       else sync();
       window.__syncOverlayLock = sync;
+    })();
+
+    // ==================== R90：底部 Tab 随滚动自动收缩/展开 ====================
+    // 下滑看内容时收起、上滑或回到顶部时展开；弹窗打开时强制隐藏。
+    (function () {
+      var tab = $('appTab');
+      if (!tab) return;
+      var lastY = 0, hidden = false, ticking = false;
+      function apply(hide) {
+        if (hide === hidden) return;
+        hidden = hide;
+        tab.classList.toggle('collapsed', hide);
+        document.body.classList.toggle('tab-collapsed', hide);
+      }
+      window.addEventListener('scroll', function () {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function () {
+          ticking = false;
+          if (document.body.classList.contains('modal-open')) { apply(true); lastY = window.scrollY; return; }
+          var y = window.scrollY || document.documentElement.scrollTop || 0;
+          if (y < 60) apply(false);              // 回到顶部，展开
+          else if (y > lastY + 6) apply(true);   // 向下滚，收起
+          else if (y < lastY - 6) apply(false);  // 向上滚，展开
+          lastY = y;
+        });
+      }, { passive: true });
+      // 供切视图时手动重置
+      window.__resetAppTab = function () { apply(false); lastY = 0; };
     })();
 
     setInterval(pollOnce, 12000);

@@ -1960,3 +1960,25 @@ span.ai-warn { color: #92400e; }
   body.no-admin .shop-card .sc-meta { font-size: 10.5px; color: var(--muted-2); margin-top: 1px; }
   body.no-admin .shop-card .sc-buy { min-height: 40px; }
 }
+
+/* ============================================================
+   R90：弹窗不与底部 Tab 打架 + Tab 随滚动收缩/展开
+   ============================================================ */
+/* 弹窗打开时：底部 Tab 让位（否则盖住弹窗底部按钮） */
+body.modal-open .apptab { transform: translateY(100%) !important; pointer-events: none; }
+/* 弹窗层级高于底部 Tab，双保险 */
+.modal { z-index: 100; }
+
+@media (max-width: 640px) {
+  /* 手机端弹窗别贴死浏览器工具栏，底部留点余量 */
+  .modal { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .modal-box { max-height: calc(100dvh - 32px - env(safe-area-inset-bottom, 0px)); }
+  /* 底部 Tab 收缩：滑动淡出，展开回归 */
+  body.no-admin .apptab {
+    transition: transform .26s cubic-bezier(.4, 0, .2, 1);
+    will-change: transform;
+  }
+  body.no-admin .apptab.collapsed { transform: translateY(100%); }
+  /* 收缩后页面底部不用再留那么大空白（用 class 控制 body padding 切换） */
+  body.no-admin.tab-collapsed { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+}
