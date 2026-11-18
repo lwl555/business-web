@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>网络诊断 · 业务网</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>网络诊断 · 业务网 v2</title>
 <style>
   :root{--brand:#1d4ed8;--line:#e5e7eb;--bg:#f5f6f8;--card:#fff;--text:#111827;--muted:#6b7280;--ok:#16a34a;--bad:#dc2626;--warn:#d97706}
   *{box-sizing:border-box}
@@ -31,8 +34,8 @@
 </style>
 </head>
 <body>
-  <h1>网络诊断</h1>
-  <div class="sub">用来查清"移动数据网登不上"到底卡在哪。请用<strong>出问题的那张卡/网络</strong>打开本页，然后点下面按钮。</div>
+  <h1>网络诊断 <span style="font-size:12px;color:var(--brand);font-weight:600">v2</span></h1>
+  <div class="sub">用来查清"移动数据网登不上"到底卡在哪。请用<strong>出问题的那张卡/网络</strong>打开本页，然后点下面按钮。<br>如果下方结论是"两个 Supabase 接口"，说明你看到的是缓存旧版——请把本页加入书签后重新打开，或换无痕模式。</div>
 
   <div class="card" id="list"></div>
   <button id="run">开始检测（约 10 秒）</button>

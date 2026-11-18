@@ -1732,3 +1732,36 @@ span.ai-warn { color: #92400e; }
   /* 8) 手机端不要 hover 效果（会变成误触） */
   .shop-card:hover { transform: none; }
 }
+
+/* ============================================================
+   R86：手机端排版精修（参考 Vant 4 尺寸体系：字号 12/14/16、间距 4 的倍数、触摸目标 ≥44px）
+   原则：只做增量微调，不推翻既有布局；保持简约商务风，不加阴影/渐变。
+   ============================================================ */
+@media (max-width: 480px) {
+  /* 1) 搜索行：搜索框独占一行，搜索/清空按钮并排其下 —— 解决 placeholder 被挤断 */
+  .shop-toolbar { gap: 8px; }
+  .shop-toolbar .shop-search-wrap { flex: 1 1 100%; min-width: 0; }
+  .shop-toolbar .shop-search-wrap input { width: 100%; min-height: 44px; font-size: 16px; }
+  .shop-toolbar #shopSearchBtn,
+  .shop-toolbar #shopClearBtn { flex: 1; min-height: 44px; }
+
+  /* 2) 顶部栏按钮组：换成等间距自动换行，避免挤成参差的两行 */
+  .topbar .actions { gap: 8px; }
+  .topbar .actions .btn { min-height: 40px; }
+
+  /* 3) 商品卡信息层次：名称为主、价格为锚、辅助信息降噪 */
+  .shop-card .sc-name { font-weight: 600; color: var(--text); }
+  .shop-card .sc-price { font-size: 18px; letter-spacing: -.2px; }
+  .shop-card .sc-pts { font-size: 11px; }
+  .shop-card .sc-meta { font-size: 11px; line-height: 1.5; }
+  .shop-card .sc-spec {
+    font-size: 11px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  /* 4) 分类 chip / 排序 chip 触摸目标补齐 */
+  .shop-cat, .sf-btn, .hot-chip { min-height: 36px; padding: 7px 12px; }
+
+  /* 5) 页面说明文字：行高舒服一点 */
+  .section-title + .t-meta, .shop-toolbar + .shop-filters { line-height: 1.6; }
+}
